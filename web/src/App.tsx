@@ -8,6 +8,10 @@ import {
 import { decodeDatBytes, encodeDatBytes } from "../../src/dat/datCodec";
 import { transformLevelset, type DatTransformKind } from "../../src/dat/datTransforms";
 
+import { renderCc1LevelToRgba } from "../../src/dat/render/cc1LevelRenderer";
+import type { CC1SpriteSet } from "../../src/dat/render/cc1SpriteSet";
+import { loadCc1SpriteSet } from "./loadCc1SpriteSet";
+
 type ViewMode = "json" | "image";
 
 const TRANSFORMS: Array<{ label: string; op: DatTransformKind }> = [
@@ -45,52 +49,81 @@ function downloadBytes(filename: string, bytes: Uint8Array): void {
 }
 
 function downloadText(filename: string, text: string): void {
-  downloadBlob(filename, new Blob([text], { type: "application/json" }));
+  downloadBlob(filename, new Blob([text], { type: "application/octet-stream" }));
 }
 
-function renderPlaceholderLevel(
-  canvas: HTMLCanvasElement,
-  level: DatLevelsetJsonV1["levels"][number],
+function drawConnections(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  traps: DatLevelsetJsonV1["levels"][number]["trapControls"],
+  cloners: DatLevelsetJsonV1["levels"][number]["cloneControls"],
 ): void {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  ctx.save();
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 1;
 
-  const W = level.map.width;
-  const H = level.map.height;
-  const cell = 10;
+  const drawLine = (p1: number, p2: number) => {
+    const x1 = (p1 % 32) * size + size / 2;
+    const y1 = Math.floor(p1 / 32) * size + size / 2;
+    const x2 = (p2 % 32) * size + size / 2;
+    const y2 = Math.floor(p2 / 32) * size + size / 2;
 
-  canvas.width = W * cell;
-  canvas.height = H * cell;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  };
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const t of traps) drawLine(t.button, t.trap);
+  for (const c of cloners) drawLine(c.button, c.cloner);
 
-  // bottom layer as base; top overlay as small inset if not FLOOR
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      const bot = level.map.bottom[i] ?? "FLOOR";
-      const top = level.map.top[i] ?? "FLOOR";
-
-      // hash -> rgb
-      const hashColor = (name: string): [number, number, number] => {
-        let h = 2166136261;
-        for (let k = 0; k < name.length; k++) h = (h ^ name.charCodeAt(k)) * 16777619;
-        return [(h >>> 0) & 255, (h >>> 8) & 255, (h >>> 16) & 255];
-      };
-
-      const [br, bg, bb] = hashColor(bot);
-      ctx.fillStyle = `rgb(${br},${bg},${bb})`;
-      ctx.fillRect(x * cell, y * cell, cell, cell);
-
-      if (top !== "FLOOR") {
-        const [tr, tg, tb] = hashColor(top);
-        ctx.fillStyle = `rgb(${tr},${tg},${tb})`;
-        const inset = Math.max(2, Math.floor(cell / 3));
-        ctx.fillRect(x * cell + inset, y * cell + inset, cell - 2 * inset, cell - 2 * inset);
-      }
-    }
-  }
+  ctx.restore();
 }
+
+function drawMonsterOrder(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  movement: ReadonlyArray<number>,
+): void {
+  if (size < 32) return;
+
+  const scale = size / 32;
+  const fontSize = Math.max(10, Math.round(10 * scale));
+  const padding = Math.max(2, Math.round(2 * scale));
+
+  ctx.save();
+  ctx.font = `${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "white";
+
+  for (let idx = 0; idx < movement.length; idx++) {
+    const p = movement[idx]!;
+    const x = p % 32;
+    const y = Math.floor(p / 32);
+
+    const text = String(idx);
+
+    const rightX = x * size + 30 * scale;
+    const topY = y * size + 20 * scale;
+
+    const metrics = ctx.measureText(text);
+    const textWidth = metrics.width;
+
+    const tx = rightX - textWidth;
+    const ty = topY;
+
+    // black box behind
+    ctx.fillStyle = "black";
+    ctx.fillRect(tx - padding, ty - padding, textWidth + padding * 2, fontSize + padding * 2);
+
+    ctx.fillStyle = "white";
+    ctx.fillText(text, tx, ty);
+  }
+
+  ctx.restore();
+}
+
+const CC1_TILESET_URL = `${import.meta.env.BASE_URL}cc1/spritesheet.bmp`;
 
 export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,14 +134,43 @@ export default function App() {
   const [doc, setDoc] = useState<DatLevelsetJsonV1 | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
-  const [jsonText, setJsonText] = useState<string>(""); // full levelset JSON (for download)
+  const [jsonText, setJsonText] = useState<string>("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+
+  const [spriteSet, setSpriteSet] = useState<CC1SpriteSet | null>(null);
+  const [spriteError, setSpriteError] = useState<string | null>(null);
+
+  const [showSecrets, setShowSecrets] = useState(true);
+  const [showConnections, setShowConnections] = useState(true);
+  const [showMonsterOrder, setShowMonsterOrder] = useState(true);
 
   const selectedLevel = useMemo(() => {
     if (!doc) return null;
     return doc.levels[selectedIndex] ?? null;
   }, [doc, selectedIndex]);
+
+  // load spritesheet
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        setSpriteError(null);
+        const ss = await loadCc1SpriteSet(CC1_TILESET_URL);
+        if (cancelled) return;
+        setSpriteSet(ss);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        setSpriteSet(null);
+        setSpriteError(
+          `CC1 tileset not loaded.\nExpected: web/public/cc1/spritesheet.bmp\nTried URL: ${CC1_TILESET_URL}\nError: ${asErrorMessage(e)}`,
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const openLevelsetJsonText = useCallback((text: string) => {
     try {
@@ -194,13 +256,45 @@ export default function App() {
     [doc, parseError],
   );
 
+  // Render image view
   useEffect(() => {
     if (viewMode !== "image") return;
     if (!selectedLevel) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
-    renderPlaceholderLevel(canvas, selectedLevel);
-  }, [viewMode, selectedLevel]);
+
+    if (!spriteSet) return;
+
+    try {
+      const img = renderCc1LevelToRgba(selectedLevel, spriteSet, { showSecrets });
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) throw new Error("Canvas 2D context unavailable");
+
+      const clamped = new Uint8ClampedArray(img.data);
+      const imageData = new ImageData(clamped, img.width, img.height);
+      ctx.putImageData(imageData, 0, 0);
+
+      if (showConnections) {
+        drawConnections(
+          ctx,
+          spriteSet.tileSize,
+          selectedLevel.trapControls,
+          selectedLevel.cloneControls,
+        );
+      }
+
+      if (showMonsterOrder) {
+        drawMonsterOrder(ctx, spriteSet.tileSize, selectedLevel.movement);
+      }
+    } catch (e: unknown) {
+      setParseError(asErrorMessage(e));
+    }
+  }, [viewMode, selectedLevel, spriteSet, showSecrets, showConnections, showMonsterOrder]);
 
   // Load sample by default
   useEffect(() => {
@@ -246,10 +340,40 @@ export default function App() {
           ))}
         </div>
 
+        <div className="tabs">
+          <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={showSecrets}
+              onChange={(e) => setShowSecrets(e.target.checked)}
+            />
+            Secrets
+          </label>
+          <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={showConnections}
+              onChange={(e) => setShowConnections(e.target.checked)}
+            />
+            Connections
+          </label>
+          <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={showMonsterOrder}
+              onChange={(e) => setShowMonsterOrder(e.target.checked)}
+            />
+            Monster order
+          </label>
+        </div>
+
         <div className="spacer" />
         <span className="badge">{fileName ?? "no file"}</span>
         <span className="badge">{doc ? `levels=${doc.levels.length}` : "no doc"}</span>
         <span className="badge">{parseError ? "INVALID" : "OK"}</span>
+        <span className="badge">
+          {spriteSet ? `tileset=${spriteSet.tileSize}px` : "tileset=missing"}
+        </span>
 
         <input
           ref={fileInputRef}
@@ -259,6 +383,12 @@ export default function App() {
           onChange={onFileChange}
         />
       </div>
+
+      {spriteError ? (
+        <div className="msg error" style={{ margin: 12 }}>
+          {spriteError}
+        </div>
+      ) : null}
 
       <div className="main">
         <div className="sidebar">
