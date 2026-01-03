@@ -1,4 +1,5 @@
 // src/dat/datCodec.ts
+import { base64ToBytes, bytesToBase64 } from "./base64.js";
 import { BinaryReader, BinaryWriter } from "./binary.js";
 import { decodeCp1252, encodeCp1252 } from "./cp1252.js";
 import type {
@@ -162,11 +163,11 @@ function tileCodeFromName(name: string): number {
 }
 
 function b64(bytes: Uint8Array): Base64Blob {
-  return { encoding: "base64", dataBase64: Buffer.from(bytes).toString("base64") };
+  return { encoding: "base64", dataBase64: bytesToBase64(bytes) };
 }
 
 function unb64(blob: Base64Blob): Uint8Array {
-  return new Uint8Array(Buffer.from(blob.dataBase64, "base64"));
+  return base64ToBytes(blob.dataBase64);
 }
 
 function decryptPassword(enc: Uint8Array): string {
