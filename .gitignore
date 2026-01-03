@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-web/
+coverage/
+.vitest/
+*.log
+
+.DS_Store
+.idea/
+.vscode/
+
+.env
+.env.*
+!.env.example
