@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import {
   parseDatLevelsetJsonV1,
   stringifyDatLevelsetJsonV1,
   type DatLevelsetJsonV1,
 } from "../../src/dat/datLevelsetJsonV1";
+import { decodeDatBytes, encodeDatBytes } from "../../src/dat/datCodec";
 import { transformLevelset, type DatTransformKind } from "../../src/dat/datTransforms";
 
 type ViewMode = "json" | "image";
@@ -23,8 +25,7 @@ function asErrorMessage(err: unknown): string {
   return String(err);
 }
 
-function downloadText(filename: string, text: string): void {
-  const blob = new Blob([text], { type: "application/json" });
+function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -33,6 +34,18 @@ function downloadText(filename: string, text: string): void {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+function downloadBytes(filename: string, bytes: Uint8Array): void {
+  const ab = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  downloadBlob(filename, new Blob([ab], { type: "application/octet-stream" }));
+}
+
+function downloadText(filename: string, text: string): void {
+  downloadBlob(filename, new Blob([text], { type: "application/json" }));
 }
 
 function renderPlaceholderLevel(
@@ -51,20 +64,30 @@ function renderPlaceholderLevel(
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Basic deterministic coloring based on tile string
+  // bottom layer as base; top overlay as small inset if not FLOOR
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const t = level.map.top[i];
-      if (!t) continue;
-      const name = t;
-      let h = 2166136261;
-      for (let k = 0; k < name.length; k++) h = (h ^ name.charCodeAt(k)) * 16777619;
-      const r = (h >>> 0) & 255;
-      const g = (h >>> 8) & 255;
-      const b = (h >>> 16) & 255;
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      const bot = level.map.bottom[i] ?? "FLOOR";
+      const top = level.map.top[i] ?? "FLOOR";
+
+      // hash -> rgb
+      const hashColor = (name: string): [number, number, number] => {
+        let h = 2166136261;
+        for (let k = 0; k < name.length; k++) h = (h ^ name.charCodeAt(k)) * 16777619;
+        return [(h >>> 0) & 255, (h >>> 8) & 255, (h >>> 16) & 255];
+      };
+
+      const [br, bg, bb] = hashColor(bot);
+      ctx.fillStyle = `rgb(${br},${bg},${bb})`;
       ctx.fillRect(x * cell, y * cell, cell, cell);
+
+      if (top !== "FLOOR") {
+        const [tr, tg, tb] = hashColor(top);
+        ctx.fillStyle = `rgb(${tr},${tg},${tb})`;
+        const inset = Math.max(2, Math.floor(cell / 3));
+        ctx.fillRect(x * cell + inset, y * cell + inset, cell - 2 * inset, cell - 2 * inset);
+      }
     }
   }
 }
@@ -78,17 +101,50 @@ export default function App() {
   const [doc, setDoc] = useState<DatLevelsetJsonV1 | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
-  const [jsonText, setJsonText] = useState<string>("");
+  const [jsonText, setJsonText] = useState<string>(""); // full levelset JSON (for download)
   const [parseError, setParseError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   const selectedLevel = useMemo(() => {
     if (!doc) return null;
     return doc.levels[selectedIndex] ?? null;
   }, [doc, selectedIndex]);
 
-  const openJson = useCallback(async (file: File) => {
-    const text = await file.text();
-    setJsonText(text);
+  const openLevelsetJsonText = useCallback((text: string) => {
+    try {
+      const u: unknown = JSON.parse(text);
+      const d = parseDatLevelsetJsonV1(u);
+      setDoc(d);
+      setJsonText(stringifyDatLevelsetJsonV1(d));
+      setSelectedIndex(0);
+      setParseError(null);
+    } catch (e: unknown) {
+      setParseError(asErrorMessage(e));
+    }
+  }, []);
+
+  const openJson = useCallback(
+    async (file: File) => {
+      setFileName(file.name);
+      const text = await file.text();
+      openLevelsetJsonText(text);
+    },
+    [openLevelsetJsonText],
+  );
+
+  const openDat = useCallback(async (file: File) => {
+    setFileName(file.name);
+    try {
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      const d = decodeDatBytes(bytes);
+      setDoc(d);
+      setJsonText(stringifyDatLevelsetJsonV1(d));
+      setSelectedIndex(0);
+      setParseError(null);
+    } catch (e: unknown) {
+      setParseError(asErrorMessage(e));
+    }
   }, []);
 
   const onOpenClick = useCallback(() => fileInputRef.current?.click(), []);
@@ -96,33 +152,37 @@ export default function App() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.item(0);
       if (!file) return;
-      void openJson(file);
+
+      if (file.name.toLowerCase().endsWith(".dat")) void openDat(file);
+      else void openJson(file);
+
       e.target.value = "";
     },
-    [openJson],
+    [openDat, openJson],
   );
 
-  // Parse JSON (debounced)
-  useEffect(() => {
-    if (!jsonText.trim()) return;
-    const h = window.setTimeout(() => {
-      try {
-        const u: unknown = JSON.parse(jsonText);
-        const d = parseDatLevelsetJsonV1(u);
-        setDoc(d);
-        setParseError(null);
-        setSelectedIndex(0);
-      } catch (e: unknown) {
-        setParseError(asErrorMessage(e));
-      }
-    }, 300);
-    return () => window.clearTimeout(h);
-  }, [jsonText]);
-
-  const onSaveJson = useCallback(() => {
+  const onDownloadJson = useCallback(() => {
     if (!doc) return;
     downloadText("levelset.json", stringifyDatLevelsetJsonV1(doc));
   }, [doc]);
+
+  const onDownloadDat = useCallback(() => {
+    if (!doc || parseError) return;
+    const bytes = encodeDatBytes(doc);
+    const out = fileName && fileName.toLowerCase().endsWith(".dat") ? fileName : "levelset.dat";
+    downloadBytes(out, bytes);
+  }, [doc, parseError, fileName]);
+
+  const onDownloadPng = useCallback(async () => {
+    const canvas = canvasRef.current;
+    const level = selectedLevel;
+    if (!canvas || !level) return;
+
+    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve));
+    if (!blob) return;
+
+    downloadBlob(`level_${level.number}.png`, blob);
+  }, [selectedLevel]);
 
   const applyTransform = useCallback(
     (op: DatTransformKind) => {
@@ -142,22 +202,31 @@ export default function App() {
     renderPlaceholderLevel(canvas, selectedLevel);
   }, [viewMode, selectedLevel]);
 
-  // Load sample by default (so the app works immediately)
+  // Load sample by default
   useEffect(() => {
     void (async () => {
       if (doc) return;
       const resp = await fetch(`${import.meta.env.BASE_URL}sample.levelset.json`);
       if (!resp.ok) return;
-      setJsonText(await resp.text());
+      openLevelsetJsonText(await resp.text());
     })();
-  }, [doc]);
+  }, [doc, openLevelsetJsonText]);
 
   return (
     <div className="container">
       <div className="header">
-        <button onClick={onOpenClick}>Open Levelset JSON…</button>
-        <button onClick={onSaveJson} disabled={!doc || !!parseError}>
+        <button onClick={onOpenClick}>Open DAT/JSON…</button>
+
+        <button onClick={onDownloadDat} disabled={!doc || !!parseError}>
+          Download DAT
+        </button>
+
+        <button onClick={onDownloadJson} disabled={!doc || !!parseError}>
           Download JSON
+        </button>
+
+        <button onClick={onDownloadPng} disabled={!selectedLevel || viewMode !== "image"}>
+          Download PNG
         </button>
 
         <div className="tabs">
@@ -178,13 +247,14 @@ export default function App() {
         </div>
 
         <div className="spacer" />
+        <span className="badge">{fileName ?? "no file"}</span>
         <span className="badge">{doc ? `levels=${doc.levels.length}` : "no doc"}</span>
-        <span className="badge">{parseError ? "JSON: INVALID" : "JSON: OK"}</span>
+        <span className="badge">{parseError ? "INVALID" : "OK"}</span>
 
         <input
           ref={fileInputRef}
           type="file"
-          accept=".json"
+          accept=".dat,.json"
           style={{ display: "none" }}
           onChange={onFileChange}
         />
@@ -200,12 +270,13 @@ export default function App() {
             >
               {lv.number}. {lv.title ?? `Level ${lv.number}`}
             </div>
-          )) ?? <div className="sidebarItem">Load a levelset JSON…</div>}
+          )) ?? <div className="sidebarItem">Open a .dat or .json…</div>}
         </div>
 
         <div className="content">
           <div className="pane">
             {parseError ? <div className="msg error">{parseError}</div> : null}
+
             {selectedLevel ? (
               viewMode === "json" ? (
                 <textarea
