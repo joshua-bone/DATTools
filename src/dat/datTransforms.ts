@@ -1,5 +1,5 @@
 // src/dat/datTransforms.ts
-import type { DatLevelsetJsonV1, DatMapJson, DatTileSpec, Dir } from "./datLevelsetJsonV1.js";
+import type { DatLevelsetJsonV1, DatMapJson } from "./datLevelsetJsonV1.js";
 
 export type DatTransformKind =
   | "ROTATE_90"
@@ -10,13 +10,8 @@ export type DatTransformKind =
   | "FLIP_DIAG_NWSE"
   | "FLIP_DIAG_NESW";
 
-function toObj(t: DatTileSpec): { tile: string; dir?: Dir } {
-  return typeof t === "string" ? { tile: t } : t;
-}
-
-function minimize(obj: { tile: string; dir?: Dir }): DatTileSpec {
-  return obj.dir ? obj : obj.tile;
-}
+type Corner = "NE" | "SE" | "SW" | "NW";
+type Dir = "N" | "E" | "S" | "W";
 
 function mapDir(d: Dir, k: DatTransformKind): Dir {
   switch (k) {
@@ -37,11 +32,50 @@ function mapDir(d: Dir, k: DatTransformKind): Dir {
   }
 }
 
+function mapCorner(c: Corner, k: DatTransformKind): Corner {
+  switch (k) {
+    case "ROTATE_90":
+      return c === "NE" ? "SE" : c === "SE" ? "SW" : c === "SW" ? "NW" : "NE";
+    case "ROTATE_180":
+      return c === "NE" ? "SW" : c === "SW" ? "NE" : c === "SE" ? "NW" : "SE";
+    case "ROTATE_270":
+      return c === "NE" ? "NW" : c === "NW" ? "SW" : c === "SW" ? "SE" : "NE";
+    case "FLIP_H":
+      return c === "NE" ? "NW" : c === "NW" ? "NE" : c === "SE" ? "SW" : "SE";
+    case "FLIP_V":
+      return c === "NE" ? "SE" : c === "SE" ? "NE" : c === "NW" ? "SW" : "NW";
+    case "FLIP_DIAG_NWSE":
+      return c === "NE" ? "SW" : c === "SW" ? "NE" : c;
+    case "FLIP_DIAG_NESW":
+      return c === "NW" ? "SE" : c === "SE" ? "NW" : c;
+  }
+}
+
+function transformTileName(name: string, k: DatTransformKind): string {
+  // suffix _N|_E|_S|_W
+  {
+    const m = /^(.*)_(N|E|S|W)$/.exec(name);
+    if (m) {
+      const prefix = m[1]!;
+      const d = m[2]! as Dir;
+      return `${prefix}_${mapDir(d, k)}`;
+    }
+  }
+  // suffix _NE|_SE|_SW|_NW
+  {
+    const m = /^(.*)_(NE|SE|SW|NW)$/.exec(name);
+    if (m) {
+      const prefix = m[1]!;
+      const c = m[2]! as Corner;
+      return `${prefix}_${mapCorner(c, k)}`;
+    }
+  }
+  return name;
+}
+
 function mapPos(x: number, y: number, k: DatTransformKind): { x: number; y: number } {
-  // DAT maps are always 32x32
   const W = 32;
   const H = 32;
-
   switch (k) {
     case "ROTATE_90":
       return { x: H - 1 - y, y: x };
@@ -60,34 +94,49 @@ function mapPos(x: number, y: number, k: DatTransformKind): { x: number; y: numb
   }
 }
 
-export function transformMap(map: DatMapJson, k: DatTransformKind): DatMapJson {
-  const outTiles: DatTileSpec[] = new Array<DatTileSpec>(32 * 32);
+function mapIndex(idx: number, k: DatTransformKind): number {
+  const x = idx % 32;
+  const y = Math.floor(idx / 32);
+  const p = mapPos(x, y, k);
+  return p.y * 32 + p.x;
+}
 
-  for (let y = 0; y < 32; y++) {
-    for (let x = 0; x < 32; x++) {
-      const idx = y * 32 + x;
-      const t = map.tiles[idx];
-      if (t === undefined) throw new Error(`missing tile at ${idx}`);
-
-      const p = mapPos(x, y, k);
-      const idx2 = p.y * 32 + p.x;
-
-      const obj = toObj(t);
-      outTiles[idx2] = minimize(
-        obj.dir ? { tile: obj.tile, dir: mapDir(obj.dir, k) } : { tile: obj.tile },
-      );
-    }
+function transformLayer(layer: ReadonlyArray<string>, k: DatTransformKind): string[] {
+  const out = new Array<string>(1024);
+  for (let idx = 0; idx < 1024; idx++) {
+    const t = layer[idx]!;
+    const idx2 = mapIndex(idx, k);
+    out[idx2] = transformTileName(t, k);
   }
+  return out;
+}
 
-  return { width: 32, height: 32, tiles: outTiles };
+export function transformMap(map: DatMapJson, k: DatTransformKind): DatMapJson {
+  return {
+    width: 32,
+    height: 32,
+    top: transformLayer(map.top, k),
+    bottom: transformLayer(map.bottom, k),
+  };
 }
 
 export function transformLevelset(doc: DatLevelsetJsonV1, k: DatTransformKind): DatLevelsetJsonV1 {
   return {
     schema: doc.schema,
-    levels: doc.levels.map((lv: DatLevelsetJsonV1["levels"][number]) => ({
+    magicNumber: doc.magicNumber,
+    levels: doc.levels.map((lv) => ({
       ...lv,
       map: transformMap(lv.map, k),
+      trapControls: lv.trapControls.map((t) => ({
+        button: mapIndex(t.button, k),
+        trap: mapIndex(t.trap, k),
+        openOrShut: t.openOrShut,
+      })),
+      cloneControls: lv.cloneControls.map((c) => ({
+        button: mapIndex(c.button, k),
+        cloner: mapIndex(c.cloner, k),
+      })),
+      movement: lv.movement.map((p) => mapIndex(p, k)),
     })),
   };
 }

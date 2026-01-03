@@ -55,9 +55,9 @@ function renderPlaceholderLevel(
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const t = level.map.tiles[i];
+      const t = level.map.top[i];
       if (!t) continue;
-      const name = typeof t === "string" ? t : t.tile;
+      const name = t;
       let h = 2166136261;
       for (let k = 0; k < name.length; k++) h = (h ^ name.charCodeAt(k)) * 16777619;
       const r = (h >>> 0) & 255;
@@ -194,11 +194,11 @@ export default function App() {
         <div className="sidebar">
           {doc?.levels.map((lv, i) => (
             <div
-              key={lv.index}
+              key={lv.number}
               className={`sidebarItem ${i === selectedIndex ? "selected" : ""}`}
               onClick={() => setSelectedIndex(i)}
             >
-              {lv.index}. {lv.title ?? `Level ${lv.index}`}
+              {lv.number}. {lv.title ?? `Level ${lv.number}`}
             </div>
           )) ?? <div className="sidebarItem">Load a levelset JSON…</div>}
         </div>

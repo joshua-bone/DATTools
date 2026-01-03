@@ -1,29 +1,39 @@
-// src/cli.ts
 import { Command } from "commander";
 import { readFile, writeFile } from "node:fs/promises";
 
+import { decodeDatBytes, encodeDatBytes } from "./dat/datCodec.js";
 import { parseDatLevelsetJsonV1, stringifyDatLevelsetJsonV1 } from "./dat/datLevelsetJsonV1.js";
-import { transformLevelset, parseTransformKind } from "./dat/transformCli.js";
+import { parseTransformKind } from "./dat/transformCli.js";
+import { transformLevelset } from "./dat/datTransforms.js";
 
 const program = new Command();
 
-program.name("dattools").description("DATTools (DAT levelset tools)").version("0.1.0");
+program.name("dattools").description("DATTools (CC1 DAT levelset tools)").version("0.2.0");
 
 program
   .command("to-json")
-  .description("Convert .dat to JSON (NOT IMPLEMENTED YET)")
+  .description("Convert .dat to levelset JSON")
   .argument("<input>", "Path to .dat file")
-  .action(async () => {
-    throw new Error("DAT codec not implemented yet.");
+  .option("-o, --output <path>", "Write JSON to a file (default: stdout)")
+  .action(async (input: string, opts: { output?: string }) => {
+    const bytes = await readFile(input);
+    const doc = decodeDatBytes(new Uint8Array(bytes));
+    const text = stringifyDatLevelsetJsonV1(doc);
+    if (opts.output) await writeFile(opts.output, text, "utf8");
+    else process.stdout.write(text);
   });
 
 program
   .command("from-json")
-  .description("Convert JSON back to .dat (NOT IMPLEMENTED YET)")
+  .description("Convert levelset JSON back to .dat")
   .argument("<input>", "Path to JSON file")
   .requiredOption("-o, --output <path>", "Write .dat to this path")
-  .action(async () => {
-    throw new Error("DAT codec not implemented yet.");
+  .action(async (input: string, opts: { output: string }) => {
+    const text = await readFile(input, "utf8");
+    const parsed: unknown = JSON.parse(text);
+    const doc = parseDatLevelsetJsonV1(parsed);
+    const bytes = encodeDatBytes(doc);
+    await writeFile(opts.output, bytes);
   });
 
 program
