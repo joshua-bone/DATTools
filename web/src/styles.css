@@ -11,15 +11,14 @@ body {
 
 .header {
   display: flex;
-  gap: 10px;
   align-items: center;
-  padding: 10px 12px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
   border-bottom: 1px solid #242424;
-  background: #151516;
+  background: #18181a;
   flex-wrap: wrap;
 }
-
-.header .spacer { flex: 1; }
 
 button {
   background: #232325;
@@ -32,12 +31,109 @@ button {
 
 button:disabled { opacity: 0.55; cursor: not-allowed; }
 
+.menuBar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  position: relative;
+}
+
+.menuShell { position: relative; }
+
+.menuTrigger {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 5px 10px;
+}
+
+.menuTrigger:hover,
+.menuTrigger.open {
+  background: #2a2a2d;
+}
+
+.menuPanel {
+  position: absolute;
+  top: calc(100% + 1px);
+  left: 0;
+  min-width: 190px;
+  padding: 4px;
+  border: 1px solid #3a3a40;
+  border-radius: 0;
+  background: #1b1b1e;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 10;
+}
+
+.menuItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 7px 10px;
+  text-align: left;
+}
+
+.menuItem:hover:not(:disabled),
+.menuItem:focus-visible:not(:disabled) {
+  background: #2a2a2d;
+  outline: none;
+}
+
+.menuItem:disabled {
+  opacity: 0.45;
+}
+
+.menuMark {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  position: relative;
+}
+
+.menuItem.checked .menuMark::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 5px;
+  height: 9px;
+  border: solid #d9d9dd;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.menuLabel { flex: 1; }
+
+.menuShortcut {
+  font-size: 11px;
+  color: #9c9ca3;
+}
+
+.menuSeparator {
+  height: 1px;
+  margin: 4px 0;
+  background: #2f2f32;
+}
+
+.headerStatus {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .badge {
   font-size: 12px;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border: 1px solid #2f2f32;
   border-radius: 999px;
   color: #cfcfcf;
+  background: #111113;
 }
 
 .main {
@@ -71,16 +167,104 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   min-height: 0;
 }
 
-.tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.workspace.hasGeneratorPanel {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
 
 .pane {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   border: 1px solid #2f2f32;
   border-radius: 10px;
   background: #101012;
   overflow: auto;
   padding: 10px;
+}
+
+.generatorPanel {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid #2f2f32;
+  border-radius: 10px;
+  background: #121214;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.generatorHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.generatorEyebrow {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9c9ca3;
+}
+
+.generatorTitle {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.generatorClose {
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+
+.generatorSummary {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #c8c8ce;
+}
+
+.generatorField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.generatorLabel {
+  font-size: 12px;
+  color: #cfcfd5;
+}
+
+.generatorControl {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #2f2f32;
+  border-radius: 8px;
+  background: #0f0f10;
+  color: #eaeaea;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.generatorActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.generatorMeta {
+  font-size: 12px;
+  color: #b6b6bc;
 }
 
 textarea {
@@ -108,3 +292,18 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 }
 
 .msg.error { border-color: #6a2a2a; background: #1a1212; }
+
+@media (max-width: 720px) {
+  .header {
+    align-items: flex-start;
+  }
+
+  .headerStatus {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .workspace.hasGeneratorPanel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

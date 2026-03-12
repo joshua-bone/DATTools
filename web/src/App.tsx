@@ -11,8 +11,19 @@ import { transformLevelset, type DatTransformKind } from "../../src/dat/datTrans
 import { renderCc1LevelToRgba } from "../../src/dat/render/cc1LevelRenderer";
 import type { CC1SpriteSet } from "../../src/dat/render/cc1SpriteSet";
 import { loadCc1SpriteSet } from "./loadCc1SpriteSet";
+import {
+  NOISE_TYPE_OPTIONS,
+  TILE_OPTIONS,
+  applyNoiseToLevel,
+  createDefaultNoiseSettings,
+  type NoiseSettings,
+} from "./generate/noise";
+import { clearLevel, replaceSelectedLevel } from "./levelEditing";
 
 type ViewMode = "json" | "image";
+type MenuKey = "file" | "edit" | "transform" | "generate" | "view";
+type GenerateModule = "noise";
+type NoiseNumberKey = Exclude<keyof NoiseSettings, "type" | "tile">;
 
 const TRANSFORMS: Array<{ label: string; op: DatTransformKind }> = [
   { label: "Rot 90", op: "ROTATE_90" },
@@ -24,9 +35,30 @@ const TRANSFORMS: Array<{ label: string; op: DatTransformKind }> = [
   { label: "Flip NE/SW", op: "FLIP_DIAG_NESW" },
 ];
 
+const GENERATE_MODULES: Array<{ key: GenerateModule; label: string }> = [
+  { key: "noise", label: "Noise" },
+];
+
+function makeRandomSeed(): number {
+  return Math.floor(Math.random() * 0x100000000);
+}
+
+function makeDefaultNoiseSettings(): NoiseSettings {
+  return {
+    ...createDefaultNoiseSettings(),
+    seed: makeRandomSeed(),
+  };
+}
+
 function asErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
 function downloadBlob(filename: string, blob: Blob): void {
@@ -50,6 +82,10 @@ function downloadBytes(filename: string, bytes: Uint8Array): void {
 
 function downloadText(filename: string, text: string): void {
   downloadBlob(filename, new Blob([text], { type: "application/octet-stream" }));
+}
+
+async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
+  return await new Promise((resolve) => canvas.toBlob(resolve));
 }
 
 function drawConnections(
@@ -128,10 +164,14 @@ const CC1_TILESET_URL = `${import.meta.env.BASE_URL}cc1/spritesheet.bmp`;
 export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const menuBarRef = useRef<HTMLDivElement>(null);
 
-  const [viewMode, setViewMode] = useState<ViewMode>("json");
+  const [viewMode, setViewMode] = useState<ViewMode>("image");
+  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+  const [selectedGenerator, setSelectedGenerator] = useState<GenerateModule | null>(null);
 
   const [doc, setDoc] = useState<DatLevelsetJsonV1 | null>(null);
+  const [undoStack, setUndoStack] = useState<DatLevelsetJsonV1[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
   const [jsonText, setJsonText] = useState<string>("");
@@ -144,11 +184,22 @@ export default function App() {
   const [showSecrets, setShowSecrets] = useState(true);
   const [showConnections, setShowConnections] = useState(true);
   const [showMonsterOrder, setShowMonsterOrder] = useState(true);
+  const [noiseSettings, setNoiseSettings] = useState<NoiseSettings>(() =>
+    makeDefaultNoiseSettings(),
+  );
+  const [lastAppliedNoiseSeed, setLastAppliedNoiseSeed] = useState<number | null>(null);
 
   const selectedLevel = useMemo(() => {
     if (!doc) return null;
     return doc.levels[selectedIndex] ?? null;
   }, [doc, selectedIndex]);
+
+  const selectedNoiseType = useMemo(
+    () =>
+      NOISE_TYPE_OPTIONS.find((option) => option.value === noiseSettings.type) ??
+      NOISE_TYPE_OPTIONS[0]!,
+    [noiseSettings.type],
+  );
 
   // load spritesheet
   useEffect(() => {
@@ -172,18 +223,34 @@ export default function App() {
     };
   }, []);
 
-  const openLevelsetJsonText = useCallback((text: string) => {
-    try {
-      const u: unknown = JSON.parse(text);
-      const d = parseDatLevelsetJsonV1(u);
-      setDoc(d);
-      setJsonText(stringifyDatLevelsetJsonV1(d));
-      setSelectedIndex(0);
-      setParseError(null);
-    } catch (e: unknown) {
-      setParseError(asErrorMessage(e));
-    }
+  const loadDocument = useCallback((next: DatLevelsetJsonV1) => {
+    setDoc(next);
+    setUndoStack([]);
+    setJsonText(stringifyDatLevelsetJsonV1(next));
+    setSelectedIndex(0);
+    setParseError(null);
   }, []);
+
+  const commitDocumentEdit = useCallback((previous: DatLevelsetJsonV1, next: DatLevelsetJsonV1) => {
+    if (previous === next) return;
+    setUndoStack((history) => [...history, previous]);
+    setDoc(next);
+    setJsonText(stringifyDatLevelsetJsonV1(next));
+    setParseError(null);
+  }, []);
+
+  const openLevelsetJsonText = useCallback(
+    (text: string) => {
+      try {
+        const u: unknown = JSON.parse(text);
+        const d = parseDatLevelsetJsonV1(u);
+        loadDocument(d);
+      } catch (e: unknown) {
+        setParseError(asErrorMessage(e));
+      }
+    },
+    [loadDocument],
+  );
 
   const openJson = useCallback(
     async (file: File) => {
@@ -194,20 +261,20 @@ export default function App() {
     [openLevelsetJsonText],
   );
 
-  const openDat = useCallback(async (file: File) => {
-    setFileName(file.name);
-    try {
-      const buf = await file.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      const d = decodeDatBytes(bytes);
-      setDoc(d);
-      setJsonText(stringifyDatLevelsetJsonV1(d));
-      setSelectedIndex(0);
-      setParseError(null);
-    } catch (e: unknown) {
-      setParseError(asErrorMessage(e));
-    }
-  }, []);
+  const openDat = useCallback(
+    async (file: File) => {
+      setFileName(file.name);
+      try {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        const d = decodeDatBytes(bytes);
+        loadDocument(d);
+      } catch (e: unknown) {
+        setParseError(asErrorMessage(e));
+      }
+    },
+    [loadDocument],
+  );
 
   const onOpenClick = useCallback(() => fileInputRef.current?.click(), []);
   const onFileChange = useCallback(
@@ -235,39 +302,11 @@ export default function App() {
     downloadBytes(out, bytes);
   }, [doc, parseError, fileName]);
 
-  const onDownloadPng = useCallback(async () => {
-    const canvas = canvasRef.current;
-    const level = selectedLevel;
-    if (!canvas || !level) return;
+  const drawLevelToCanvas = useCallback(
+    (canvas: HTMLCanvasElement, level: DatLevelsetJsonV1["levels"][number]) => {
+      if (!spriteSet) throw new Error("CC1 tileset not loaded");
 
-    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve));
-    if (!blob) return;
-
-    downloadBlob(`level_${level.number}.png`, blob);
-  }, [selectedLevel]);
-
-  const applyTransform = useCallback(
-    (op: DatTransformKind) => {
-      if (!doc || parseError) return;
-      const next = transformLevelset(doc, op);
-      setDoc(next);
-      setJsonText(stringifyDatLevelsetJsonV1(next));
-    },
-    [doc, parseError],
-  );
-
-  // Render image view
-  useEffect(() => {
-    if (viewMode !== "image") return;
-    if (!selectedLevel) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    if (!spriteSet) return;
-
-    try {
-      const img = renderCc1LevelToRgba(selectedLevel, spriteSet, { showSecrets });
+      const img = renderCc1LevelToRgba(level, spriteSet, { showSecrets });
 
       canvas.width = img.width;
       canvas.height = img.height;
@@ -280,21 +319,160 @@ export default function App() {
       ctx.putImageData(imageData, 0, 0);
 
       if (showConnections) {
-        drawConnections(
-          ctx,
-          spriteSet.tileSize,
-          selectedLevel.trapControls,
-          selectedLevel.cloneControls,
-        );
+        drawConnections(ctx, spriteSet.tileSize, level.trapControls, level.cloneControls);
       }
 
       if (showMonsterOrder) {
-        drawMonsterOrder(ctx, spriteSet.tileSize, selectedLevel.movement);
+        drawMonsterOrder(ctx, spriteSet.tileSize, level.movement);
       }
+    },
+    [showConnections, showMonsterOrder, showSecrets, spriteSet],
+  );
+
+  const onDownloadPng = useCallback(async () => {
+    const level = selectedLevel;
+    if (!level || parseError || !spriteSet) return;
+
+    try {
+      const canvas = document.createElement("canvas");
+      drawLevelToCanvas(canvas, level);
+
+      const blob = await canvasToBlob(canvas);
+      if (!blob) return;
+
+      downloadBlob(`level_${level.number}.png`, blob);
     } catch (e: unknown) {
       setParseError(asErrorMessage(e));
     }
-  }, [viewMode, selectedLevel, spriteSet, showSecrets, showConnections, showMonsterOrder]);
+  }, [drawLevelToCanvas, parseError, selectedLevel, spriteSet]);
+
+  const applyTransform = useCallback(
+    (op: DatTransformKind) => {
+      if (!doc || parseError) return;
+      const next = transformLevelset(doc, op);
+      commitDocumentEdit(doc, next);
+    },
+    [commitDocumentEdit, doc, parseError],
+  );
+
+  const setNoiseSetting = useCallback(
+    <K extends keyof NoiseSettings>(key: K, value: NoiseSettings[K]) => {
+      setNoiseSettings((current) => ({ ...current, [key]: value }));
+    },
+    [],
+  );
+
+  const setNoiseNumberSetting = useCallback((key: NoiseNumberKey, value: string) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return;
+    setNoiseSettings((current) => ({ ...current, [key]: parsed }));
+  }, []);
+
+  const applyNoiseGenerator = useCallback(() => {
+    if (!doc || !selectedLevel || parseError) return;
+
+    try {
+      const appliedSeed = noiseSettings.seed;
+      const next = replaceSelectedLevel(doc, selectedIndex, (level) =>
+        applyNoiseToLevel(level, noiseSettings),
+      );
+      commitDocumentEdit(doc, next);
+      setLastAppliedNoiseSeed(appliedSeed);
+      setNoiseSettings((current) => ({ ...current, seed: makeRandomSeed() }));
+    } catch (e: unknown) {
+      setParseError(asErrorMessage(e));
+    }
+  }, [commitDocumentEdit, doc, noiseSettings, parseError, selectedIndex, selectedLevel]);
+
+  const undoLastEdit = useCallback(() => {
+    setUndoStack((history) => {
+      const previous = history[history.length - 1];
+      if (!previous) return history;
+      setDoc(previous);
+      setJsonText(stringifyDatLevelsetJsonV1(previous));
+      setParseError(null);
+      return history.slice(0, -1);
+    });
+  }, []);
+
+  const clearSelectedLevel = useCallback(() => {
+    if (!doc || !selectedLevel || parseError) return;
+    const next = replaceSelectedLevel(doc, selectedIndex, clearLevel);
+    commitDocumentEdit(doc, next);
+  }, [commitDocumentEdit, doc, parseError, selectedIndex, selectedLevel]);
+
+  const toggleMenu = useCallback((menu: MenuKey) => {
+    setOpenMenu((current) => (current === menu ? null : menu));
+  }, []);
+
+  const openMenuOnHover = useCallback((menu: MenuKey) => {
+    setOpenMenu((current) => (current === null ? null : menu));
+  }, []);
+
+  const runMenuAction = useCallback((action: () => void | Promise<void>) => {
+    setOpenMenu(null);
+    void action();
+  }, []);
+
+  useEffect(() => {
+    if (!openMenu) return;
+
+    const onMouseDown = (event: MouseEvent) => {
+      if (!menuBarRef.current?.contains(event.target as Node)) {
+        setOpenMenu(null);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenu(null);
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openMenu]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      if ((!event.metaKey && !event.ctrlKey) || event.altKey || event.shiftKey) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "z" && undoStack.length > 0) {
+        event.preventDefault();
+        undoLastEdit();
+      }
+
+      if (key === "e" && doc && selectedLevel && !parseError) {
+        event.preventDefault();
+        clearSelectedLevel();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [clearSelectedLevel, doc, parseError, selectedLevel, undoLastEdit, undoStack.length]);
+
+  // Render image view
+  useEffect(() => {
+    if (viewMode !== "image") return;
+    if (!selectedLevel) return;
+    if (!spriteSet) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    try {
+      drawLevelToCanvas(canvas, selectedLevel);
+    } catch (e: unknown) {
+      setParseError(asErrorMessage(e));
+    }
+  }, [drawLevelToCanvas, selectedLevel, spriteSet, viewMode]);
 
   // Load sample by default
   useEffect(() => {
@@ -309,71 +487,241 @@ export default function App() {
   return (
     <div className="container">
       <div className="header">
-        <button onClick={onOpenClick}>Open DAT/JSON…</button>
-
-        <button onClick={onDownloadDat} disabled={!doc || !!parseError}>
-          Download DAT
-        </button>
-
-        <button onClick={onDownloadJson} disabled={!doc || !!parseError}>
-          Download JSON
-        </button>
-
-        <button onClick={onDownloadPng} disabled={!selectedLevel || viewMode !== "image"}>
-          Download PNG
-        </button>
-
-        <div className="tabs">
-          <button onClick={() => setViewMode("json")} disabled={viewMode === "json"}>
-            JSON
-          </button>
-          <button onClick={() => setViewMode("image")} disabled={viewMode === "image"}>
-            Image
-          </button>
-        </div>
-
-        <div className="tabs">
-          {TRANSFORMS.map((t) => (
-            <button key={t.op} onClick={() => applyTransform(t.op)} disabled={!doc || !!parseError}>
-              {t.label}
+        <div ref={menuBarRef} className="menuBar" role="menubar" aria-label="Application menu">
+          <div className="menuShell" onMouseEnter={() => openMenuOnHover("file")}>
+            <button
+              className={`menuTrigger ${openMenu === "file" ? "open" : ""}`}
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={openMenu === "file"}
+              onClick={() => toggleMenu("file")}
+            >
+              File
             </button>
-          ))}
+            {openMenu === "file" ? (
+              <div className="menuPanel" role="menu" aria-label="File">
+                <button
+                  className="menuItem"
+                  type="button"
+                  role="menuitem"
+                  onClick={() => runMenuAction(onOpenClick)}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Open...</span>
+                </button>
+                <div className="menuSeparator" />
+                <button
+                  className="menuItem"
+                  type="button"
+                  role="menuitem"
+                  disabled={!doc || !!parseError}
+                  onClick={() => runMenuAction(onDownloadDat)}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Download DAT</span>
+                </button>
+                <button
+                  className="menuItem"
+                  type="button"
+                  role="menuitem"
+                  disabled={!doc || !!parseError}
+                  onClick={() => runMenuAction(onDownloadJson)}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Download JSON</span>
+                </button>
+                <button
+                  className="menuItem"
+                  type="button"
+                  role="menuitem"
+                  disabled={!selectedLevel || !spriteSet || !!parseError}
+                  onClick={() => runMenuAction(onDownloadPng)}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Download PNG</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="menuShell" onMouseEnter={() => openMenuOnHover("edit")}>
+            <button
+              className={`menuTrigger ${openMenu === "edit" ? "open" : ""}`}
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={openMenu === "edit"}
+              onClick={() => toggleMenu("edit")}
+            >
+              Edit
+            </button>
+            {openMenu === "edit" ? (
+              <div className="menuPanel" role="menu" aria-label="Edit">
+                <button
+                  className="menuItem"
+                  type="button"
+                  role="menuitem"
+                  disabled={undoStack.length === 0}
+                  onClick={() => runMenuAction(undoLastEdit)}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Undo</span>
+                  <span className="menuShortcut">Cmd+Z</span>
+                </button>
+                <div className="menuSeparator" />
+                <button
+                  className="menuItem"
+                  type="button"
+                  role="menuitem"
+                  disabled={!doc || !selectedLevel || !!parseError}
+                  onClick={() => runMenuAction(clearSelectedLevel)}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Clear Level</span>
+                  <span className="menuShortcut">Cmd+E</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="menuShell" onMouseEnter={() => openMenuOnHover("transform")}>
+            <button
+              className={`menuTrigger ${openMenu === "transform" ? "open" : ""}`}
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={openMenu === "transform"}
+              onClick={() => toggleMenu("transform")}
+            >
+              Transform
+            </button>
+            {openMenu === "transform" ? (
+              <div className="menuPanel" role="menu" aria-label="Transform">
+                {TRANSFORMS.map((t) => (
+                  <button
+                    key={t.op}
+                    className="menuItem"
+                    type="button"
+                    role="menuitem"
+                    disabled={!doc || !!parseError}
+                    onClick={() => runMenuAction(() => applyTransform(t.op))}
+                  >
+                    <span className="menuMark" aria-hidden="true" />
+                    <span className="menuLabel">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="menuShell" onMouseEnter={() => openMenuOnHover("generate")}>
+            <button
+              className={`menuTrigger ${openMenu === "generate" ? "open" : ""}`}
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={openMenu === "generate"}
+              onClick={() => toggleMenu("generate")}
+            >
+              Generate
+            </button>
+            {openMenu === "generate" ? (
+              <div className="menuPanel" role="menu" aria-label="Generate">
+                {GENERATE_MODULES.map((module) => (
+                  <button
+                    key={module.key}
+                    className={`menuItem ${selectedGenerator === module.key ? "checked" : ""}`}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={selectedGenerator === module.key}
+                    onClick={() => runMenuAction(() => setSelectedGenerator(module.key))}
+                  >
+                    <span className="menuMark" aria-hidden="true" />
+                    <span className="menuLabel">{module.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="menuShell" onMouseEnter={() => openMenuOnHover("view")}>
+            <button
+              className={`menuTrigger ${openMenu === "view" ? "open" : ""}`}
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={openMenu === "view"}
+              onClick={() => toggleMenu("view")}
+            >
+              View
+            </button>
+            {openMenu === "view" ? (
+              <div className="menuPanel" role="menu" aria-label="View">
+                <button
+                  className={`menuItem ${viewMode === "image" ? "checked" : ""}`}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={viewMode === "image"}
+                  onClick={() => runMenuAction(() => setViewMode("image"))}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Image</span>
+                </button>
+                <button
+                  className={`menuItem ${viewMode === "json" ? "checked" : ""}`}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={viewMode === "json"}
+                  onClick={() => runMenuAction(() => setViewMode("json"))}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">JSON</span>
+                </button>
+                <div className="menuSeparator" />
+                <button
+                  className={`menuItem ${showSecrets ? "checked" : ""}`}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={showSecrets}
+                  onClick={() => runMenuAction(() => setShowSecrets((value) => !value))}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Secrets</span>
+                </button>
+                <button
+                  className={`menuItem ${showConnections ? "checked" : ""}`}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={showConnections}
+                  onClick={() => runMenuAction(() => setShowConnections((value) => !value))}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Connections</span>
+                </button>
+                <button
+                  className={`menuItem ${showMonsterOrder ? "checked" : ""}`}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={showMonsterOrder}
+                  onClick={() => runMenuAction(() => setShowMonsterOrder((value) => !value))}
+                >
+                  <span className="menuMark" aria-hidden="true" />
+                  <span className="menuLabel">Monster order</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <div className="tabs">
-          <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={showSecrets}
-              onChange={(e) => setShowSecrets(e.target.checked)}
-            />
-            Secrets
-          </label>
-          <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={showConnections}
-              onChange={(e) => setShowConnections(e.target.checked)}
-            />
-            Connections
-          </label>
-          <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={showMonsterOrder}
-              onChange={(e) => setShowMonsterOrder(e.target.checked)}
-            />
-            Monster order
-          </label>
+        <div className="headerStatus">
+          <span className="badge">{fileName ?? "no file"}</span>
+          <span className="badge">{doc ? `levels=${doc.levels.length}` : "no doc"}</span>
+          <span className="badge">{parseError ? "INVALID" : "OK"}</span>
+          <span className="badge">
+            {spriteSet ? `tileset=${spriteSet.tileSize}px` : "tileset=missing"}
+          </span>
         </div>
-
-        <div className="spacer" />
-        <span className="badge">{fileName ?? "no file"}</span>
-        <span className="badge">{doc ? `levels=${doc.levels.length}` : "no doc"}</span>
-        <span className="badge">{parseError ? "INVALID" : "OK"}</span>
-        <span className="badge">
-          {spriteSet ? `tileset=${spriteSet.tileSize}px` : "tileset=missing"}
-        </span>
 
         <input
           ref={fileInputRef}
@@ -404,22 +752,356 @@ export default function App() {
         </div>
 
         <div className="content">
-          <div className="pane">
-            {parseError ? <div className="msg error">{parseError}</div> : null}
+          <div className={`workspace ${selectedGenerator ? "hasGeneratorPanel" : ""}`}>
+            <div className="pane">
+              {parseError ? <div className="msg error">{parseError}</div> : null}
 
-            {selectedLevel ? (
-              viewMode === "json" ? (
-                <textarea
-                  spellCheck={false}
-                  readOnly
-                  value={JSON.stringify(selectedLevel, null, 2) + "\n"}
-                />
+              {selectedLevel ? (
+                viewMode === "json" ? (
+                  <textarea
+                    spellCheck={false}
+                    readOnly
+                    value={JSON.stringify(selectedLevel, null, 2) + "\n"}
+                  />
+                ) : (
+                  <canvas ref={canvasRef} />
+                )
               ) : (
-                <canvas ref={canvasRef} />
-              )
-            ) : (
-              <div className="msg">No level selected.</div>
-            )}
+                <div className="msg">No level selected.</div>
+              )}
+            </div>
+
+            {selectedGenerator === "noise" ? (
+              <aside className="generatorPanel">
+                <div className="generatorHeader">
+                  <div>
+                    <div className="generatorEyebrow">Generate Options</div>
+                    <div className="generatorTitle">Noise</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="generatorClose"
+                    onClick={() => setSelectedGenerator(null)}
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <p className="generatorSummary">{selectedNoiseType.description}</p>
+                <p className="generatorSummary">Applies the selected tile to the bottom layer.</p>
+
+                <div className="generatorField">
+                  <label className="generatorLabel" htmlFor="noise-type">
+                    Type
+                  </label>
+                  <select
+                    id="noise-type"
+                    className="generatorControl"
+                    value={noiseSettings.type}
+                    onChange={(e) =>
+                      setNoiseSetting("type", e.target.value as NoiseSettings["type"])
+                    }
+                  >
+                    {NOISE_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="generatorField">
+                  <label className="generatorLabel" htmlFor="noise-tile">
+                    Tile
+                  </label>
+                  <select
+                    id="noise-tile"
+                    className="generatorControl"
+                    value={noiseSettings.tile}
+                    onChange={(e) => setNoiseSetting("tile", e.target.value)}
+                  >
+                    {TILE_OPTIONS.map((tileName) => (
+                      <option key={tileName} value={tileName}>
+                        {tileName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {noiseSettings.type === "random" ? (
+                  <>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-density">
+                        Density
+                      </label>
+                      <input
+                        id="noise-density"
+                        className="generatorControl"
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={noiseSettings.density}
+                        onChange={(e) => setNoiseNumberSetting("density", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-seed-random">
+                        Seed
+                      </label>
+                      <input
+                        id="noise-seed-random"
+                        className="generatorControl"
+                        type="number"
+                        step="1"
+                        value={noiseSettings.seed}
+                        onChange={(e) => setNoiseNumberSetting("seed", e.target.value)}
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                {noiseSettings.type === "perlin" ? (
+                  <>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-scale">
+                        Scale
+                      </label>
+                      <input
+                        id="noise-scale"
+                        className="generatorControl"
+                        type="number"
+                        min="1"
+                        step="0.5"
+                        value={noiseSettings.scale}
+                        onChange={(e) => setNoiseNumberSetting("scale", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-threshold-perlin">
+                        Threshold
+                      </label>
+                      <input
+                        id="noise-threshold-perlin"
+                        className="generatorControl"
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={noiseSettings.threshold}
+                        onChange={(e) => setNoiseNumberSetting("threshold", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-octaves">
+                        Octaves
+                      </label>
+                      <input
+                        id="noise-octaves"
+                        className="generatorControl"
+                        type="number"
+                        min="1"
+                        max="8"
+                        step="1"
+                        value={noiseSettings.octaves}
+                        onChange={(e) => setNoiseNumberSetting("octaves", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-seed-perlin">
+                        Seed
+                      </label>
+                      <input
+                        id="noise-seed-perlin"
+                        className="generatorControl"
+                        type="number"
+                        step="1"
+                        value={noiseSettings.seed}
+                        onChange={(e) => setNoiseNumberSetting("seed", e.target.value)}
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                {noiseSettings.type === "cellular" ? (
+                  <>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-cell-size">
+                        Cell Size
+                      </label>
+                      <input
+                        id="noise-cell-size"
+                        className="generatorControl"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={noiseSettings.cellSize}
+                        onChange={(e) => setNoiseNumberSetting("cellSize", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-jitter">
+                        Jitter
+                      </label>
+                      <input
+                        id="noise-jitter"
+                        className="generatorControl"
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={noiseSettings.jitter}
+                        onChange={(e) => setNoiseNumberSetting("jitter", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-threshold-cell">
+                        Threshold
+                      </label>
+                      <input
+                        id="noise-threshold-cell"
+                        className="generatorControl"
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={noiseSettings.threshold}
+                        onChange={(e) => setNoiseNumberSetting("threshold", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-seed-cell">
+                        Seed
+                      </label>
+                      <input
+                        id="noise-seed-cell"
+                        className="generatorControl"
+                        type="number"
+                        step="1"
+                        value={noiseSettings.seed}
+                        onChange={(e) => setNoiseNumberSetting("seed", e.target.value)}
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                {noiseSettings.type === "stripes" ? (
+                  <>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-spacing">
+                        Spacing
+                      </label>
+                      <input
+                        id="noise-spacing"
+                        className="generatorControl"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={noiseSettings.spacing}
+                        onChange={(e) => setNoiseNumberSetting("spacing", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-thickness">
+                        Thickness
+                      </label>
+                      <input
+                        id="noise-thickness"
+                        className="generatorControl"
+                        type="number"
+                        min="0.25"
+                        step="0.25"
+                        value={noiseSettings.thickness}
+                        onChange={(e) => setNoiseNumberSetting("thickness", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-angle">
+                        Angle
+                      </label>
+                      <input
+                        id="noise-angle"
+                        className="generatorControl"
+                        type="number"
+                        step="1"
+                        value={noiseSettings.angle}
+                        onChange={(e) => setNoiseNumberSetting("angle", e.target.value)}
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                {noiseSettings.type === "checker" ? (
+                  <>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-checker-size">
+                        Cell Size
+                      </label>
+                      <input
+                        id="noise-checker-size"
+                        className="generatorControl"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={noiseSettings.checkerSize}
+                        onChange={(e) => setNoiseNumberSetting("checkerSize", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-offset-x">
+                        Offset X
+                      </label>
+                      <input
+                        id="noise-offset-x"
+                        className="generatorControl"
+                        type="number"
+                        step="1"
+                        value={noiseSettings.offsetX}
+                        onChange={(e) => setNoiseNumberSetting("offsetX", e.target.value)}
+                      />
+                    </div>
+                    <div className="generatorField">
+                      <label className="generatorLabel" htmlFor="noise-offset-y">
+                        Offset Y
+                      </label>
+                      <input
+                        id="noise-offset-y"
+                        className="generatorControl"
+                        type="number"
+                        step="1"
+                        value={noiseSettings.offsetY}
+                        onChange={(e) => setNoiseNumberSetting("offsetY", e.target.value)}
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                <div className="generatorActions">
+                  <button
+                    type="button"
+                    onClick={applyNoiseGenerator}
+                    disabled={!doc || !selectedLevel || !!parseError}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNoiseSettings(makeDefaultNoiseSettings())}
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                <div className="generatorMeta">
+                  Last seed:{" "}
+                  {lastAppliedNoiseSeed === null ? "not applied yet" : lastAppliedNoiseSeed}
+                </div>
+
+                {!selectedLevel ? (
+                  <div className="msg">Open or select a level before generating.</div>
+                ) : null}
+              </aside>
+            ) : null}
           </div>
         </div>
       </div>

@@ -32,6 +32,15 @@ function isMobTile(name: string): boolean {
   return mobDirFromName(name) !== null;
 }
 
+function shouldOverlayTopTile(topName: string, bottomName: string): boolean {
+  if (topName === bottomName) return false;
+
+  // DAT top-layer FLOOR acts like "no top tile", so the bottom terrain remains visible.
+  if (topName === "FLOOR") return false;
+
+  return true;
+}
+
 export function renderCc1LevelToRgba(
   level: DatLevelJson,
   sprites: CC1SpriteSet,
@@ -60,7 +69,7 @@ export function renderCc1LevelToRgba(
 
       let tileImg = cloneImage(sprites.get(bottomName));
 
-      if (topName !== bottomName) {
+      if (shouldOverlayTopTile(topName, bottomName)) {
         const topImg = cloneImage(sprites.get(topName));
 
         if (opts.showSecrets && BLOCKS.has(topName)) {
