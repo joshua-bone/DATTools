@@ -1,6 +1,6 @@
 // src/dat/render/cc1Secrets.ts
-import type { RgbaImage } from "./rgbaImage.js";
-import { createImage, blit, cloneImage } from "./rgbaImage.js";
+import type { RgbaImage } from "@/src/dat/render/rgbaImage";
+import { createImage, blit, cloneImage } from "@/src/dat/render/rgbaImage";
 
 export type Dir = "N" | "E" | "S" | "W";
 

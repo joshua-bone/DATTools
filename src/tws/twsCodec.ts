@@ -1,4 +1,4 @@
-import { BinaryReader, BinaryWriter } from "../dat/binary.js";
+import { BinaryReader, BinaryWriter } from "@/src/dat/binary";
 
 export const TWS_SIGNATURE = 0x999b3335;
 export const TWS_RULESET_LYNX = 1;

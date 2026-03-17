@@ -13,8 +13,8 @@ import {
   CC1_LEGACY_INVALID_TILE_NAMES,
   CC1_VALID_TILE_NAMES,
   tileCodeFromName,
-} from "../../src/dat/cc1Tiles";
-import { decodeDatBytes, encodeDatBytes } from "../../src/dat/datCodec";
+} from "@/src/dat/cc1Tiles";
+import { decodeDatBytes, encodeDatBytes } from "@/src/dat/datCodec";
 import {
   DAT_3D_AIR_TILE,
   buildLogical3dLevelset,
@@ -32,24 +32,24 @@ import {
   withRemovedTopLayer,
   type Editable3dLevel,
   type Logical3dLevel,
-} from "../../src/dat/dat3dLevels";
+} from "@/src/dat/dat3dLevels";
 import {
   createDat3dDisplayLevel,
   getAirAboveElevatorIndices,
   getDat3dTileDisplayName,
-} from "../../src/dat/dat3dDisplay";
-import { transformLevel, type DatTransformKind } from "../../src/dat/datTransforms";
+} from "@/src/dat/dat3dDisplay";
+import { transformLevel, type DatTransformKind } from "@/src/dat/datTransforms";
 import {
   parseDatLevelsetJsonV1,
   stringifyDatLevelsetJsonV1,
   type DatLevelJson,
   type DatLevelsetJsonV1,
-} from "../../src/dat/datLevelsetJsonV1";
-import { renderCc1LevelToRgba } from "../../src/dat/render/cc1LevelRenderer";
-import type { CC1SpriteSet } from "../../src/dat/render/cc1SpriteSet";
-import { drawRgbaImageToCanvas } from "./canvasDrawing";
-import { buildLexysLabyrinthSharedUrl } from "./lexysLabyrinth";
-import { loadCc1SpriteSet } from "./loadCc1SpriteSet";
+} from "@/src/dat/datLevelsetJsonV1";
+import { renderCc1LevelToRgba } from "@/src/dat/render/cc1LevelRenderer";
+import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
+import { drawRgbaImageToCanvas } from "@/web/src/canvasDrawing";
+import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
+import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
 import {
   clearLevel,
   classifyTilePlacement,
@@ -77,8 +77,8 @@ import {
   type LevelClipboard,
   type LevelsetEditorHistory,
   undoLevelsetEvent,
-} from "./levelEditing";
-import { TilePreview } from "./TilePreview";
+} from "@/web/src/levelEditing";
+import { TilePreview } from "@/web/src/TilePreview";
 
 type ToolMode = "brush" | "line" | "fill" | "select" | "connect";
 type LeftPanelTab = "levels" | "controls";

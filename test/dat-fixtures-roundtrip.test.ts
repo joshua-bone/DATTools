@@ -2,11 +2,8 @@ import { describe, expect, it } from "vitest";
 import path from "node:path";
 import { readdir, readFile } from "node:fs/promises";
 
-import { decodeDatBytes, encodeDatBytes } from "../src/dat/datCodec.js";
-import {
-  parseDatLevelsetJsonV1,
-  stringifyDatLevelsetJsonV1,
-} from "../src/dat/datLevelsetJsonV1.js";
+import { decodeDatBytes, encodeDatBytes } from "@/src/dat/datCodec";
+import { parseDatLevelsetJsonV1, stringifyDatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
 
 const FIXTURES_DIR = path.resolve(process.cwd(), "fixtures", "dat");
 

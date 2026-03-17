@@ -1,13 +1,13 @@
 import { unzlibSync } from "fflate";
 import { describe, expect, it } from "vitest";
 
-import { base64ToBytes } from "../src/dat/base64.js";
-import { decodeDatBytes } from "../src/dat/datCodec.js";
-import type { DatLevelJson, DatLevelsetJsonV1 } from "../src/dat/datLevelsetJsonV1.js";
+import { base64ToBytes } from "@/src/dat/base64";
+import { decodeDatBytes } from "@/src/dat/datCodec";
+import type { DatLevelJson, DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
 import {
   buildLexysLabyrinthSharedDat,
   buildLexysLabyrinthSharedUrl,
-} from "../web/src/lexysLabyrinth.js";
+} from "@/web/src/lexysLabyrinth";
 
 function makeLevel(number: number, title: string, topTile = "FLOOR"): DatLevelJson {
   return {

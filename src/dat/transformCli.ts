@@ -1,5 +1,5 @@
-import type { DatTransformKind } from "./datTransforms.js";
-export { transformLevelset } from "./datTransforms.js";
+import type { DatTransformKind } from "@/src/dat/datTransforms";
+export { transformLevelset } from "@/src/dat/datTransforms";
 
 export function parseTransformKind(op: string): DatTransformKind {
   const s = op.trim().toLowerCase().replace(/_/g, "-");

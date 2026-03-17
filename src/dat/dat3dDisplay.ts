@@ -1,6 +1,6 @@
-import type { DatLevelJson } from "./datLevelsetJsonV1.js";
-import { DAT_3D_AIR_TILE, DAT_3D_ELEVATOR_TILE } from "./dat3dLevels.js";
-import { DAT_3D_AIR_SPRITE_NAME, DAT_3D_ELEVATOR_SPRITE_NAME } from "./render/cc1SpriteSet.js";
+import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
+import { DAT_3D_AIR_TILE, DAT_3D_ELEVATOR_TILE } from "@/src/dat/dat3dLevels";
+import { DAT_3D_AIR_SPRITE_NAME, DAT_3D_ELEVATOR_SPRITE_NAME } from "@/src/dat/render/cc1SpriteSet";
 
 const FLOOR_TILE = "FLOOR";
 

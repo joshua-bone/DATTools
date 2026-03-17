@@ -1,8 +1,8 @@
 // src/dat/render/cc1LevelRenderer.ts
-import type { DatLevelJson } from "../datLevelsetJsonV1.js";
-import type { RgbaImage } from "./rgbaImage.js";
-import { createImage, cloneImage, blit } from "./rgbaImage.js";
-import type { CC1SpriteSet } from "./cc1SpriteSet.js";
+import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
+import type { RgbaImage } from "@/src/dat/render/rgbaImage";
+import { createImage, cloneImage, blit } from "@/src/dat/render/rgbaImage";
+import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import {
   lightenImageInPlace,
   makeSemiTransparentInPlace,
@@ -10,7 +10,7 @@ import {
   makeArrow,
   overlayArrowInPlace,
   shouldShowDirectionArrowInPalette,
-} from "./cc1Secrets.js";
+} from "@/src/dat/render/cc1Secrets";
 
 export type RenderOptions = Readonly<{
   showSecrets: boolean;

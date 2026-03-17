@@ -2,12 +2,12 @@ import { Command } from "commander";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { decodeDatBytes, encodeDatBytes } from "./dat/datCodec.js";
-import { mergeDatLevelsets } from "./dat/datMerge.js";
-import { parseDatLevelsetJsonV1, stringifyDatLevelsetJsonV1 } from "./dat/datLevelsetJsonV1.js";
-import { parseTransformKind } from "./dat/transformCli.js";
-import { transformLevelset } from "./dat/datTransforms.js";
-import { decodeTwsBytes, encodeTwsBytes, mergeTwsFiles } from "./tws/twsCodec.js";
+import { decodeDatBytes, encodeDatBytes } from "@/src/dat/datCodec";
+import { mergeDatLevelsets } from "@/src/dat/datMerge";
+import { parseDatLevelsetJsonV1, stringifyDatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
+import { parseTransformKind } from "@/src/dat/transformCli";
+import { transformLevelset } from "@/src/dat/datTransforms";
+import { decodeTwsBytes, encodeTwsBytes, mergeTwsFiles } from "@/src/tws/twsCodec";
 
 const program = new Command();
 

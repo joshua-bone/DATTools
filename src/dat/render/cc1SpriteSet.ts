@@ -1,7 +1,7 @@
 // src/dat/render/cc1SpriteSet.ts
-import { CC1_TILE_COUNT, tileNameFromCode } from "../cc1Tiles.js";
-import type { RgbaImage } from "./rgbaImage.js";
-import { cropRect, createImage } from "./rgbaImage.js";
+import { CC1_TILE_COUNT, tileNameFromCode } from "@/src/dat/cc1Tiles";
+import type { RgbaImage } from "@/src/dat/render/rgbaImage";
+import { cropRect, createImage } from "@/src/dat/render/rgbaImage";
 
 export const DAT_3D_AIR_SPRITE_NAME = "__DAT3D_AIR__";
 export const DAT_3D_ELEVATOR_SPRITE_NAME = "__DAT3D_ELEVATOR__";

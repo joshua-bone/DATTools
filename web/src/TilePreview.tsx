@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
 
-import { getDat3dTileSpriteName, type Dat3dDisplayContext } from "../../src/dat/dat3dDisplay";
+import { getDat3dTileSpriteName, type Dat3dDisplayContext } from "@/src/dat/dat3dDisplay";
 import {
   dirFromTileName,
   renderTileWithArrow,
   shouldShowDirectionArrowInPalette,
-} from "../../src/dat/render/cc1Secrets";
-import type { CC1SpriteSet } from "../../src/dat/render/cc1SpriteSet";
-import { drawRgbaImageToCanvas } from "./canvasDrawing";
+} from "@/src/dat/render/cc1Secrets";
+import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
+import { drawRgbaImageToCanvas } from "@/web/src/canvasDrawing";
 
 type TilePreviewProps = Readonly<{
   spriteSet: CC1SpriteSet | null;

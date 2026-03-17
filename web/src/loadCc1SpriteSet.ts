@@ -1,5 +1,5 @@
-import type { RgbaImage } from "../../src/dat/render/rgbaImage";
-import { buildCc1SpriteSet, type CC1SpriteSet } from "../../src/dat/render/cc1SpriteSet";
+import type { RgbaImage } from "@/src/dat/render/rgbaImage";
+import { buildCc1SpriteSet, type CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 
 async function loadHtmlImage(url: string): Promise<HTMLImageElement> {
   return await new Promise((resolve, reject) => {

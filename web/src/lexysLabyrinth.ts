@@ -1,9 +1,9 @@
 import { zlibSync } from "fflate";
 
-import { bytesToBase64 } from "../../src/dat/base64.js";
-import { encodeDatBytes } from "../../src/dat/datCodec.js";
-import { cloneDatLevel } from "../../src/dat/dat3dLevels.js";
-import type { DatLevelJson, DatLevelsetJsonV1 } from "../../src/dat/datLevelsetJsonV1.js";
+import { bytesToBase64 } from "@/src/dat/base64";
+import { encodeDatBytes } from "@/src/dat/datCodec";
+import { cloneDatLevel } from "@/src/dat/dat3dLevels";
+import type { DatLevelJson, DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
 
 export const LEXYS_LABYRINTH_SHARED_LEVEL_FALLBACK_COUNT = 512;
 

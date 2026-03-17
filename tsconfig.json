@@ -4,6 +4,10 @@
     "lib": ["ES2022"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*.ts", "./*.tsx", "./*"]
+    },
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -11,5 +15,5 @@
     "types": ["node"],
     "outDir": "dist"
   },
-  "include": ["src", "test"]
+  "include": ["src"]
 }

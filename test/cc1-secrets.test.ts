@@ -4,8 +4,8 @@ import {
   dirFromTileName,
   renderTileWithArrow,
   shouldShowDirectionArrowInPalette,
-} from "../src/dat/render/cc1Secrets.js";
-import { createImage } from "../src/dat/render/rgbaImage.js";
+} from "@/src/dat/render/cc1Secrets";
+import { createImage } from "@/src/dat/render/rgbaImage";
 
 describe("CC1 secret arrow helpers", () => {
   it("only marks ambiguous directional tiles for palette arrows", () => {

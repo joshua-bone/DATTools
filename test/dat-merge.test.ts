@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { mergeDatLevelsets } from "../src/dat/datMerge.js";
-import type { DatLevelJson, DatLevelsetJsonV1 } from "../src/dat/datLevelsetJsonV1.js";
+import { mergeDatLevelsets } from "@/src/dat/datMerge";
+import type { DatLevelJson, DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
 
 function makeLevel(number: number, title: string): DatLevelJson {
   return {

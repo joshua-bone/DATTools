@@ -1,5 +1,5 @@
-import type { DatLevelJson, DatLevelsetJsonV1 } from "./datLevelsetJsonV1.js";
-import { tileNameFromCode } from "./cc1Tiles.js";
+import type { DatLevelJson, DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
+import { tileNameFromCode } from "@/src/dat/cc1Tiles";
 
 export const DAT_3D_AIR_TILE = tileNameFromCode(32);
 export const DAT_3D_ELEVATOR_TILE = tileNameFromCode(57);

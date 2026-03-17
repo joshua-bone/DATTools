@@ -1,4 +1,4 @@
-import type { DatLevelJson, DatLevelsetJsonV1 } from "./datLevelsetJsonV1.js";
+import type { DatLevelJson, DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
 
 function cloneLevel(level: DatLevelJson, number: number): DatLevelJson {
   return {

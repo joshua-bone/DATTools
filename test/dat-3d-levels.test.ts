@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { DatLevelsetJsonV1 } from "../src/dat/datLevelsetJsonV1.js";
+import type { DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
 import {
   buildLogical3dLevelset,
   cloneDatLevel,
@@ -12,8 +12,8 @@ import {
   withInsertedTopLayer,
   withRemovedBottomLayer,
   withRemovedTopLayer,
-} from "../src/dat/dat3dLevels.js";
-import { createEmptyLevel } from "../web/src/levelEditing.js";
+} from "@/src/dat/dat3dLevels";
+import { createEmptyLevel } from "@/web/src/levelEditing";
 
 function makeLevel(
   number: number,

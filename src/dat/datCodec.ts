@@ -1,14 +1,14 @@
 // src/dat/datCodec.ts
-import { base64ToBytes, bytesToBase64 } from "./base64.js";
-import { BinaryReader, BinaryWriter } from "./binary.js";
-import { decodeCp1252, encodeCp1252 } from "./cp1252.js";
+import { base64ToBytes, bytesToBase64 } from "@/src/dat/base64";
+import { BinaryReader, BinaryWriter } from "@/src/dat/binary";
+import { decodeCp1252, encodeCp1252 } from "@/src/dat/cp1252";
 import type {
   Base64Blob,
   DatExtraField,
   DatLevelJson,
   DatLevelsetJsonV1,
-} from "./datLevelsetJsonV1.js";
-import { tileNameFromCode, tileCodeFromName } from "./cc1Tiles.js";
+} from "@/src/dat/datLevelsetJsonV1";
+import { tileNameFromCode, tileCodeFromName } from "@/src/dat/cc1Tiles";
 
 const TITLE_FIELD = 3;
 const TRAPS_FIELD = 4;

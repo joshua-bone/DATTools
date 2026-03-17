@@ -1,12 +1,12 @@
-import { CC1_LEGACY_INVALID_TILE_NAMES } from "../../src/dat/cc1Tiles.js";
-import { DAT_3D_AIR_TILE } from "../../src/dat/dat3dLevels.js";
+import { CC1_LEGACY_INVALID_TILE_NAMES } from "@/src/dat/cc1Tiles";
+import { DAT_3D_AIR_TILE } from "@/src/dat/dat3dLevels";
 import type {
   CloneControl,
   DatExtraField,
   DatLevelJson,
   DatLevelsetJsonV1,
   TrapControl,
-} from "../../src/dat/datLevelsetJsonV1.js";
+} from "@/src/dat/datLevelsetJsonV1";
 
 type DatLevel = DatLevelsetJsonV1["levels"][number];
 

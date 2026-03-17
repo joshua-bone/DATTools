@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { DatLevelJson } from "../src/dat/datLevelsetJsonV1.js";
-import { renderCc1LevelToRgba } from "../src/dat/render/cc1LevelRenderer.js";
-import type { CC1SpriteSet } from "../src/dat/render/cc1SpriteSet.js";
-import { createImage } from "../src/dat/render/rgbaImage.js";
+import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
+import { renderCc1LevelToRgba } from "@/src/dat/render/cc1LevelRenderer";
+import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
+import { createImage } from "@/src/dat/render/rgbaImage";
 
 function makeLevel(topTile: string, bottomTile: string): DatLevelJson {
   const top = Array<string>(1024).fill("FLOOR");

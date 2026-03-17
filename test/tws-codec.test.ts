@@ -8,7 +8,7 @@ import {
   TWS_SIGNATURE,
   type TwsFile,
   type TwsLevelRecord,
-} from "../src/tws/twsCodec.js";
+} from "@/src/tws/twsCodec";
 
 function asciiBytes(text: string): number[] {
   return [...text].map((ch) => ch.charCodeAt(0));

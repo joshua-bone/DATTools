@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { parseDatLevelsetJsonV1 } from "../src/dat/datLevelsetJsonV1.js";
-import { transformLevelset } from "../src/dat/datTransforms.js";
+import { parseDatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
+import { transformLevelset } from "@/src/dat/datTransforms";
 
 const SAMPLE = path.resolve(process.cwd(), "web", "public", "sample.levelset.json");
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { DatLevelsetJsonV1 } from "../src/dat/datLevelsetJsonV1.js";
-import { transformLevel } from "../src/dat/datTransforms.js";
-import { createEmptyLevel, paintLevelCells } from "../web/src/levelEditing.js";
+import type { DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
+import { transformLevel } from "@/src/dat/datTransforms";
+import { createEmptyLevel, paintLevelCells } from "@/web/src/levelEditing";
 
 describe("selected level transforms", () => {
   it("can transform one level without mutating its neighbors", () => {

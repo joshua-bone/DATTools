@@ -1,4 +1,4 @@
-import type { RgbaImage } from "../../src/dat/render/rgbaImage";
+import type { RgbaImage } from "@/src/dat/render/rgbaImage";
 
 export function drawRgbaImageToCanvas(canvas: HTMLCanvasElement, image: RgbaImage): void {
   canvas.width = image.width;

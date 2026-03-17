@@ -1,5 +1,5 @@
-import type { DatLevelsetJsonV1 } from "../../../src/dat/datLevelsetJsonV1";
-import { CC1_TILE_COUNT, tileNameFromCode } from "../../../src/dat/cc1Tiles";
+import type { DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
+import { CC1_TILE_COUNT, tileNameFromCode } from "@/src/dat/cc1Tiles";
 
 export type NoiseKind = "random" | "perlin" | "cellular" | "stripes" | "checker";
 

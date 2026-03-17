@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { tileNameFromCode } from "../src/dat/cc1Tiles.js";
+import { tileNameFromCode } from "@/src/dat/cc1Tiles";
 import {
   createDat3dDisplayLevel,
   getAirAboveElevatorIndices,
   getDat3dTileDisplayName,
   getDat3dTileSpriteName,
-} from "../src/dat/dat3dDisplay.js";
-import { DAT_3D_AIR_TILE, DAT_3D_ELEVATOR_TILE } from "../src/dat/dat3dLevels.js";
-import { DAT_3D_ELEVATOR_SPRITE_NAME } from "../src/dat/render/cc1SpriteSet.js";
-import { createEmptyLevel } from "../web/src/levelEditing.js";
+} from "@/src/dat/dat3dDisplay";
+import { DAT_3D_AIR_TILE, DAT_3D_ELEVATOR_TILE } from "@/src/dat/dat3dLevels";
+import { DAT_3D_ELEVATOR_SPRITE_NAME } from "@/src/dat/render/cc1SpriteSet";
+import { createEmptyLevel } from "@/web/src/levelEditing";
 
 describe("3D display elevator rendering", () => {
   it("always treats tile 57 as elevator while 3D mode is enabled", () => {

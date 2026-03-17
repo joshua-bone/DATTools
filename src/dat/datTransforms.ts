@@ -1,5 +1,5 @@
 // src/dat/datTransforms.ts
-import type { DatLevelJson, DatLevelsetJsonV1, DatMapJson } from "./datLevelsetJsonV1.js";
+import type { DatLevelJson, DatLevelsetJsonV1, DatMapJson } from "@/src/dat/datLevelsetJsonV1";
 
 export type DatTransformKind =
   | "ROTATE_90"

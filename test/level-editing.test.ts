@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { DatLevelsetJsonV1 } from "../src/dat/datLevelsetJsonV1.js";
+import type { DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
 import {
   classifyTilePlacement,
   clearLevel,
@@ -21,7 +21,7 @@ import {
   selectLevelInHistory,
   shiftLevelWrap,
   undoLevelsetEvent,
-} from "../web/src/levelEditing.js";
+} from "@/web/src/levelEditing";
 
 function makeDoc(): DatLevelsetJsonV1 {
   return {

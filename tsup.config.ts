@@ -1,27 +1,8 @@
-import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "tsup";
-import type { Plugin } from "esbuild";
 
-function resolveJsToTs(): Plugin {
-  return {
-    name: "resolve-js-to-ts",
-    setup(build) {
-      build.onResolve({ filter: /^\.\.?\// }, (args) => {
-        if (!args.path.endsWith(".js")) return null;
-
-        const absJs = path.resolve(args.resolveDir, args.path);
-        const absTs = absJs.slice(0, -3) + ".ts";
-        const absTsx = absJs.slice(0, -3) + ".tsx";
-
-        if (fs.existsSync(absTs)) return { path: absTs };
-        if (fs.existsSync(absTsx)) return { path: absTsx };
-
-        return null;
-      });
-    },
-  };
-}
+const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   entry: ["src/cli.ts"],
@@ -31,5 +12,10 @@ export default defineConfig({
   dts: false,
   sourcemap: true,
   clean: true,
-  esbuildPlugins: [resolveJsToTs()],
+  esbuildOptions(options) {
+    options.alias = {
+      ...(options.alias ?? {}),
+      "@": repoRoot,
+    };
+  },
 });
