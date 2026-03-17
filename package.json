@@ -29,6 +29,7 @@
   "homepage": "https://joshua-bone.github.io/DATTools/",
   "dependencies": {
     "commander": "^14.0.2",
+    "fflate": "^0.8.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },

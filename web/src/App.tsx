@@ -45,10 +45,10 @@ import {
   type DatLevelJson,
   type DatLevelsetJsonV1,
 } from "../../src/dat/datLevelsetJsonV1";
-import { bytesToBase64 } from "../../src/dat/base64";
 import { renderCc1LevelToRgba } from "../../src/dat/render/cc1LevelRenderer";
 import type { CC1SpriteSet } from "../../src/dat/render/cc1SpriteSet";
 import { drawRgbaImageToCanvas } from "./canvasDrawing";
+import { buildLexysLabyrinthSharedUrl } from "./lexysLabyrinth";
 import { loadCc1SpriteSet } from "./loadCc1SpriteSet";
 import {
   clearLevel,
@@ -240,10 +240,6 @@ function downloadBytes(filename: string, bytes: Uint8Array): void {
 
 function downloadText(filename: string, text: string): void {
   downloadBlob(filename, new Blob([text], { type: "application/json" }));
-}
-
-function bytesToUrlSafeBase64(bytes: Uint8Array): string {
-  return bytesToBase64(bytes).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
 }
 
 type SaveFilePickerHandle = {
@@ -2616,20 +2612,11 @@ export default function App() {
 
   function openSelectedLevelInLexysLabyrinth(): void {
     if (!doc || !lexysLabyrinthTestLevel) return;
-
-    const exportedLevel: DatLevelJson = {
-      ...cloneDatLevel(lexysLabyrinthTestLevel),
-      number: 1,
-    };
-
-    const singleLevelDoc: DatLevelsetJsonV1 = {
-      ...doc,
-      levels: [exportedLevel],
-    };
-    const levelData = encodeDatBytes(singleLevelDoc);
-    const url = new URL("https://c.eev.ee/lexys-labyrinth/");
-    url.hash = `level=${bytesToUrlSafeBase64(levelData)}`;
-    window.open(url.toString(), "_blank", "noopener,noreferrer");
+    window.open(
+      buildLexysLabyrinthSharedUrl(doc, lexysLabyrinthTestLevel),
+      "_blank",
+      "noopener,noreferrer",
+    );
   }
 
   async function saveCurrentDat(): Promise<void> {
