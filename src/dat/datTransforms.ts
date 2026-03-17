@@ -1,5 +1,5 @@
 // src/dat/datTransforms.ts
-import type { DatLevelsetJsonV1, DatMapJson } from "./datLevelsetJsonV1.js";
+import type { DatLevelJson, DatLevelsetJsonV1, DatMapJson } from "./datLevelsetJsonV1.js";
 
 export type DatTransformKind =
   | "ROTATE_90"
@@ -120,23 +120,27 @@ export function transformMap(map: DatMapJson, k: DatTransformKind): DatMapJson {
   };
 }
 
+export function transformLevel(level: DatLevelJson, k: DatTransformKind): DatLevelJson {
+  return {
+    ...level,
+    map: transformMap(level.map, k),
+    trapControls: level.trapControls.map((t) => ({
+      button: mapIndex(t.button, k),
+      trap: mapIndex(t.trap, k),
+      openOrShut: t.openOrShut,
+    })),
+    cloneControls: level.cloneControls.map((c) => ({
+      button: mapIndex(c.button, k),
+      cloner: mapIndex(c.cloner, k),
+    })),
+    movement: level.movement.map((p) => mapIndex(p, k)),
+  };
+}
+
 export function transformLevelset(doc: DatLevelsetJsonV1, k: DatTransformKind): DatLevelsetJsonV1 {
   return {
     schema: doc.schema,
     magicNumber: doc.magicNumber,
-    levels: doc.levels.map((lv) => ({
-      ...lv,
-      map: transformMap(lv.map, k),
-      trapControls: lv.trapControls.map((t) => ({
-        button: mapIndex(t.button, k),
-        trap: mapIndex(t.trap, k),
-        openOrShut: t.openOrShut,
-      })),
-      cloneControls: lv.cloneControls.map((c) => ({
-        button: mapIndex(c.button, k),
-        cloner: mapIndex(c.cloner, k),
-      })),
-      movement: lv.movement.map((p) => mapIndex(p, k)),
-    })),
+    levels: doc.levels.map((lv) => transformLevel(lv, k)),
   };
 }

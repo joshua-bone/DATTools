@@ -26,7 +26,7 @@
   "bugs": {
     "url": "https://github.com/joshua-bone/DATTools/issues"
   },
-  "homepage": "https://github.com/joshua-bone/DATTools#readme",
+  "homepage": "https://joshua-bone.github.io/DATTools/",
   "dependencies": {
     "commander": "^14.0.2",
     "react": "^19.2.3",

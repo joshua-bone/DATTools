@@ -1,8 +1,38 @@
 // src/dat/render/cc1Secrets.ts
 import type { RgbaImage } from "./rgbaImage.js";
-import { createImage, blit } from "./rgbaImage.js";
+import { createImage, blit, cloneImage } from "./rgbaImage.js";
 
 export type Dir = "N" | "E" | "S" | "W";
+
+const DIRECTIONAL_TILE_PATTERN = /_(N|E|S|W)$/;
+const AMBIGUOUS_DIRECTION_TILE_PREFIXES = [
+  "CLONE_BLOCK_",
+  "BALL_",
+  "WALKER_",
+  "FIREBALL_",
+  "BLOB_",
+  "PARAMECIUM_",
+] as const;
+const SECRET_ARROW_EXCLUDED_PREFIXES = ["PANEL_"] as const;
+
+export function dirFromTileName(name: string): Dir | null {
+  const match = DIRECTIONAL_TILE_PATTERN.exec(name);
+  return match ? (match[1] as Dir) : null;
+}
+
+export function shouldShowDirectionArrowInPalette(name: string): boolean {
+  return (
+    dirFromTileName(name) !== null &&
+    AMBIGUOUS_DIRECTION_TILE_PREFIXES.some((prefix) => name.startsWith(prefix))
+  );
+}
+
+export function shouldShowDirectionArrowInSecrets(name: string): boolean {
+  return (
+    dirFromTileName(name) !== null &&
+    !SECRET_ARROW_EXCLUDED_PREFIXES.some((prefix) => name.startsWith(prefix))
+  );
+}
 
 export function lightenImageInPlace(img: RgbaImage, pct: number): void {
   const factor = 1 + pct / 100;
@@ -122,4 +152,10 @@ export function makeArrow(
 
 export function overlayArrowInPlace(tileImg: RgbaImage, arrow: RgbaImage): void {
   blit(tileImg, arrow, 0, 0);
+}
+
+export function renderTileWithArrow(tileImg: RgbaImage, dir: Dir): RgbaImage {
+  const out = cloneImage(tileImg);
+  overlayArrowInPlace(out, makeArrow(tileImg.width, dir));
+  return out;
 }

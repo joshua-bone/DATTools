@@ -6,8 +6,10 @@ import type { CC1SpriteSet } from "./cc1SpriteSet.js";
 import {
   lightenImageInPlace,
   makeSemiTransparentInPlace,
+  dirFromTileName,
   makeArrow,
   overlayArrowInPlace,
+  shouldShowDirectionArrowInSecrets,
 } from "./cc1Secrets.js";
 
 export type RenderOptions = Readonly<{
@@ -21,16 +23,6 @@ const BLOCKS = new Set<string>([
   "CLONE_BLOCK_S",
   "CLONE_BLOCK_E",
 ]);
-
-function mobDirFromName(name: string): "N" | "E" | "S" | "W" | null {
-  const m = /_(N|E|S|W)$/.exec(name);
-  return m ? (m[1]! as "N" | "E" | "S" | "W") : null;
-}
-
-function isMobTile(name: string): boolean {
-  // Anything with directional suffix in CC1 is considered a mob/dir tile for secrets overlay.
-  return mobDirFromName(name) !== null;
-}
 
 function shouldOverlayTopTile(topName: string, bottomName: string): boolean {
   if (topName === bottomName) return false;
@@ -48,16 +40,14 @@ export function renderCc1LevelToRgba(
 ): RgbaImage {
   const size = sprites.tileSize;
   const out = createImage(32 * size, 32 * size, [0, 0, 0, 0]);
-
-  // Cache arrows by dir
   const arrowCache = new Map<string, RgbaImage>();
-  const getArrow = (d: "N" | "E" | "S" | "W"): RgbaImage => {
-    const key = `${size}:${d}`;
+  const getArrow = (dir: "N" | "E" | "S" | "W"): RgbaImage => {
+    const key = `${size}:${dir}`;
     const hit = arrowCache.get(key);
     if (hit) return hit;
-    const a = makeArrow(size, d);
-    arrowCache.set(key, a);
-    return a;
+    const arrow = makeArrow(size, dir);
+    arrowCache.set(key, arrow);
+    return arrow;
   };
 
   for (let j = 0; j < 32; j++) {
@@ -82,8 +72,8 @@ export function renderCc1LevelToRgba(
 
         blit(tileImg, topImg, 0, 0);
 
-        if (opts.showSecrets && isMobTile(topName)) {
-          const d = mobDirFromName(topName);
+        if (opts.showSecrets && shouldShowDirectionArrowInSecrets(topName)) {
+          const d = dirFromTileName(topName);
           if (d) overlayArrowInPlace(tileImg, getArrow(d));
         }
       }

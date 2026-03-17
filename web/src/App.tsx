@@ -1,54 +1,229 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
+import {
+  CC1_INVALID_TILE_NAMES,
+  CC1_LEGACY_INVALID_TILE_NAMES,
+  CC1_VALID_TILE_NAMES,
+  tileCodeFromName,
+} from "../../src/dat/cc1Tiles";
+import { decodeDatBytes, encodeDatBytes } from "../../src/dat/datCodec";
+import {
+  DAT_3D_AIR_TILE,
+  buildLogical3dLevelset,
+  cloneCanonicalMetadata,
+  cloneDatLevel,
+  countChipsInLogical3dLevel,
+  editable3dLevelsFromDoc,
+  export3dLevelsetDoc,
+  getLogical3dLevelForRawIndex,
+  logicalLevelIndexForRawIndex,
+  rawDocFromEditable3dLevels,
+  withInsertedBottomLayer,
+  withInsertedTopLayer,
+  withRemovedBottomLayer,
+  withRemovedTopLayer,
+  type Editable3dLevel,
+  type Logical3dLevel,
+} from "../../src/dat/dat3dLevels";
+import { createDat3dDisplayLevel, getDat3dTileDisplayName } from "../../src/dat/dat3dDisplay";
+import { transformLevel, type DatTransformKind } from "../../src/dat/datTransforms";
 import {
   parseDatLevelsetJsonV1,
   stringifyDatLevelsetJsonV1,
+  type DatLevelJson,
   type DatLevelsetJsonV1,
 } from "../../src/dat/datLevelsetJsonV1";
-import { decodeDatBytes, encodeDatBytes } from "../../src/dat/datCodec";
-import { transformLevelset, type DatTransformKind } from "../../src/dat/datTransforms";
-
 import { renderCc1LevelToRgba } from "../../src/dat/render/cc1LevelRenderer";
 import type { CC1SpriteSet } from "../../src/dat/render/cc1SpriteSet";
+import { drawRgbaImageToCanvas } from "./canvasDrawing";
 import { loadCc1SpriteSet } from "./loadCc1SpriteSet";
 import {
-  NOISE_TYPE_OPTIONS,
-  TILE_OPTIONS,
-  applyNoiseToLevel,
-  createDefaultNoiseSettings,
-  type NoiseSettings,
-} from "./generate/noise";
-import { clearLevel, replaceSelectedLevel } from "./levelEditing";
+  clearLevel,
+  classifyTilePlacement,
+  clampPoint,
+  commitLevelsetEvent,
+  connectLevelButtons,
+  countChipsInLevel,
+  copyLevelRegion,
+  createEmptyLevel,
+  createLevelsetEditorHistory,
+  fillLevelArea,
+  getInvalidCellIndices,
+  isConnectionEndpointCell,
+  getLineIndices,
+  normalizeRect,
+  paintLevelCells,
+  paintLevelLine,
+  pasteLevelRegion,
+  redoLevelsetEvent,
+  selectLevelInHistory,
+  shiftLevelWrap,
+  createRandomLevelPassword,
+  type GridPoint,
+  type GridRect,
+  type LevelClipboard,
+  type LevelsetEditorHistory,
+  undoLevelsetEvent,
+} from "./levelEditing";
+import { TilePreview } from "./TilePreview";
 
-type ViewMode = "json" | "image";
-type MenuKey = "file" | "edit" | "transform" | "generate" | "view";
-type GenerateModule = "noise";
-type NoiseNumberKey = Exclude<keyof NoiseSettings, "type" | "tile">;
+type ToolMode = "brush" | "line" | "fill" | "select" | "connect";
+type InspectorTab = "palette" | "metadata";
+type PaletteTab = "normal" | "invalid";
 
-const TRANSFORMS: Array<{ label: string; op: DatTransformKind }> = [
-  { label: "Rot 90", op: "ROTATE_90" },
-  { label: "Rot 180", op: "ROTATE_180" },
-  { label: "Rot 270", op: "ROTATE_270" },
-  { label: "Flip H", op: "FLIP_H" },
-  { label: "Flip V", op: "FLIP_V" },
-  { label: "Flip NW/SE", op: "FLIP_DIAG_NWSE" },
-  { label: "Flip NE/SW", op: "FLIP_DIAG_NESW" },
+type MetadataDraft = Readonly<{
+  number: string;
+  title: string;
+  author: string;
+  password: string;
+  chips: string;
+  time: string;
+  mapDetail: string;
+  hint: string;
+  movement: string;
+  trapControls: string;
+  cloneControls: string;
+  fieldOrder: string;
+  extraFields: string;
+}>;
+
+type BrushDragState = Readonly<{
+  tool: "brush";
+  pointerId: number;
+  lastPoint: GridPoint;
+  cells: ReadonlyArray<number>;
+  tile: string;
+  buryOnBottom: boolean;
+}>;
+
+type LineDragState = Readonly<{
+  tool: "line";
+  pointerId: number;
+  start: GridPoint;
+  current: GridPoint;
+  tile: string;
+  buryOnBottom: boolean;
+}>;
+
+type SelectDragState = Readonly<{
+  tool: "select";
+  pointerId: number;
+  start: GridPoint;
+  current: GridPoint;
+}>;
+
+type DragState = BrushDragState | LineDragState | SelectDragState;
+
+type BoardPanState = Readonly<{
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startPanX: number;
+  startPanY: number;
+}>;
+
+type BoardCursorPoint = Readonly<{
+  x: number;
+  y: number;
+}>;
+
+type LayoutResizeState = Readonly<{
+  side: "left" | "right";
+  pointerId: number;
+  startClientX: number;
+  startWidth: number;
+}>;
+
+type BoardWidgetId = "controls" | "layers3d";
+
+type BoardWidgetState = Readonly<{
+  x: number;
+  y: number;
+  collapsed: boolean;
+  width: number;
+  height: number;
+}>;
+
+type BoardWidgetLayout = Readonly<Record<BoardWidgetId, BoardWidgetState>>;
+
+type BoardWidgetDragState = Readonly<{
+  widgetId: BoardWidgetId;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startX: number;
+  startY: number;
+  width: number;
+  height: number;
+}>;
+
+type BoardWidgetResizeState = Readonly<{
+  widgetId: BoardWidgetId;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startWidth: number;
+  startHeight: number;
+  startX: number;
+  startY: number;
+}>;
+
+type LevelContextMenuState = Readonly<{
+  index: number;
+  x: number;
+  y: number;
+}> | null;
+
+type LevelDropState = Readonly<{
+  index: number;
+  position: "before" | "after";
+}> | null;
+
+type PendingConnectionState = Readonly<{
+  startIndex: number;
+  cursor: BoardCursorPoint;
+}> | null;
+
+const CC1_TILESET_URL = `${import.meta.env.BASE_URL}cc1/spritesheet.bmp`;
+const TOOL_LABELS: Array<{ id: ToolMode; label: string; shortcut: string }> = [
+  { id: "brush", label: "Brush", shortcut: "B" },
+  { id: "line", label: "Line", shortcut: "L" },
+  { id: "fill", label: "Bucket", shortcut: "F" },
+  { id: "select", label: "Select", shortcut: "V" },
+  { id: "connect", label: "Connect", shortcut: "C" },
 ];
-
-const GENERATE_MODULES: Array<{ key: GenerateModule; label: string }> = [
-  { key: "noise", label: "Noise" },
+const MIN_LEFT_PANEL_WIDTH = 180;
+const MAX_LEFT_PANEL_WIDTH = 420;
+const MIN_RIGHT_PANEL_WIDTH = 220;
+const MAX_RIGHT_PANEL_WIDTH = 520;
+const MIN_BOARD_COLUMN_WIDTH = 420;
+const SPLITTER_WIDTH = 10;
+const MIN_BOARD_WIDGET_WIDTH = 340;
+const MIN_BOARD_WIDGET_HEIGHT = 156;
+const THREE_D_STACK_DEPTH = 3;
+const MIN_PALETTE_TILE_SIZE = 36;
+const MAX_PALETTE_TILE_SIZE = 144;
+const KEYBOARD_PAN_SPEED = 520;
+const DAT_3D_VALID_TERRAIN_TILES = new Set<string>([DAT_3D_AIR_TILE, "CHIP_EXIT"]);
+const DEFAULT_LEVELSET_FILENAME = "NEW_LEVELSET.DAT";
+const DEFAULT_MAGIC_NUMBER = 174764;
+const TRANSFORM_MENU_ITEMS: ReadonlyArray<Readonly<{ kind: DatTransformKind; label: string }>> = [
+  { kind: "ROTATE_90", label: "Rotate 90°" },
+  { kind: "ROTATE_180", label: "Rotate 180°" },
+  { kind: "ROTATE_270", label: "Rotate 270°" },
+  { kind: "FLIP_H", label: "Flip Horizontal" },
+  { kind: "FLIP_V", label: "Flip Vertical" },
+  { kind: "FLIP_DIAG_NWSE", label: "Flip Diagonal NW-SE" },
+  { kind: "FLIP_DIAG_NESW", label: "Flip Diagonal NE-SW" },
 ];
-
-function makeRandomSeed(): number {
-  return Math.floor(Math.random() * 0x100000000);
-}
-
-function makeDefaultNoiseSettings(): NoiseSettings {
-  return {
-    ...createDefaultNoiseSettings(),
-    seed: makeRandomSeed(),
-  };
-}
 
 function asErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -61,14 +236,27 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
+function isKeyboardPanKey(key: string): boolean {
+  return (
+    key === "w" ||
+    key === "a" ||
+    key === "s" ||
+    key === "d" ||
+    key === "arrowup" ||
+    key === "arrowdown" ||
+    key === "arrowleft" ||
+    key === "arrowright"
+  );
+}
+
 function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
   URL.revokeObjectURL(url);
 }
 
@@ -81,28 +269,376 @@ function downloadBytes(filename: string, bytes: Uint8Array): void {
 }
 
 function downloadText(filename: string, text: string): void {
-  downloadBlob(filename, new Blob([text], { type: "application/octet-stream" }));
+  downloadBlob(filename, new Blob([text], { type: "application/json" }));
 }
 
-async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
-  return await new Promise((resolve) => canvas.toBlob(resolve));
+type SaveFilePickerHandle = {
+  createWritable(): Promise<{
+    write(data: Blob): Promise<void>;
+    close(): Promise<void>;
+  }>;
+};
+
+type WindowWithSavePicker = Window &
+  typeof globalThis & {
+    showSaveFilePicker?: (options?: {
+      suggestedName?: string;
+      excludeAcceptAllOption?: boolean;
+      types?: Array<{
+        description?: string;
+        accept: Record<string, string[]>;
+      }>;
+    }) => Promise<SaveFilePickerHandle>;
+  };
+
+async function saveBytesLocally(filename: string, bytes: Uint8Array): Promise<void> {
+  const savePicker = (window as WindowWithSavePicker).showSaveFilePicker;
+  if (!savePicker) {
+    downloadBytes(filename, bytes);
+    return;
+  }
+
+  const handle = await savePicker({
+    suggestedName: filename,
+    excludeAcceptAllOption: false,
+    types: [
+      {
+        description: "CC1 DAT levelset",
+        accept: {
+          "application/octet-stream": [".dat"],
+        },
+      },
+    ],
+  });
+  const writable = await handle.createWritable();
+  const ab = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  await writable.write(new Blob([ab], { type: "application/octet-stream" }));
+  await writable.close();
+}
+
+function createDefaultLevelsetDocument(): DatLevelsetJsonV1 {
+  return parseDatLevelsetJsonV1({
+    schema: "datTools.dat.levelset.json.v1",
+    magicNumber: DEFAULT_MAGIC_NUMBER,
+    levels: [createEmptyLevel(1, { title: "Level 1" })],
+  });
+}
+
+function normalizeDatFileName(filename: string): string {
+  const trimmed = filename.trim();
+  if (trimmed.length === 0) return DEFAULT_LEVELSET_FILENAME;
+  if (trimmed.toLowerCase().endsWith(".dat")) return trimmed;
+  return `${trimmed}.dat`;
+}
+
+function mergeIndices(base: ReadonlyArray<number>, extra: ReadonlyArray<number>): number[] {
+  const seen = new Set(base);
+  const out = [...base];
+  for (const index of extra) {
+    if (seen.has(index)) continue;
+    seen.add(index);
+    out.push(index);
+  }
+  return out;
+}
+
+function metadataDraftEquals(a: MetadataDraft, b: MetadataDraft): boolean {
+  return (
+    a.number === b.number &&
+    a.title === b.title &&
+    a.author === b.author &&
+    a.password === b.password &&
+    a.chips === b.chips &&
+    a.time === b.time &&
+    a.mapDetail === b.mapDetail &&
+    a.hint === b.hint &&
+    a.movement === b.movement &&
+    a.trapControls === b.trapControls &&
+    a.cloneControls === b.cloneControls &&
+    a.fieldOrder === b.fieldOrder &&
+    a.extraFields === b.extraFields
+  );
+}
+
+function makeMetadataDraft(
+  canonicalLevel: DatLevelJson,
+  layerLevel: DatLevelJson = canonicalLevel,
+  levelNumber = canonicalLevel.number,
+  title = canonicalLevel.title,
+): MetadataDraft {
+  return {
+    number: String(levelNumber),
+    title: title ?? "",
+    author: canonicalLevel.author ?? "",
+    password: canonicalLevel.password ?? "",
+    chips: String(canonicalLevel.chips),
+    time: String(canonicalLevel.time),
+    mapDetail: String(canonicalLevel.mapDetail),
+    hint: layerLevel.hint ?? "",
+    movement: JSON.stringify(layerLevel.movement, null, 2),
+    trapControls: JSON.stringify(layerLevel.trapControls, null, 2),
+    cloneControls: JSON.stringify(layerLevel.cloneControls, null, 2),
+    fieldOrder: JSON.stringify(canonicalLevel.fieldOrder, null, 2),
+    extraFields: JSON.stringify(canonicalLevel.extraFields, null, 2),
+  };
+}
+
+function blankToUndefined(value: string): string | undefined {
+  return value.length === 0 ? undefined : value;
+}
+
+function parseLevelFromDraft(
+  currentLevel: DatLevelJson,
+  draft: MetadataDraft,
+  magicNumber: number,
+): DatLevelJson {
+  const candidate: Record<string, unknown> = {
+    ...currentLevel,
+    number: Number(draft.number),
+    time: Number(draft.time),
+    chips: Number(draft.chips),
+    mapDetail: Number(draft.mapDetail),
+    map: currentLevel.map,
+    trapControls: JSON.parse(draft.trapControls),
+    cloneControls: JSON.parse(draft.cloneControls),
+    movement: JSON.parse(draft.movement),
+    fieldOrder: JSON.parse(draft.fieldOrder),
+    extraFields: JSON.parse(draft.extraFields),
+  };
+
+  const title = blankToUndefined(draft.title);
+  const author = blankToUndefined(draft.author);
+  const password = blankToUndefined(draft.password);
+  const hint = blankToUndefined(draft.hint);
+
+  if (title !== undefined) candidate.title = title;
+  else delete candidate.title;
+  if (author !== undefined) candidate.author = author;
+  else delete candidate.author;
+  if (password !== undefined) candidate.password = password;
+  else delete candidate.password;
+  if (hint !== undefined) candidate.hint = hint;
+  else delete candidate.hint;
+
+  return parseDatLevelsetJsonV1({
+    schema: "datTools.dat.levelset.json.v1",
+    magicNumber,
+    levels: [candidate],
+  }).levels[0]!;
+}
+
+function parseThreeDLevelsFromDraft(
+  canonicalLevel: DatLevelJson,
+  activeLayerLevel: DatLevelJson,
+  draft: MetadataDraft,
+  magicNumber: number,
+  isCanonicalLayerActive: boolean,
+): { canonicalLevel: DatLevelJson; activeLayerLevel: DatLevelJson } {
+  const fieldOrder = JSON.parse(draft.fieldOrder);
+  const extraFields = JSON.parse(draft.extraFields);
+  const movement = JSON.parse(draft.movement);
+  const trapControls = JSON.parse(draft.trapControls);
+  const cloneControls = JSON.parse(draft.cloneControls);
+
+  const canonicalCandidate: Record<string, unknown> = {
+    ...canonicalLevel,
+    number: Number(draft.number),
+    time: Number(draft.time),
+    chips: Number(draft.chips),
+    mapDetail: Number(draft.mapDetail),
+    map: canonicalLevel.map,
+    fieldOrder,
+    extraFields,
+    hint: isCanonicalLayerActive ? blankToUndefined(draft.hint) : canonicalLevel.hint,
+    movement: isCanonicalLayerActive ? movement : canonicalLevel.movement,
+    trapControls: isCanonicalLayerActive ? trapControls : canonicalLevel.trapControls,
+    cloneControls: isCanonicalLayerActive ? cloneControls : canonicalLevel.cloneControls,
+  };
+
+  const title = blankToUndefined(draft.title);
+  const author = blankToUndefined(draft.author);
+  const password = blankToUndefined(draft.password);
+
+  if (title !== undefined) canonicalCandidate.title = title;
+  else delete canonicalCandidate.title;
+  if (author !== undefined) canonicalCandidate.author = author;
+  else delete canonicalCandidate.author;
+  if (password !== undefined) canonicalCandidate.password = password;
+  else delete canonicalCandidate.password;
+
+  const parsedCanonical = parseDatLevelsetJsonV1({
+    schema: "datTools.dat.levelset.json.v1",
+    magicNumber,
+    levels: [canonicalCandidate],
+  }).levels[0]!;
+
+  if (isCanonicalLayerActive) {
+    return {
+      canonicalLevel: parsedCanonical,
+      activeLayerLevel: parsedCanonical,
+    };
+  }
+
+  const activeCandidate: Record<string, unknown> = {
+    ...activeLayerLevel,
+    map: activeLayerLevel.map,
+    hint: blankToUndefined(draft.hint),
+    movement,
+    trapControls,
+    cloneControls,
+  };
+
+  const parsedActive = parseDatLevelsetJsonV1({
+    schema: "datTools.dat.levelset.json.v1",
+    magicNumber,
+    levels: [activeCandidate],
+  }).levels[0]!;
+
+  return {
+    canonicalLevel: parsedCanonical,
+    activeLayerLevel: parsedActive,
+  };
+}
+
+function cloneLevel(level: DatLevelJson, nextNumber: number): DatLevelJson {
+  return {
+    ...level,
+    number: nextNumber,
+    password: createRandomLevelPassword(),
+    ...(level.title ? { title: `${level.title} Copy` } : {}),
+    map: {
+      ...level.map,
+      top: [...level.map.top],
+      bottom: [...level.map.bottom],
+    },
+    trapControls: level.trapControls.map((control) => ({ ...control })),
+    cloneControls: level.cloneControls.map((control) => ({ ...control })),
+    movement: [...level.movement],
+    fieldOrder: [...level.fieldOrder],
+    extraFields: level.extraFields.map((field) => ({
+      field: field.field,
+      data: { ...field.data },
+    })),
+  };
+}
+
+function canvasPointToCell(
+  canvas: HTMLCanvasElement,
+  event: Pick<PointerEvent, "clientX" | "clientY">,
+): GridPoint | null {
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+
+  const px = ((event.clientX - rect.left) / rect.width) * 32;
+  const py = ((event.clientY - rect.top) / rect.height) * 32;
+
+  if (px < 0 || py < 0 || px >= 32 || py >= 32) return null;
+  return clampPoint({ x: Math.floor(px), y: Math.floor(py) });
+}
+
+function canvasPointToBoard(
+  canvas: HTMLCanvasElement,
+  event: Pick<PointerEvent, "clientX" | "clientY">,
+): BoardCursorPoint | null {
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+  };
+}
+
+function getPasteAnchor(selection: GridRect | null, hoverPoint: GridPoint | null): GridPoint {
+  if (selection) return { x: selection.x, y: selection.y };
+  if (hoverPoint) return hoverPoint;
+  return { x: 0, y: 0 };
+}
+
+function isSupportedCanvasPointerButton(button: number): boolean {
+  return button === 0 || button === 2;
+}
+
+function isBoardPanGesture(event: Pick<PointerEvent, "button" | "metaKey" | "ctrlKey">): boolean {
+  return event.button === 1 || (event.button === 0 && (event.metaKey || event.ctrlKey));
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getPaintTileForButton(button: number, primaryTile: string, secondaryTile: string): string {
+  return button === 2 ? secondaryTile : primaryTile;
+}
+
+function makePaintOptions(threeDEnabled: boolean, layerZ: number, buryOnBottom = false) {
+  return {
+    ...(threeDEnabled
+      ? {
+          treatAsTerrainTiles: DAT_3D_VALID_TERRAIN_TILES,
+          allowedInvalidTiles: DAT_3D_VALID_TERRAIN_TILES,
+        }
+      : {}),
+    ...(threeDEnabled && layerZ > 1
+      ? { fullCellTerrainTiles: new Set<string>([DAT_3D_AIR_TILE]) }
+      : {}),
+    ...(buryOnBottom ? { buryOnBottom: true } : {}),
+  };
+}
+
+function createBoardWidgetLayout(
+  viewportWidth: number,
+  viewportHeight: number,
+  leftPanelWidth: number,
+  rightPanelWidth: number,
+): BoardWidgetLayout {
+  const boardLeft = leftPanelWidth + SPLITTER_WIDTH;
+  const boardRight = viewportWidth - rightPanelWidth - SPLITTER_WIDTH;
+  return {
+    controls: {
+      x: Math.max(boardLeft + 12, boardRight - 420),
+      y: 12,
+      collapsed: false,
+      width: 408,
+      height: 236,
+    },
+    layers3d: {
+      x: Math.max(boardLeft + 12, boardRight - 296),
+      y: Math.min(Math.max(96, viewportHeight - 160), 196),
+      collapsed: false,
+      width: 284,
+      height: 176,
+    },
+  };
+}
+
+function getBoardWidgetTitle(widgetId: BoardWidgetId): string {
+  switch (widgetId) {
+    case "controls":
+      return "Controls";
+    case "layers3d":
+      return "3D Levels";
+  }
 }
 
 function drawConnections(
   ctx: CanvasRenderingContext2D,
   size: number,
-  traps: DatLevelsetJsonV1["levels"][number]["trapControls"],
-  cloners: DatLevelsetJsonV1["levels"][number]["cloneControls"],
+  traps: DatLevelJson["trapControls"],
+  cloners: DatLevelJson["cloneControls"],
 ): void {
   ctx.save();
-  ctx.strokeStyle = "red";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(196, 55, 55, 0.9)";
+  ctx.lineWidth = Math.max(1, Math.round(size / 18));
 
-  const drawLine = (p1: number, p2: number) => {
-    const x1 = (p1 % 32) * size + size / 2;
-    const y1 = Math.floor(p1 / 32) * size + size / 2;
-    const x2 = (p2 % 32) * size + size / 2;
-    const y2 = Math.floor(p2 / 32) * size + size / 2;
+  const drawLine = (fromIndex: number, toIndex: number) => {
+    const x1 = (fromIndex % 32) * size + size / 2;
+    const y1 = Math.floor(fromIndex / 32) * size + size / 2;
+    const x2 = (toIndex % 32) * size + size / 2;
+    const y2 = Math.floor(toIndex / 32) * size + size / 2;
 
     ctx.beginPath();
     ctx.moveTo(x1, y1);
@@ -110,10 +646,233 @@ function drawConnections(
     ctx.stroke();
   };
 
-  for (const t of traps) drawLine(t.button, t.trap);
-  for (const c of cloners) drawLine(c.button, c.cloner);
+  for (const trap of traps) drawLine(trap.button, trap.trap);
+  for (const cloner of cloners) drawLine(cloner.button, cloner.cloner);
 
   ctx.restore();
+}
+
+function drawPendingConnection(
+  ctx: CanvasRenderingContext2D,
+  tileSize: number,
+  startIndex: number,
+  cursor: BoardCursorPoint,
+): void {
+  const startX = (startIndex % 32) * tileSize + tileSize / 2;
+  const startY = Math.floor(startIndex / 32) * tileSize + tileSize / 2;
+  const radius = Math.max(2, Math.round(tileSize / 8));
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(196, 55, 55, 0.96)";
+  ctx.fillStyle = "rgba(196, 55, 55, 0.96)";
+  ctx.lineWidth = Math.max(2, Math.round(tileSize / 14));
+  ctx.lineCap = "round";
+
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(cursor.x, cursor.y);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(startX, startY, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cursor.x, cursor.y, Math.max(1.5, radius * 0.75), 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+const LEVEL_SHIFT_ARROWS = [
+  { direction: "north", dx: 0, dy: -1, label: "Shift level north" },
+  { direction: "south", dx: 0, dy: 1, label: "Shift level south" },
+  { direction: "west", dx: -1, dy: 0, label: "Shift level west" },
+  { direction: "east", dx: 1, dy: 0, label: "Shift level east" },
+] as const;
+
+const BOARD_TRANSFORM_BUTTONS: ReadonlyArray<
+  Readonly<{
+    kind: DatTransformKind;
+    position: "corner-nw" | "corner-ne" | "top-center" | "left-center" | "corner-sw" | "corner-se";
+    label: string;
+  }>
+> = [
+  { kind: "ROTATE_270", position: "corner-nw", label: "Rotate 270 degrees" },
+  { kind: "ROTATE_90", position: "corner-ne", label: "Rotate 90 degrees" },
+  { kind: "FLIP_H", position: "top-center", label: "Flip horizontally" },
+  { kind: "FLIP_V", position: "left-center", label: "Flip vertically" },
+  { kind: "FLIP_DIAG_NESW", position: "corner-sw", label: "Flip along the NE-SW diagonal" },
+  { kind: "FLIP_DIAG_NWSE", position: "corner-se", label: "Flip along the NW-SE diagonal" },
+];
+
+function renderBoardTransformIcon(kind: DatTransformKind): ReactNode {
+  switch (kind) {
+    case "ROTATE_90":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path
+            d="M10 3.25a6.75 6.75 0 1 1-5.74 10.3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="10.6 2.4 15.6 2.9 13.1 7.2"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "ROTATE_270":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path
+            d="M10 3.25a6.75 6.75 0 1 0 5.74 10.3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="9.4 2.4 4.4 2.9 6.9 7.2"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "FLIP_H":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <line
+            x1="10"
+            y1="3"
+            x2="10"
+            y2="17"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <polyline
+            points="3.5 7 7 10 3.5 13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="16.5 7 13 10 16.5 13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "FLIP_V":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <line
+            x1="3"
+            y1="10"
+            x2="17"
+            y2="10"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <polyline
+            points="7 3.5 10 7 13 3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="7 16.5 10 13 13 16.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "FLIP_DIAG_NWSE":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <line
+            x1="4"
+            y1="4"
+            x2="16"
+            y2="16"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <polyline
+            points="12.5 4 16 7.5 12.5 11"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="4 12.5 7.5 16 11 12.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "FLIP_DIAG_NESW":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <line
+            x1="16"
+            y1="4"
+            x2="4"
+            y2="16"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <polyline
+            points="7.5 4 4 7.5 7.5 11"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="16 12.5 12.5 16 9 12.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "ROTATE_180":
+      return null;
+  }
 }
 
 function drawMonsterOrder(
@@ -121,990 +880,3550 @@ function drawMonsterOrder(
   size: number,
   movement: ReadonlyArray<number>,
 ): void {
-  if (size < 32) return;
-
-  const scale = size / 32;
-  const fontSize = Math.max(10, Math.round(10 * scale));
-  const padding = Math.max(2, Math.round(2 * scale));
+  if (size < 20) return;
 
   ctx.save();
-  ctx.font = `${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
+  ctx.font = `${Math.max(10, Math.round(size * 0.32))}px "Avenir Next", "Segoe UI", sans-serif`;
   ctx.textBaseline = "top";
-  ctx.fillStyle = "white";
 
   for (let idx = 0; idx < movement.length; idx++) {
-    const p = movement[idx]!;
-    const x = p % 32;
-    const y = Math.floor(p / 32);
-
+    const point = movement[idx]!;
+    const x = (point % 32) * size + size * 0.55;
+    const y = Math.floor(point / 32) * size + size * 0.56;
     const text = String(idx);
-
-    const rightX = x * size + 30 * scale;
-    const topY = y * size + 20 * scale;
-
     const metrics = ctx.measureText(text);
-    const textWidth = metrics.width;
 
-    const tx = rightX - textWidth;
-    const ty = topY;
-
-    // black box behind
-    ctx.fillStyle = "black";
-    ctx.fillRect(tx - padding, ty - padding, textWidth + padding * 2, fontSize + padding * 2);
-
-    ctx.fillStyle = "white";
-    ctx.fillText(text, tx, ty);
+    ctx.fillStyle = "rgba(15, 20, 18, 0.88)";
+    ctx.fillRect(x - 3, y - 2, metrics.width + 6, size * 0.28 + 6);
+    ctx.fillStyle = "rgba(251, 250, 244, 0.95)";
+    ctx.fillText(text, x, y);
   }
 
   ctx.restore();
 }
 
-const CC1_TILESET_URL = `${import.meta.env.BASE_URL}cc1/spritesheet.bmp`;
+function drawGrid(ctx: CanvasRenderingContext2D, tileSize: number): void {
+  ctx.save();
+  ctx.strokeStyle = "rgba(48, 77, 68, 0.16)";
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i <= 32; i++) {
+    const offset = i * tileSize + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(offset, 0);
+    ctx.lineTo(offset, tileSize * 32);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0, offset);
+    ctx.lineTo(tileSize * 32, offset);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawGridForVisibleCells(
+  ctx: CanvasRenderingContext2D,
+  tileSize: number,
+  visibleIndices: ReadonlyArray<number>,
+): void {
+  if (visibleIndices.length === 0) return;
+
+  ctx.save();
+  ctx.beginPath();
+  for (const index of visibleIndices) {
+    const x = (index % 32) * tileSize;
+    const y = Math.floor(index / 32) * tileSize;
+    ctx.rect(x, y, tileSize, tileSize);
+  }
+  ctx.clip();
+
+  ctx.strokeStyle = "rgba(48, 77, 68, 0.16)";
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i <= 32; i++) {
+    const offset = i * tileSize + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(offset, 0);
+    ctx.lineTo(offset, tileSize * 32);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0, offset);
+    ctx.lineTo(tileSize * 32, offset);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function isTransparentAirCell(
+  level: DatLevelJson,
+  index: number,
+  layerZ: number,
+  threeDEnabled: boolean,
+): boolean {
+  return (
+    threeDEnabled &&
+    layerZ > 1 &&
+    (level.map.top[index] ?? "FLOOR") === DAT_3D_AIR_TILE &&
+    (level.map.bottom[index] ?? "FLOOR") === DAT_3D_AIR_TILE
+  );
+}
+
+type ThreeDLayerDrawMetrics = Readonly<{
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
+  scaleX: number;
+  scaleY: number;
+}>;
+
+type ThreeDLayerClipRegion = Readonly<{
+  metrics: ThreeDLayerDrawMetrics;
+  airIndices: ReadonlyArray<number>;
+}>;
+
+function getThreeDLayerDrawMetrics(
+  depth: number,
+  boardSize: number,
+  boardPan: Readonly<{ x: number; y: number }>,
+  boardZoom: number,
+  viewport: Pick<HTMLDivElement, "clientWidth" | "clientHeight"> | null,
+): ThreeDLayerDrawMetrics {
+  const baseScale = Math.pow(0.9, depth);
+  const centeredPanX = viewport ? (viewport.clientWidth - boardSize * boardZoom) / 2 : boardPan.x;
+  const centeredPanY = viewport ? (viewport.clientHeight - boardSize * boardZoom) / 2 : boardPan.y;
+  const normalizedPanX = boardZoom > 0 ? (boardPan.x - centeredPanX) / boardZoom : 0;
+  const normalizedPanY = boardZoom > 0 ? (boardPan.y - centeredPanY) / boardZoom : 0;
+  const lagFactor = Math.min(0.45, depth * 0.16);
+  const width = boardSize * baseScale;
+  const height = boardSize * baseScale;
+  const offsetX = (boardSize - width) / 2 - normalizedPanX * lagFactor;
+  const offsetY = (boardSize - height) / 2 - normalizedPanY * lagFactor;
+
+  return {
+    offsetX,
+    offsetY,
+    width,
+    height,
+    scaleX: baseScale,
+    scaleY: baseScale,
+  };
+}
+
+function drawHighlightedCells(
+  ctx: CanvasRenderingContext2D,
+  tileSize: number,
+  indices: ReadonlyArray<number>,
+  fillStyle: string,
+  strokeStyle: string,
+): void {
+  if (indices.length === 0) return;
+
+  ctx.save();
+  ctx.fillStyle = fillStyle;
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = Math.max(1, Math.round(tileSize / 14));
+
+  for (const index of indices) {
+    const x = (index % 32) * tileSize;
+    const y = Math.floor(index / 32) * tileSize;
+    ctx.fillRect(x, y, tileSize, tileSize);
+    ctx.strokeRect(x + 0.5, y + 0.5, tileSize - 1, tileSize - 1);
+  }
+
+  ctx.restore();
+}
+
+function drawInvalidCells(
+  ctx: CanvasRenderingContext2D,
+  tileSize: number,
+  indices: ReadonlyArray<number>,
+): void {
+  if (indices.length === 0) return;
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(194, 58, 45, 0.98)";
+  ctx.fillStyle = "rgba(194, 58, 45, 0.18)";
+  ctx.lineWidth = Math.max(2, Math.round(tileSize / 10));
+  ctx.font = `700 ${Math.max(11, Math.round(tileSize * 0.34))}px "Avenir Next", "Segoe UI", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (const index of indices) {
+    const x = (index % 32) * tileSize;
+    const y = Math.floor(index / 32) * tileSize;
+    ctx.fillRect(x, y, tileSize, tileSize);
+    ctx.strokeRect(x + 1, y + 1, Math.max(0, tileSize - 2), Math.max(0, tileSize - 2));
+    ctx.fillStyle = "rgba(255, 245, 242, 0.98)";
+    ctx.fillText("!", x + tileSize * 0.78, y + tileSize * 0.24);
+    ctx.fillStyle = "rgba(194, 58, 45, 0.18)";
+  }
+
+  ctx.restore();
+}
+
+function drawRectOverlay(
+  ctx: CanvasRenderingContext2D,
+  tileSize: number,
+  rect: GridRect,
+  fillStyle: string,
+  strokeStyle: string,
+  dashed = false,
+): void {
+  ctx.save();
+  ctx.fillStyle = fillStyle;
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = Math.max(2, Math.round(tileSize / 12));
+  if (dashed) ctx.setLineDash([tileSize * 0.4, tileSize * 0.2]);
+
+  ctx.fillRect(rect.x * tileSize, rect.y * tileSize, rect.width * tileSize, rect.height * tileSize);
+  ctx.strokeRect(
+    rect.x * tileSize + 0.5,
+    rect.y * tileSize + 0.5,
+    rect.width * tileSize - 1,
+    rect.height * tileSize - 1,
+  );
+
+  ctx.restore();
+}
+
+function drawLayerAlignedHoverCell(
+  ctx: CanvasRenderingContext2D,
+  tileSize: number,
+  point: GridPoint,
+  metrics: ThreeDLayerDrawMetrics,
+  fillStyle: string,
+  strokeStyle: string,
+  clipRegions: ReadonlyArray<ThreeDLayerClipRegion> = [],
+): void {
+  ctx.save();
+  for (const clipRegion of clipRegions) {
+    if (clipRegion.airIndices.length === 0) {
+      ctx.restore();
+      return;
+    }
+
+    ctx.beginPath();
+    for (const index of clipRegion.airIndices) {
+      ctx.rect(
+        clipRegion.metrics.offsetX + (index % 32) * tileSize * clipRegion.metrics.scaleX,
+        clipRegion.metrics.offsetY + Math.floor(index / 32) * tileSize * clipRegion.metrics.scaleY,
+        tileSize * clipRegion.metrics.scaleX,
+        tileSize * clipRegion.metrics.scaleY,
+      );
+    }
+    ctx.clip();
+  }
+
+  ctx.fillStyle = fillStyle;
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = Math.max(
+    1,
+    Math.round((tileSize * Math.min(metrics.scaleX, metrics.scaleY)) / 12),
+  );
+
+  const x = metrics.offsetX + point.x * tileSize * metrics.scaleX;
+  const y = metrics.offsetY + point.y * tileSize * metrics.scaleY;
+  const width = tileSize * metrics.scaleX;
+  const height = tileSize * metrics.scaleY;
+
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
+  ctx.restore();
+}
 
 export default function App() {
+  const previousThreeDEnabledRef = useRef(false);
+  const keyboardPanKeysRef = useRef<Set<string>>(new Set());
+  const keyboardPanFrameRef = useRef<number | null>(null);
+  const keyboardPanLastTimeRef = useRef<number | null>(null);
+  const editorLayoutRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const menuBarRef = useRef<HTMLDivElement>(null);
+  const boardViewportRef = useRef<HTMLDivElement>(null);
+  const paletteGridRef = useRef<HTMLDivElement>(null);
+  const boardCanvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const boardWidgetRefs = useRef<Record<BoardWidgetId, HTMLDivElement | null>>({
+    controls: null,
+    layers3d: null,
+  });
 
-  const [viewMode, setViewMode] = useState<ViewMode>("image");
-  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
-  const [selectedGenerator, setSelectedGenerator] = useState<GenerateModule | null>(null);
-
-  const [doc, setDoc] = useState<DatLevelsetJsonV1 | null>(null);
-  const [undoStack, setUndoStack] = useState<DatLevelsetJsonV1[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
-
-  const [jsonText, setJsonText] = useState<string>("");
-  const [parseError, setParseError] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [editor, setEditor] = useState<LevelsetEditorHistory | null>(() =>
+    createLevelsetEditorHistory(createDefaultLevelsetDocument()),
+  );
+  const [fileName, setFileName] = useState<string>(DEFAULT_LEVELSET_FILENAME);
 
   const [spriteSet, setSpriteSet] = useState<CC1SpriteSet | null>(null);
   const [spriteError, setSpriteError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
+
+  const [tool, setTool] = useState<ToolMode>("brush");
+  const [primaryTile, setPrimaryTile] = useState<string>("WALL");
+  const [secondaryTile, setSecondaryTile] = useState<string>("FLOOR");
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const deferredPaletteQuery = useDeferredValue(paletteQuery);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("palette");
+  const [paletteTab, setPaletteTab] = useState<PaletteTab>("normal");
+
+  const [selection, setSelection] = useState<GridRect | null>(null);
+  const [clipboard, setClipboard] = useState<LevelClipboard | null>(null);
+  const [pastePreviewActive, setPastePreviewActive] = useState(false);
+  const [pendingConnection, setPendingConnection] = useState<PendingConnectionState>(null);
+  const [hoverPoint, setHoverPoint] = useState<GridPoint | null>(null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [boardPanState, setBoardPanState] = useState<BoardPanState | null>(null);
+  const [layoutResizeState, setLayoutResizeState] = useState<LayoutResizeState | null>(null);
+  const [draggedLevelIndex, setDraggedLevelIndex] = useState<number | null>(null);
+  const [levelDropState, setLevelDropState] = useState<LevelDropState>(null);
+  const [levelContextMenu, setLevelContextMenu] = useState<LevelContextMenuState>(null);
+  const [boardZoom, setBoardZoom] = useState(1);
+  const [boardPan, setBoardPan] = useState({ x: 0, y: 0 });
+  const [boardViewInitialized, setBoardViewInitialized] = useState(false);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(236);
+  const [rightPanelWidth, setRightPanelWidth] = useState(320);
+  const [boardWidgets, setBoardWidgets] = useState<BoardWidgetLayout | null>(null);
+  const [boardWidgetDragState, setBoardWidgetDragState] = useState<BoardWidgetDragState | null>(
+    null,
+  );
+  const [boardWidgetResizeState, setBoardWidgetResizeState] =
+    useState<BoardWidgetResizeState | null>(null);
+  const [boardMenuOpen, setBoardMenuOpen] = useState<
+    "file" | "view" | "options" | "transform" | null
+  >(null);
+  const [openDialog, setOpenDialog] = useState<"brandingHelp" | "threeDHelp" | null>(null);
+  const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(false);
+  const [paletteViewportWidth, setPaletteViewportWidth] = useState(0);
+  const [paletteTileSizeTarget, setPaletteTileSizeTarget] = useState(MIN_PALETTE_TILE_SIZE);
 
   const [showSecrets, setShowSecrets] = useState(true);
   const [showConnections, setShowConnections] = useState(true);
   const [showMonsterOrder, setShowMonsterOrder] = useState(true);
-  const [noiseSettings, setNoiseSettings] = useState<NoiseSettings>(() =>
-    makeDefaultNoiseSettings(),
-  );
-  const [lastAppliedNoiseSeed, setLastAppliedNoiseSeed] = useState<number | null>(null);
+  const [showValidityWarnings, setShowValidityWarnings] = useState(true);
 
-  const selectedLevel = useMemo(() => {
-    if (!doc) return null;
-    return doc.levels[selectedIndex] ?? null;
-  }, [doc, selectedIndex]);
+  const [metadataDraft, setMetadataDraft] = useState<MetadataDraft | null>(null);
 
-  const selectedNoiseType = useMemo(
+  const doc = editor?.doc ?? null;
+  const selectedIndex = editor?.selectedIndex ?? 0;
+  const selectedLevel = doc?.levels[selectedIndex] ?? null;
+  const logicalLevelset = useMemo(() => (doc ? buildLogical3dLevelset(doc) : null), [doc]);
+  const selectedLogicalIndex = logicalLevelset
+    ? logicalLevelIndexForRawIndex(logicalLevelset, selectedIndex)
+    : 0;
+  const selectedLogicalLevel = logicalLevelset?.levels[selectedLogicalIndex] ?? null;
+  const selectedLayerZ = selectedLogicalLevel
+    ? (selectedLogicalLevel.layers.find((layer) => layer.rawIndex === selectedIndex)?.z ??
+      selectedLogicalLevel.layers[selectedLogicalLevel.layers.length - 1]?.z ??
+      1)
+    : 1;
+  const activeLevel = threeDLevelsEnabled
+    ? (selectedLogicalLevel?.layers[selectedLayerZ - 1]?.level ?? null)
+    : selectedLevel;
+  const canonicalLevel = threeDLevelsEnabled
+    ? (selectedLogicalLevel?.layers[0]?.level ?? null)
+    : selectedLevel;
+  const boardSize = spriteSet ? spriteSet.tileSize * 32 : 0;
+  const canUndo = (editor?.cursor ?? 0) > 0;
+  const canRedo = editor ? editor.cursor < editor.events.length : false;
+  const actualChipCount = useMemo(
     () =>
-      NOISE_TYPE_OPTIONS.find((option) => option.value === noiseSettings.type) ??
-      NOISE_TYPE_OPTIONS[0]!,
-    [noiseSettings.type],
+      threeDLevelsEnabled
+        ? selectedLogicalLevel
+          ? countChipsInLogical3dLevel(selectedLogicalLevel)
+          : 0
+        : selectedLevel
+          ? countChipsInLevel(selectedLevel)
+          : 0,
+    [selectedLevel, selectedLogicalLevel, threeDLevelsEnabled],
   );
 
-  // load spritesheet
+  const chipFieldTone = useMemo(() => {
+    if (!metadataDraft) return "neutral";
+    const draftChipCount = Number(metadataDraft.chips);
+    if (!Number.isFinite(draftChipCount)) return "neutral";
+    if (actualChipCount > draftChipCount) return "higher";
+    if (actualChipCount < draftChipCount) return "lower";
+    return "neutral";
+  }, [actualChipCount, metadataDraft]);
+
+  const activeDisplayContext = useMemo(
+    () => ({
+      threeDEnabled: threeDLevelsEnabled,
+      layerZ: selectedLayerZ,
+      layerCount: selectedLogicalLevel?.layers.length ?? 1,
+    }),
+    [selectedLayerZ, selectedLogicalLevel, threeDLevelsEnabled],
+  );
+  const paletteDisplayContext = useMemo(
+    () => ({
+      threeDEnabled: threeDLevelsEnabled,
+      layerZ: threeDLevelsEnabled ? Math.max(2, selectedLayerZ) : selectedLayerZ,
+      layerCount: threeDLevelsEnabled
+        ? Math.max(2, selectedLogicalLevel?.layers.length ?? 1)
+        : (selectedLogicalLevel?.layers.length ?? 1),
+    }),
+    [selectedLayerZ, selectedLogicalLevel, threeDLevelsEnabled],
+  );
+
+  const filteredTiles = useMemo(() => {
+    const promoted3dTiles = threeDLevelsEnabled ? [DAT_3D_AIR_TILE, "CHIP_EXIT"] : [];
+    const sourceTiles =
+      paletteTab === "normal"
+        ? [...promoted3dTiles, ...CC1_VALID_TILE_NAMES]
+        : [
+            ...CC1_LEGACY_INVALID_TILE_NAMES.filter(
+              (tile) => !threeDLevelsEnabled || (tile !== DAT_3D_AIR_TILE && tile !== "CHIP_EXIT"),
+            ),
+            ...CC1_INVALID_TILE_NAMES,
+          ];
+    const query = deferredPaletteQuery.trim().toLowerCase();
+    if (query.length === 0) return sourceTiles;
+    return sourceTiles.filter((tile) =>
+      `${tile} ${getDat3dTileDisplayName(tile, paletteDisplayContext)}`
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [deferredPaletteQuery, paletteDisplayContext, paletteTab, threeDLevelsEnabled]);
+
+  const previewLevel = useMemo(() => {
+    if (!activeLevel || !dragState) return activeLevel;
+    if (dragState.tool === "brush") {
+      return paintLevelCells(
+        activeLevel,
+        dragState.cells,
+        dragState.tile,
+        makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
+      );
+    }
+    if (dragState.tool === "line") {
+      return paintLevelLine(
+        activeLevel,
+        dragState.start,
+        dragState.current,
+        dragState.tile,
+        makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
+      );
+    }
+    return activeLevel;
+  }, [activeLevel, dragState, selectedLayerZ, threeDLevelsEnabled]);
+  const invalidCellIndices = useMemo(
+    () =>
+      previewLevel
+        ? getInvalidCellIndices(previewLevel, makePaintOptions(threeDLevelsEnabled, selectedLayerZ))
+        : [],
+    [previewLevel, selectedLayerZ, threeDLevelsEnabled],
+  );
+
+  const hoverCellSummary = useMemo(() => {
+    if (!hoverPoint || !previewLevel) return null;
+    const index = hoverPoint.y * 32 + hoverPoint.x;
+    const top = previewLevel.map.top[index] ?? "FLOOR";
+    const bottom = previewLevel.map.bottom[index] ?? "FLOOR";
+    return {
+      index,
+      top: getDat3dTileDisplayName(top, activeDisplayContext),
+      bottom:
+        threeDLevelsEnabled && selectedLayerZ > 1 && top === DAT_3D_AIR_TILE
+          ? "AIR"
+          : getDat3dTileDisplayName(bottom, activeDisplayContext),
+    };
+  }, [activeDisplayContext, hoverPoint, previewLevel, selectedLayerZ, threeDLevelsEnabled]);
+
+  const liveSelection = useMemo(() => {
+    if (dragState?.tool !== "select") return selection;
+    return normalizeRect(dragState.start, dragState.current);
+  }, [dragState, selection]);
+
+  const pastePreview = useMemo(() => {
+    if (!pastePreviewActive || tool !== "select" || !clipboard || dragState) return null;
+    const anchor = hoverPoint ?? (selection ? { x: selection.x, y: selection.y } : null);
+    if (!anchor) return null;
+
+    return {
+      x: anchor.x,
+      y: anchor.y,
+      width: Math.min(clipboard.width, 32 - anchor.x),
+      height: Math.min(clipboard.height, 32 - anchor.y),
+    };
+  }, [clipboard, dragState, hoverPoint, pastePreviewActive, selection, tool]);
+
+  const editorLayoutStyle = useMemo(
+    () =>
+      ({
+        "--left-panel-width": `${leftPanelWidth}px`,
+        "--right-panel-width": `${rightPanelWidth}px`,
+      }) as CSSProperties,
+    [leftPanelWidth, rightPanelWidth],
+  );
+  const paletteColumnCount = useMemo(() => {
+    if (paletteViewportWidth <= 0) return 4;
+    return Math.max(1, Math.floor(paletteViewportWidth / paletteTileSizeTarget));
+  }, [paletteTileSizeTarget, paletteViewportWidth]);
+  const paletteCellSize = useMemo(() => {
+    if (paletteViewportWidth <= 0) return paletteTileSizeTarget;
+    return Math.max(28, paletteViewportWidth / paletteColumnCount);
+  }, [paletteColumnCount, paletteTileSizeTarget, paletteViewportWidth]);
+  const paletteGridStyle = useMemo(
+    () =>
+      ({
+        gridTemplateColumns: `repeat(${paletteColumnCount}, minmax(0, 1fr))`,
+        gridAutoRows: `${paletteCellSize}px`,
+      }) as CSSProperties,
+    [paletteCellSize, paletteColumnCount],
+  );
+
+  function clampBoardWidget(
+    x: number,
+    y: number,
+    widgetWidth: number,
+    widgetHeight: number,
+  ): { x: number; y: number } {
+    const viewport = editorLayoutRef.current;
+    if (!viewport) return { x, y };
+
+    return {
+      x: clampNumber(x, 8, Math.max(8, viewport.clientWidth - widgetWidth - 8)),
+      y: clampNumber(y, 8, Math.max(8, viewport.clientHeight - widgetHeight - 8)),
+    };
+  }
+
+  function clampBoardWidgetSize(
+    widget: BoardWidgetState,
+  ): Pick<BoardWidgetState, "width" | "height"> {
+    const viewport = editorLayoutRef.current;
+    if (!viewport) {
+      return {
+        width: widget.width,
+        height: widget.height,
+      };
+    }
+
+    const maxWidth = Math.max(MIN_BOARD_WIDGET_WIDTH, viewport.clientWidth - 16);
+    const maxHeight = Math.max(MIN_BOARD_WIDGET_HEIGHT, viewport.clientHeight - 16);
+    const minWidth = Math.min(MIN_BOARD_WIDGET_WIDTH, maxWidth);
+    const minHeight = Math.min(MIN_BOARD_WIDGET_HEIGHT, maxHeight);
+
+    return {
+      width: clampNumber(widget.width, minWidth, maxWidth),
+      height: clampNumber(widget.height, minHeight, maxHeight),
+    };
+  }
+
+  function clampAllBoardWidgets(layout: BoardWidgetLayout): BoardWidgetLayout {
+    const nextLayout = { ...layout };
+    let changed = false;
+
+    (Object.keys(layout) as BoardWidgetId[]).forEach((widgetId) => {
+      const currentWidget = layout[widgetId];
+      const widget = boardWidgetRefs.current[widgetId];
+      const clampedSize = clampBoardWidgetSize(currentWidget);
+      const width = widget?.offsetWidth ?? clampedSize.width;
+      const height =
+        widget?.offsetHeight ??
+        (currentWidget.collapsed ? MIN_BOARD_WIDGET_HEIGHT : clampedSize.height);
+      if (!widget) return;
+      const clamped = clampBoardWidget(
+        currentWidget.x,
+        currentWidget.y,
+        currentWidget.collapsed ? widget.offsetWidth : width,
+        currentWidget.collapsed ? widget.offsetHeight : height,
+      );
+      nextLayout[widgetId] = {
+        ...currentWidget,
+        ...clampedSize,
+        ...clamped,
+      };
+      if (
+        clamped.x !== currentWidget.x ||
+        clamped.y !== currentWidget.y ||
+        clampedSize.width !== currentWidget.width ||
+        clampedSize.height !== currentWidget.height
+      ) {
+        changed = true;
+      }
+    });
+
+    return changed ? nextLayout : layout;
+  }
+
+  function loadDocument(nextDoc: DatLevelsetJsonV1, nextFileName?: string | null): void {
+    setEditor(createLevelsetEditorHistory(nextDoc));
+    setFileName(nextFileName ?? fileName);
+    setSelection(null);
+    setPendingConnection(null);
+    setHoverPoint(null);
+    setDragState(null);
+    setBoardPanState(null);
+    setLayoutResizeState(null);
+    setDraggedLevelIndex(null);
+    setLevelDropState(null);
+    setLevelContextMenu(null);
+    setBoardWidgetDragState(null);
+    setBoardWidgetResizeState(null);
+    setBoardMenuOpen(null);
+    setBoardWidgets(null);
+    setBoardZoom(1);
+    setBoardPan({ x: 0, y: 0 });
+    setBoardViewInitialized(false);
+    setMetadataDraft(null);
+    setErrorMessage(null);
+    setMetadataError(null);
+  }
+
+  function commitEvent(event: Parameters<typeof commitLevelsetEvent>[1]): void {
+    setEditor((current) => (current ? commitLevelsetEvent(current, event) : current));
+    setErrorMessage(null);
+  }
+
+  function commitSelectedLevelUpdate(updater: (level: DatLevelJson) => DatLevelJson): void {
+    setEditor((current) => {
+      if (!current) return current;
+      const level = current.doc.levels[current.selectedIndex];
+      if (!level) return current;
+
+      const nextLevel = updater(level);
+      if (nextLevel === level) return current;
+
+      return commitLevelsetEvent(current, {
+        type: "replace-level",
+        index: current.selectedIndex,
+        level: nextLevel,
+      });
+    });
+    setErrorMessage(null);
+  }
+
+  function replaceDocument(nextDoc: DatLevelsetJsonV1, nextSelectedRawIndex = 0): void {
+    commitEvent({
+      type: "replace-doc",
+      doc: nextDoc,
+      selectedIndex: nextSelectedRawIndex,
+    });
+  }
+
+  function cloneEditableGroup(group: Editable3dLevel): Editable3dLevel {
+    return {
+      ...group,
+      layers: group.layers.map(cloneDatLevel),
+    };
+  }
+
+  function commitLogicalLevelsetUpdate(
+    updater: (groups: Editable3dLevel[]) => Readonly<{
+      groups: Editable3dLevel[];
+      selectedLogicalIndex?: number;
+      selectedLayerZ?: number;
+    }> | null,
+  ): void {
+    if (!doc) return;
+
+    const groups = editable3dLevelsFromDoc(doc).map(cloneEditableGroup);
+    const nextState = updater(groups);
+    if (!nextState) return;
+
+    const nextDoc = rawDocFromEditable3dLevels(doc.magicNumber, nextState.groups, {
+      numberMode: "slot",
+    });
+    const nextLogical = buildLogical3dLevelset(nextDoc);
+    const nextLogicalIndex = clampNumber(
+      nextState.selectedLogicalIndex ?? selectedLogicalIndex,
+      0,
+      Math.max(0, nextLogical.levels.length - 1),
+    );
+    const nextLogicalLevel = nextLogical.levels[nextLogicalIndex];
+    const nextLayerZ = nextLogicalLevel
+      ? clampNumber(
+          nextState.selectedLayerZ ??
+            nextLogicalLevel.layers[nextLogicalLevel.layers.length - 1]?.z ??
+            1,
+          1,
+          nextLogicalLevel.layers.length,
+        )
+      : 1;
+    const nextSelectedRawIndex =
+      nextLogicalLevel?.layers[nextLayerZ - 1]?.rawIndex ??
+      nextLogicalLevel?.layers[0]?.rawIndex ??
+      0;
+
+    replaceDocument(nextDoc, nextSelectedRawIndex);
+  }
+
+  function openLevelsetJsonText(text: string, nextFileName?: string | null): void {
+    try {
+      const parsed = parseDatLevelsetJsonV1(JSON.parse(text));
+      loadDocument(parsed, nextFileName);
+    } catch (error: unknown) {
+      setErrorMessage(asErrorMessage(error));
+    }
+  }
+
+  async function openJson(file: File): Promise<void> {
+    openLevelsetJsonText(await file.text(), file.name);
+  }
+
+  async function openDat(file: File): Promise<void> {
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      loadDocument(decodeDatBytes(bytes), file.name);
+    } catch (error: unknown) {
+      setErrorMessage(asErrorMessage(error));
+    }
+  }
+
+  function chooseRawLevel(index: number): void {
+    setEditor((current) => (current ? selectLevelInHistory(current, index) : current));
+    setSelection(null);
+    setHoverPoint(null);
+    setDragState(null);
+    setLevelContextMenu(null);
+    setMetadataError(null);
+  }
+
+  function chooseLogicalLevel(logicalIndex: number): void {
+    if (!logicalLevelset) return;
+    const clampedIndex = clampNumber(
+      logicalIndex,
+      0,
+      Math.max(0, logicalLevelset.levels.length - 1),
+    );
+    const logicalLevel = logicalLevelset.levels[clampedIndex];
+    if (!logicalLevel) return;
+    const topLayer = logicalLevel.layers[logicalLevel.layers.length - 1] ?? logicalLevel.layers[0];
+    if (!topLayer) return;
+    chooseRawLevel(topLayer.rawIndex);
+  }
+
+  function selectLayerUp(): void {
+    if (!threeDLevelsEnabled || !selectedLogicalLevel) return;
+    const nextLayer = selectedLogicalLevel.layers[selectedLayerZ] ?? null;
+    if (nextLayer) chooseRawLevel(nextLayer.rawIndex);
+  }
+
+  function selectLayerDown(): void {
+    if (!threeDLevelsEnabled || !selectedLogicalLevel) return;
+    const nextLayer = selectedLogicalLevel.layers[selectedLayerZ - 2] ?? null;
+    if (nextLayer) chooseRawLevel(nextLayer.rawIndex);
+  }
+
+  function updateMetadataDraft<K extends keyof MetadataDraft>(
+    field: K,
+    value: MetadataDraft[K],
+  ): void {
+    setMetadataDraft((current) => (current ? { ...current, [field]: value } : current));
+    setMetadataError(null);
+  }
+
+  function applyMetadataDraft(nextDraft = metadataDraft): void {
+    if (!doc || !activeLevel || !canonicalLevel || !nextDraft) return;
+    const currentDraft = makeMetadataDraft(
+      canonicalLevel,
+      activeLevel,
+      threeDLevelsEnabled ? selectedLogicalIndex + 1 : activeLevel.number,
+      threeDLevelsEnabled ? selectedLogicalLevel?.displayTitle : canonicalLevel.title,
+    );
+    if (metadataDraftEquals(nextDraft, currentDraft)) {
+      setMetadataError(null);
+      return;
+    }
+
+    try {
+      if (threeDLevelsEnabled && selectedLogicalLevel) {
+        const parsed = parseThreeDLevelsFromDraft(
+          canonicalLevel,
+          activeLevel,
+          nextDraft,
+          doc.magicNumber,
+          selectedLayerZ === 1,
+        );
+        commitLogicalLevelsetUpdate((groups) => {
+          const nextGroups = [...groups];
+          const group = cloneEditableGroup(nextGroups[selectedLogicalIndex]!);
+          const nextLayers = [...group.layers];
+          nextLayers[0] =
+            selectedLayerZ === 1
+              ? parsed.canonicalLevel
+              : cloneCanonicalMetadata(parsed.canonicalLevel, nextLayers[0]!);
+          if (selectedLayerZ > 1) {
+            nextLayers[selectedLayerZ - 1] = parsed.activeLayerLevel;
+          }
+          nextGroups[selectedLogicalIndex] = {
+            ...group,
+            baseTitle: blankToUndefined(nextDraft.title) ?? "",
+            displayTitle: blankToUndefined(nextDraft.title) ?? "",
+            uses3dEncoding: group.uses3dEncoding || nextLayers.length > 1,
+            layers: nextLayers,
+          };
+          return {
+            groups: nextGroups,
+            selectedLogicalIndex,
+            selectedLayerZ,
+          };
+        });
+      } else {
+        const nextLevel = parseLevelFromDraft(activeLevel, nextDraft, doc.magicNumber);
+        commitEvent({
+          type: "replace-level",
+          index: selectedIndex,
+          level: nextLevel,
+        });
+      }
+      setMetadataError(null);
+    } catch (error: unknown) {
+      setMetadataError(asErrorMessage(error));
+    }
+  }
+
+  function addLevelAfterSelection(): void {
+    if (!doc) return;
+
+    if (threeDLevelsEnabled) {
+      commitLogicalLevelsetUpdate((groups) => {
+        const insertAt = selectedLogicalLevel ? selectedLogicalIndex + 1 : groups.length;
+        const title = `Level ${insertAt + 1}`;
+        const nextGroups = [...groups];
+        nextGroups.splice(insertAt, 0, {
+          baseTitle: title,
+          displayTitle: title,
+          uses3dEncoding: false,
+          layers: [createEmptyLevel(insertAt + 1, { title })],
+        });
+        return {
+          groups: nextGroups,
+          selectedLogicalIndex: insertAt,
+          selectedLayerZ: 1,
+        };
+      });
+      return;
+    }
+
+    const nextNumber = doc.levels.reduce((max, level) => Math.max(max, level.number), 0) + 1;
+    const insertAt = selectedLevel ? selectedIndex + 1 : doc.levels.length;
+
+    commitEvent({
+      type: "insert-level",
+      index: insertAt,
+      level: createEmptyLevel(nextNumber),
+    });
+  }
+
+  function duplicateLevelAt(index: number): void {
+    if (!doc) return;
+
+    if (threeDLevelsEnabled) {
+      commitLogicalLevelsetUpdate((groups) => {
+        const source = groups[index];
+        if (!source) return null;
+        const copyTitle = `${source.displayTitle || source.baseTitle} Copy`;
+        const nextGroups = [...groups];
+        const nextLayers = source.layers.map(cloneDatLevel);
+        nextLayers[0] = {
+          ...nextLayers[0]!,
+          password: createRandomLevelPassword(),
+        };
+        nextGroups.splice(index + 1, 0, {
+          baseTitle: copyTitle,
+          displayTitle: copyTitle,
+          uses3dEncoding: source.uses3dEncoding || source.layers.length > 1,
+          layers: nextLayers,
+        });
+        return {
+          groups: nextGroups,
+          selectedLogicalIndex: index + 1,
+          selectedLayerZ: nextLayers.length,
+        };
+      });
+      return;
+    }
+
+    const sourceLevel = doc.levels[index];
+    if (!sourceLevel) return;
+
+    const nextNumber = doc.levels.reduce((max, level) => Math.max(max, level.number), 0) + 1;
+    commitEvent({
+      type: "insert-level",
+      index: index + 1,
+      level: cloneLevel(sourceLevel, nextNumber),
+    });
+  }
+
+  function deleteLevelAt(index: number): void {
+    if (!doc) return;
+
+    if (threeDLevelsEnabled) {
+      commitLogicalLevelsetUpdate((groups) => {
+        if (!groups[index]) return null;
+        const nextGroups = [...groups];
+        nextGroups.splice(index, 1);
+        return {
+          groups: nextGroups,
+          selectedLogicalIndex: Math.max(0, index - 1),
+          selectedLayerZ: 1,
+        };
+      });
+      return;
+    }
+
+    if (!doc.levels[index]) return;
+    commitEvent({ type: "remove-level", index });
+  }
+
+  function addTopLayer(): void {
+    if (!threeDLevelsEnabled || !selectedLogicalLevel) return;
+    commitLogicalLevelsetUpdate((groups) => {
+      const nextGroups = [...groups];
+      nextGroups[selectedLogicalIndex] = withInsertedTopLayer(
+        cloneEditableGroup(nextGroups[selectedLogicalIndex]!),
+      );
+      return {
+        groups: nextGroups,
+        selectedLogicalIndex,
+        selectedLayerZ: nextGroups[selectedLogicalIndex]!.layers.length,
+      };
+    });
+  }
+
+  function addBottomLayer(): void {
+    if (!threeDLevelsEnabled || !selectedLogicalLevel) return;
+    commitLogicalLevelsetUpdate((groups) => {
+      const nextGroups = [...groups];
+      nextGroups[selectedLogicalIndex] = withInsertedBottomLayer(
+        cloneEditableGroup(nextGroups[selectedLogicalIndex]!),
+      );
+      return {
+        groups: nextGroups,
+        selectedLogicalIndex,
+        selectedLayerZ: selectedLayerZ + 1,
+      };
+    });
+  }
+
+  function removeTopLayer(): void {
+    if (!threeDLevelsEnabled || !selectedLogicalLevel || selectedLogicalLevel.layers.length <= 1)
+      return;
+    commitLogicalLevelsetUpdate((groups) => {
+      const nextGroups = [...groups];
+      nextGroups[selectedLogicalIndex] = withRemovedTopLayer(
+        cloneEditableGroup(nextGroups[selectedLogicalIndex]!),
+      );
+      return {
+        groups: nextGroups,
+        selectedLogicalIndex,
+        selectedLayerZ: Math.min(selectedLayerZ, nextGroups[selectedLogicalIndex]!.layers.length),
+      };
+    });
+  }
+
+  function removeBottomLayer(): void {
+    if (!threeDLevelsEnabled || !selectedLogicalLevel || selectedLogicalLevel.layers.length <= 1)
+      return;
+    commitLogicalLevelsetUpdate((groups) => {
+      const nextGroups = [...groups];
+      nextGroups[selectedLogicalIndex] = withRemovedBottomLayer(
+        cloneEditableGroup(nextGroups[selectedLogicalIndex]!),
+      );
+      return {
+        groups: nextGroups,
+        selectedLogicalIndex,
+        selectedLayerZ: Math.max(1, selectedLayerZ - 1),
+      };
+    });
+  }
+
+  function copySelection(): void {
+    if (!activeLevel || !selection) return;
+    setClipboard(copyLevelRegion(activeLevel, selection));
+    setPastePreviewActive(true);
+  }
+
+  function pasteClipboard(): void {
+    if (!activeLevel || !clipboard) return;
+    const anchor = getPasteAnchor(selection, hoverPoint);
+    setPastePreviewActive(true);
+    commitSelectedLevelUpdate((level) => pasteLevelRegion(level, anchor, clipboard));
+    setSelection({
+      x: anchor.x,
+      y: anchor.y,
+      width: Math.min(clipboard.width, 32 - anchor.x),
+      height: Math.min(clipboard.height, 32 - anchor.y),
+    });
+  }
+
+  function eraseSelection(): void {
+    if (!activeLevel || !selection) return;
+    const indices: number[] = [];
+    for (let y = 0; y < selection.height; y++) {
+      for (let x = 0; x < selection.width; x++) {
+        indices.push((selection.y + y) * 32 + selection.x + x);
+      }
+    }
+    commitSelectedLevelUpdate((level) => paintLevelCells(level, indices, "FLOOR"));
+  }
+
+  function resetBoardView(nextZoom = 1): void {
+    const viewport = boardViewportRef.current;
+    if (!viewport || boardSize <= 0) return;
+
+    setBoardZoom(nextZoom);
+    setBoardPan({
+      x: Math.round((viewport.clientWidth - boardSize * nextZoom) / 2),
+      y: Math.round((viewport.clientHeight - boardSize * nextZoom) / 2),
+    });
+  }
+
   useEffect(() => {
     let cancelled = false;
+
     void (async () => {
       try {
-        setSpriteError(null);
-        const ss = await loadCc1SpriteSet(CC1_TILESET_URL);
+        const nextSpriteSet = await loadCc1SpriteSet(CC1_TILESET_URL);
         if (cancelled) return;
-        setSpriteSet(ss);
-      } catch (e: unknown) {
+        setSpriteSet(nextSpriteSet);
+        setSpriteError(null);
+      } catch (error: unknown) {
         if (cancelled) return;
         setSpriteSet(null);
         setSpriteError(
-          `CC1 tileset not loaded.\nExpected: web/public/cc1/spritesheet.bmp\nTried URL: ${CC1_TILESET_URL}\nError: ${asErrorMessage(e)}`,
+          `CC1 tileset not loaded.\nExpected: web/public/cc1/spritesheet.bmp\nTried URL: ${CC1_TILESET_URL}\nError: ${asErrorMessage(error)}`,
         );
       }
     })();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const loadDocument = useCallback((next: DatLevelsetJsonV1) => {
-    setDoc(next);
-    setUndoStack([]);
-    setJsonText(stringifyDatLevelsetJsonV1(next));
-    setSelectedIndex(0);
-    setParseError(null);
-  }, []);
+  useEffect(() => {
+    setMetadataDraft(
+      canonicalLevel && activeLevel
+        ? makeMetadataDraft(
+            canonicalLevel,
+            activeLevel,
+            threeDLevelsEnabled ? selectedLogicalIndex + 1 : canonicalLevel.number,
+            threeDLevelsEnabled ? selectedLogicalLevel?.displayTitle : canonicalLevel.title,
+          )
+        : null,
+    );
+    setMetadataError(null);
+  }, [
+    activeLevel,
+    canonicalLevel,
+    selectedLogicalIndex,
+    selectedLogicalLevel,
+    threeDLevelsEnabled,
+  ]);
 
-  const commitDocumentEdit = useCallback((previous: DatLevelsetJsonV1, next: DatLevelsetJsonV1) => {
-    if (previous === next) return;
-    setUndoStack((history) => [...history, previous]);
-    setDoc(next);
-    setJsonText(stringifyDatLevelsetJsonV1(next));
-    setParseError(null);
-  }, []);
+  useEffect(() => {
+    if (!logicalLevelset) {
+      previousThreeDEnabledRef.current = threeDLevelsEnabled;
+      return;
+    }
 
-  const openLevelsetJsonText = useCallback(
-    (text: string) => {
-      try {
-        const u: unknown = JSON.parse(text);
-        const d = parseDatLevelsetJsonV1(u);
-        loadDocument(d);
-      } catch (e: unknown) {
-        setParseError(asErrorMessage(e));
+    const toggledOn = threeDLevelsEnabled && !previousThreeDEnabledRef.current;
+    previousThreeDEnabledRef.current = threeDLevelsEnabled;
+    if (!toggledOn) return;
+
+    const logicalLevel = getLogical3dLevelForRawIndex(logicalLevelset, selectedIndex);
+    const topLayer =
+      logicalLevel?.layers[logicalLevel.layers.length - 1] ?? logicalLevel?.layers[0];
+    if (!topLayer || topLayer.rawIndex === selectedIndex) return;
+    chooseRawLevel(topLayer.rawIndex);
+  }, [logicalLevelset, selectedIndex, threeDLevelsEnabled]);
+
+  useEffect(() => {
+    if (tool === "select") return;
+    setPastePreviewActive(false);
+  }, [tool]);
+
+  useEffect(() => {
+    if (!activeLevel || !spriteSet || boardViewInitialized) return;
+    resetBoardView(1);
+    setBoardViewInitialized(true);
+  }, [activeLevel, boardSize, boardViewInitialized, spriteSet]);
+
+  useEffect(() => {
+    const viewport = editorLayoutRef.current;
+    if (!viewport || boardWidgets) return;
+    setBoardWidgets(
+      createBoardWidgetLayout(
+        viewport.clientWidth,
+        viewport.clientHeight,
+        leftPanelWidth,
+        rightPanelWidth,
+      ),
+    );
+  }, [activeLevel, boardWidgets, leftPanelWidth, rightPanelWidth]);
+
+  useEffect(() => {
+    const viewport = editorLayoutRef.current;
+    if (!viewport || !boardWidgets) return;
+
+    const syncWidgetBounds = () => {
+      setBoardWidgets((current) => (current ? clampAllBoardWidgets(current) : current));
+    };
+
+    syncWidgetBounds();
+
+    const resizeObserver = new ResizeObserver(syncWidgetBounds);
+    resizeObserver.observe(viewport);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [boardWidgets]);
+
+  useEffect(() => {
+    setBoardWidgets((current) => {
+      if (!current) return current;
+
+      let changed = false;
+      const nextLayout = { ...current };
+
+      (Object.keys(current) as BoardWidgetId[]).forEach((widgetId) => {
+        const widgetState = current[widgetId];
+        if (widgetState.collapsed) return;
+
+        const widget = boardWidgetRefs.current[widgetId];
+        if (!widget) return;
+
+        const header = widget.querySelector<HTMLElement>(".boardCardHeader");
+        const body = widget.querySelector<HTMLElement>(".boardCardBody");
+        if (!header || !body) return;
+
+        const requiredHeight = Math.ceil(header.offsetHeight + body.scrollHeight + 2);
+        if (requiredHeight <= widgetState.height) return;
+
+        const nextHeight = clampBoardWidgetSize({
+          ...widgetState,
+          height: requiredHeight,
+        }).height;
+        const clampedPosition = clampBoardWidget(
+          widgetState.x,
+          widgetState.y,
+          widgetState.width,
+          nextHeight,
+        );
+
+        nextLayout[widgetId] = {
+          ...widgetState,
+          ...clampedPosition,
+          height: nextHeight,
+        };
+        changed = true;
+      });
+
+      return changed ? nextLayout : current;
+    });
+  }, [
+    boardWidgets,
+    canRedo,
+    canUndo,
+    clipboard,
+    hoverCellSummary,
+    hoverPoint,
+    pendingConnection,
+    selectedLayerZ,
+    selectedLogicalLevel,
+    selection,
+    tool,
+  ]);
+
+  useEffect(() => {
+    const paletteGrid = paletteGridRef.current;
+    if (!paletteGrid) return;
+
+    const syncPaletteWidth = () => {
+      setPaletteViewportWidth(paletteGrid.clientWidth);
+    };
+
+    syncPaletteWidth();
+
+    const resizeObserver = new ResizeObserver(syncPaletteWidth);
+    resizeObserver.observe(paletteGrid);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [inspectorTab, paletteTab]);
+
+  useEffect(() => {
+    if (tool === "connect" && activeLevel) return;
+    setPendingConnection(null);
+  }, [activeLevel, tool]);
+
+  useEffect(() => {
+    if (!layoutResizeState) return;
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== layoutResizeState.pointerId) return;
+
+      const editorWidth = editorLayoutRef.current?.clientWidth ?? window.innerWidth;
+      const deltaX = event.clientX - layoutResizeState.startClientX;
+
+      if (layoutResizeState.side === "left") {
+        const maxWidth = Math.min(
+          MAX_LEFT_PANEL_WIDTH,
+          editorWidth - rightPanelWidth - SPLITTER_WIDTH * 2 - MIN_BOARD_COLUMN_WIDTH,
+        );
+        setLeftPanelWidth(
+          clampNumber(layoutResizeState.startWidth + deltaX, MIN_LEFT_PANEL_WIDTH, maxWidth),
+        );
+        return;
       }
-    },
-    [loadDocument],
-  );
 
-  const openJson = useCallback(
-    async (file: File) => {
-      setFileName(file.name);
-      const text = await file.text();
-      openLevelsetJsonText(text);
-    },
-    [openLevelsetJsonText],
-  );
+      const maxWidth = Math.min(
+        MAX_RIGHT_PANEL_WIDTH,
+        editorWidth - leftPanelWidth - SPLITTER_WIDTH * 2 - MIN_BOARD_COLUMN_WIDTH,
+      );
+      setRightPanelWidth(
+        clampNumber(layoutResizeState.startWidth - deltaX, MIN_RIGHT_PANEL_WIDTH, maxWidth),
+      );
+    };
 
-  const openDat = useCallback(
-    async (file: File) => {
-      setFileName(file.name);
-      try {
-        const buf = await file.arrayBuffer();
-        const bytes = new Uint8Array(buf);
-        const d = decodeDatBytes(bytes);
-        loadDocument(d);
-      } catch (e: unknown) {
-        setParseError(asErrorMessage(e));
-      }
-    },
-    [loadDocument],
-  );
+    const stopResize = (event: PointerEvent) => {
+      if (event.pointerId !== layoutResizeState.pointerId) return;
+      setLayoutResizeState(null);
+    };
 
-  const onOpenClick = useCallback(() => fileInputRef.current?.click(), []);
-  const onFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.item(0);
-      if (!file) return;
+    document.body.style.userSelect = "none";
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopResize);
+    document.addEventListener("pointercancel", stopResize);
+    return () => {
+      document.body.style.userSelect = "";
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", stopResize);
+      document.removeEventListener("pointercancel", stopResize);
+    };
+  }, [layoutResizeState, leftPanelWidth, rightPanelWidth]);
 
-      if (file.name.toLowerCase().endsWith(".dat")) void openDat(file);
-      else void openJson(file);
+  useEffect(() => {
+    if (!boardWidgetDragState) return;
 
-      e.target.value = "";
-    },
-    [openDat, openJson],
-  );
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== boardWidgetDragState.pointerId) return;
 
-  const onDownloadJson = useCallback(() => {
-    if (!doc) return;
-    downloadText("levelset.json", stringifyDatLevelsetJsonV1(doc));
-  }, [doc]);
+      const nextX =
+        boardWidgetDragState.startX + (event.clientX - boardWidgetDragState.startClientX);
+      const nextY =
+        boardWidgetDragState.startY + (event.clientY - boardWidgetDragState.startClientY);
+      const clamped = clampBoardWidget(
+        nextX,
+        nextY,
+        boardWidgetDragState.width,
+        boardWidgetDragState.height,
+      );
 
-  const onDownloadDat = useCallback(() => {
-    if (!doc || parseError) return;
-    const bytes = encodeDatBytes(doc);
-    const out = fileName && fileName.toLowerCase().endsWith(".dat") ? fileName : "levelset.dat";
-    downloadBytes(out, bytes);
-  }, [doc, parseError, fileName]);
+      setBoardWidgets((current) =>
+        current
+          ? {
+              ...current,
+              [boardWidgetDragState.widgetId]: {
+                ...current[boardWidgetDragState.widgetId],
+                ...clamped,
+              },
+            }
+          : current,
+      );
+    };
 
-  const drawLevelToCanvas = useCallback(
-    (canvas: HTMLCanvasElement, level: DatLevelsetJsonV1["levels"][number]) => {
-      if (!spriteSet) throw new Error("CC1 tileset not loaded");
+    const stopDrag = (event: PointerEvent) => {
+      if (event.pointerId !== boardWidgetDragState.pointerId) return;
+      setBoardWidgetDragState(null);
+    };
 
-      const img = renderCc1LevelToRgba(level, spriteSet, { showSecrets });
+    document.body.style.userSelect = "none";
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopDrag);
+    document.addEventListener("pointercancel", stopDrag);
+    return () => {
+      document.body.style.userSelect = "";
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", stopDrag);
+      document.removeEventListener("pointercancel", stopDrag);
+    };
+  }, [boardWidgetDragState]);
 
-      canvas.width = img.width;
-      canvas.height = img.height;
+  useEffect(() => {
+    if (!boardWidgetResizeState) return;
 
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== boardWidgetResizeState.pointerId) return;
+
+      const viewport = editorLayoutRef.current;
+      if (!viewport) return;
+
+      const maxWidth = Math.max(
+        MIN_BOARD_WIDGET_WIDTH,
+        viewport.clientWidth - boardWidgetResizeState.startX - 8,
+      );
+      const maxHeight = Math.max(
+        MIN_BOARD_WIDGET_HEIGHT,
+        viewport.clientHeight - boardWidgetResizeState.startY - 8,
+      );
+      const minWidth = Math.min(MIN_BOARD_WIDGET_WIDTH, maxWidth);
+      const minHeight = Math.min(MIN_BOARD_WIDGET_HEIGHT, maxHeight);
+
+      setBoardWidgets((current) =>
+        current
+          ? {
+              ...current,
+              [boardWidgetResizeState.widgetId]: {
+                ...current[boardWidgetResizeState.widgetId],
+                width: clampNumber(
+                  boardWidgetResizeState.startWidth +
+                    (event.clientX - boardWidgetResizeState.startClientX),
+                  minWidth,
+                  maxWidth,
+                ),
+                height: clampNumber(
+                  boardWidgetResizeState.startHeight +
+                    (event.clientY - boardWidgetResizeState.startClientY),
+                  minHeight,
+                  maxHeight,
+                ),
+              },
+            }
+          : current,
+      );
+    };
+
+    const stopResize = (event: PointerEvent) => {
+      if (event.pointerId !== boardWidgetResizeState.pointerId) return;
+      setBoardWidgetResizeState(null);
+    };
+
+    document.body.style.userSelect = "none";
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopResize);
+    document.addEventListener("pointercancel", stopResize);
+    return () => {
+      document.body.style.userSelect = "";
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", stopResize);
+      document.removeEventListener("pointercancel", stopResize);
+    };
+  }, [boardWidgetResizeState]);
+
+  useEffect(() => {
+    const canvas = boardCanvasRef.current;
+    if (!canvas || !previewLevel || !spriteSet) return;
+
+    try {
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) throw new Error("Canvas 2D context unavailable");
 
-      const clamped = new Uint8ClampedArray(img.data);
-      const imageData = new ImageData(clamped, img.width, img.height);
-      ctx.putImageData(imageData, 0, 0);
+      const renderLayerCanvas = (level: DatLevelJson, layerZ: number, layerCount: number) => {
+        const displayLevel = createDat3dDisplayLevel(level, {
+          threeDEnabled: threeDLevelsEnabled,
+          layerZ,
+          layerCount,
+        });
+        const image = renderCc1LevelToRgba(displayLevel, spriteSet, { showSecrets });
+        const tempCanvas = document.createElement("canvas");
+        drawRgbaImageToCanvas(tempCanvas, image);
+        return tempCanvas;
+      };
+
+      canvas.width = boardSize;
+      canvas.height = boardSize;
+      ctx.clearRect(0, 0, boardSize, boardSize);
+
+      if (threeDLevelsEnabled && selectedLogicalLevel) {
+        const layerCount = selectedLogicalLevel.layers.length;
+        const activeCanvas = renderLayerCanvas(previewLevel, selectedLayerZ, layerCount);
+        const viewport = boardViewportRef.current;
+
+        for (let depth = Math.min(THREE_D_STACK_DEPTH, selectedLayerZ - 1); depth >= 1; depth--) {
+          const lowerLayer = selectedLogicalLevel.layers[selectedLayerZ - 1 - depth];
+          if (!lowerLayer) continue;
+
+          const layerCanvas = renderLayerCanvas(lowerLayer.level, lowerLayer.z, layerCount);
+          const metrics = getThreeDLayerDrawMetrics(
+            depth,
+            boardSize,
+            boardPan,
+            boardZoom,
+            viewport,
+          );
+
+          ctx.save();
+          ctx.filter = `blur(${depth}px) brightness(${Math.max(0.25, 1 - depth * 0.25)})`;
+          ctx.drawImage(
+            layerCanvas,
+            metrics.offsetX,
+            metrics.offsetY,
+            metrics.width,
+            metrics.height,
+          );
+          ctx.restore();
+        }
+
+        ctx.drawImage(activeCanvas, 0, 0);
+      } else {
+        const displayLevel = createDat3dDisplayLevel(previewLevel, activeDisplayContext);
+        const image = renderCc1LevelToRgba(displayLevel, spriteSet, { showSecrets });
+        drawRgbaImageToCanvas(canvas, image);
+      }
+
+      const overlayContext = canvas.getContext("2d", { willReadFrequently: true });
+      if (!overlayContext) throw new Error("Canvas 2D context unavailable");
 
       if (showConnections) {
-        drawConnections(ctx, spriteSet.tileSize, level.trapControls, level.cloneControls);
+        drawConnections(
+          overlayContext,
+          spriteSet.tileSize,
+          previewLevel.trapControls,
+          previewLevel.cloneControls,
+        );
       }
 
       if (showMonsterOrder) {
-        drawMonsterOrder(ctx, spriteSet.tileSize, level.movement);
+        drawMonsterOrder(overlayContext, spriteSet.tileSize, previewLevel.movement);
       }
-    },
-    [showConnections, showMonsterOrder, showSecrets, spriteSet],
-  );
-
-  const onDownloadPng = useCallback(async () => {
-    const level = selectedLevel;
-    if (!level || parseError || !spriteSet) return;
-
-    try {
-      const canvas = document.createElement("canvas");
-      drawLevelToCanvas(canvas, level);
-
-      const blob = await canvasToBlob(canvas);
-      if (!blob) return;
-
-      downloadBlob(`level_${level.number}.png`, blob);
-    } catch (e: unknown) {
-      setParseError(asErrorMessage(e));
+    } catch (error: unknown) {
+      setErrorMessage(asErrorMessage(error));
     }
-  }, [drawLevelToCanvas, parseError, selectedLevel, spriteSet]);
-
-  const applyTransform = useCallback(
-    (op: DatTransformKind) => {
-      if (!doc || parseError) return;
-      const next = transformLevelset(doc, op);
-      commitDocumentEdit(doc, next);
-    },
-    [commitDocumentEdit, doc, parseError],
-  );
-
-  const setNoiseSetting = useCallback(
-    <K extends keyof NoiseSettings>(key: K, value: NoiseSettings[K]) => {
-      setNoiseSettings((current) => ({ ...current, [key]: value }));
-    },
-    [],
-  );
-
-  const setNoiseNumberSetting = useCallback((key: NoiseNumberKey, value: string) => {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return;
-    setNoiseSettings((current) => ({ ...current, [key]: parsed }));
-  }, []);
-
-  const applyNoiseGenerator = useCallback(() => {
-    if (!doc || !selectedLevel || parseError) return;
-
-    try {
-      const appliedSeed = noiseSettings.seed;
-      const next = replaceSelectedLevel(doc, selectedIndex, (level) =>
-        applyNoiseToLevel(level, noiseSettings),
-      );
-      commitDocumentEdit(doc, next);
-      setLastAppliedNoiseSeed(appliedSeed);
-      setNoiseSettings((current) => ({ ...current, seed: makeRandomSeed() }));
-    } catch (e: unknown) {
-      setParseError(asErrorMessage(e));
-    }
-  }, [commitDocumentEdit, doc, noiseSettings, parseError, selectedIndex, selectedLevel]);
-
-  const undoLastEdit = useCallback(() => {
-    setUndoStack((history) => {
-      const previous = history[history.length - 1];
-      if (!previous) return history;
-      setDoc(previous);
-      setJsonText(stringifyDatLevelsetJsonV1(previous));
-      setParseError(null);
-      return history.slice(0, -1);
-    });
-  }, []);
-
-  const clearSelectedLevel = useCallback(() => {
-    if (!doc || !selectedLevel || parseError) return;
-    const next = replaceSelectedLevel(doc, selectedIndex, clearLevel);
-    commitDocumentEdit(doc, next);
-  }, [commitDocumentEdit, doc, parseError, selectedIndex, selectedLevel]);
-
-  const toggleMenu = useCallback((menu: MenuKey) => {
-    setOpenMenu((current) => (current === menu ? null : menu));
-  }, []);
-
-  const openMenuOnHover = useCallback((menu: MenuKey) => {
-    setOpenMenu((current) => (current === null ? null : menu));
-  }, []);
-
-  const runMenuAction = useCallback((action: () => void | Promise<void>) => {
-    setOpenMenu(null);
-    void action();
-  }, []);
+  }, [
+    activeDisplayContext,
+    boardSize,
+    boardPan,
+    boardZoom,
+    previewLevel,
+    selectedLayerZ,
+    selectedLogicalLevel,
+    showConnections,
+    showMonsterOrder,
+    showSecrets,
+    spriteSet,
+    threeDLevelsEnabled,
+  ]);
 
   useEffect(() => {
-    if (!openMenu) return;
+    const canvas = overlayCanvasRef.current;
+    if (!canvas || !spriteSet) return;
 
-    const onMouseDown = (event: MouseEvent) => {
-      if (!menuBarRef.current?.contains(event.target as Node)) {
-        setOpenMenu(null);
+    const size = spriteSet.tileSize * 32;
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, size, size);
+    if (previewLevel) {
+      const visibleGridIndices =
+        threeDLevelsEnabled && selectedLayerZ > 1
+          ? Array.from({ length: 32 * 32 }, (_, index) => index).filter(
+              (index) =>
+                !isTransparentAirCell(previewLevel, index, selectedLayerZ, threeDLevelsEnabled),
+            )
+          : null;
+
+      if (visibleGridIndices) drawGridForVisibleCells(ctx, spriteSet.tileSize, visibleGridIndices);
+      else drawGrid(ctx, spriteSet.tileSize);
+    }
+
+    if (showValidityWarnings) {
+      drawInvalidCells(ctx, spriteSet.tileSize, invalidCellIndices);
+    }
+
+    if (threeDLevelsEnabled && hoverPoint && selectedLogicalLevel && selectedLayerZ > 1) {
+      const viewport = boardViewportRef.current;
+      const activeLayerMetrics: ThreeDLayerDrawMetrics = {
+        offsetX: 0,
+        offsetY: 0,
+        width: size,
+        height: size,
+        scaleX: 1,
+        scaleY: 1,
+      };
+
+      for (let depth = Math.min(THREE_D_STACK_DEPTH, selectedLayerZ - 1); depth >= 1; depth--) {
+        const lowerLayer = selectedLogicalLevel.layers[selectedLayerZ - 1 - depth];
+        if (!lowerLayer) continue;
+        const metrics = getThreeDLayerDrawMetrics(depth, size, boardPan, boardZoom, viewport);
+        const clipRegions: ThreeDLayerClipRegion[] = [];
+        let isVisibleThroughAir = true;
+
+        for (let layerZ = selectedLayerZ; layerZ > lowerLayer.z; layerZ--) {
+          const layerLevel =
+            layerZ === selectedLayerZ
+              ? previewLevel
+              : (selectedLogicalLevel.layers[layerZ - 1]?.level ?? null);
+          if (!layerLevel) {
+            isVisibleThroughAir = false;
+            break;
+          }
+
+          const airIndices = Array.from({ length: 32 * 32 }, (_, index) => index).filter((index) =>
+            isTransparentAirCell(layerLevel, index, layerZ, threeDLevelsEnabled),
+          );
+          if (airIndices.length === 0) {
+            isVisibleThroughAir = false;
+            break;
+          }
+
+          clipRegions.push({
+            metrics:
+              layerZ === selectedLayerZ
+                ? activeLayerMetrics
+                : getThreeDLayerDrawMetrics(
+                    selectedLayerZ - layerZ,
+                    size,
+                    boardPan,
+                    boardZoom,
+                    viewport,
+                  ),
+            airIndices,
+          });
+        }
+
+        if (!isVisibleThroughAir) continue;
+        const alpha = Math.max(0.12, 0.34 - depth * 0.07);
+        const tint = Math.min(255, 13 + depth * 40);
+        const fillTint = Math.min(255, 149 + depth * 18);
+        drawLayerAlignedHoverCell(
+          ctx,
+          spriteSet.tileSize,
+          hoverPoint,
+          metrics,
+          `rgba(${tint}, ${Math.min(255, 140 + depth * 12)}, ${fillTint}, ${alpha * 0.18})`,
+          `rgba(${Math.min(255, 170 + depth * 20)}, ${Math.min(255, 220 + depth * 10)}, 255, ${alpha})`,
+          clipRegions,
+        );
       }
-    };
+    }
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenMenu(null);
-    };
+    if (liveSelection) {
+      drawRectOverlay(
+        ctx,
+        spriteSet.tileSize,
+        liveSelection,
+        "rgba(12, 121, 156, 0.18)",
+        "rgba(12, 121, 156, 0.96)",
+      );
+    }
 
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [openMenu]);
+    if (pastePreview && pastePreview.width > 0 && pastePreview.height > 0) {
+      drawRectOverlay(
+        ctx,
+        spriteSet.tileSize,
+        pastePreview,
+        "rgba(197, 151, 44, 0.08)",
+        "rgba(197, 151, 44, 0.92)",
+        true,
+      );
+    }
+
+    if (hoverPoint) {
+      drawRectOverlay(
+        ctx,
+        spriteSet.tileSize,
+        { x: hoverPoint.x, y: hoverPoint.y, width: 1, height: 1 },
+        "rgba(0, 0, 0, 0)",
+        "rgba(24, 34, 30, 0.82)",
+      );
+    }
+
+    if (pendingConnection) {
+      drawRectOverlay(
+        ctx,
+        spriteSet.tileSize,
+        {
+          x: pendingConnection.startIndex % 32,
+          y: Math.floor(pendingConnection.startIndex / 32),
+          width: 1,
+          height: 1,
+        },
+        "rgba(196, 55, 55, 0.12)",
+        "rgba(196, 55, 55, 0.96)",
+      );
+      drawPendingConnection(
+        ctx,
+        spriteSet.tileSize,
+        pendingConnection.startIndex,
+        pendingConnection.cursor,
+      );
+    }
+  }, [
+    boardPan,
+    boardZoom,
+    hoverPoint,
+    invalidCellIndices,
+    pendingConnection,
+    liveSelection,
+    pastePreview,
+    previewLevel,
+    selectedLayerZ,
+    selectedLogicalLevel,
+    showValidityWarnings,
+    spriteSet,
+    threeDLevelsEnabled,
+  ]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
-      if ((!event.metaKey && !event.ctrlKey) || event.altKey || event.shiftKey) return;
 
       const key = event.key.toLowerCase();
-      if (key === "z" && undoStack.length > 0) {
-        event.preventDefault();
-        undoLastEdit();
+      const meta = event.metaKey || event.ctrlKey;
+
+      if (meta && !event.altKey) {
+        if (!event.shiftKey && key === "z") {
+          event.preventDefault();
+          setEditor((current) => (current ? undoLevelsetEvent(current) : current));
+          return;
+        }
+
+        if ((event.shiftKey && key === "z") || key === "y") {
+          event.preventDefault();
+          setEditor((current) => (current ? redoLevelsetEvent(current) : current));
+          return;
+        }
+
+        if (key === "c" && selection) {
+          event.preventDefault();
+          copySelection();
+          return;
+        }
+
+        if (key === "v" && clipboard) {
+          event.preventDefault();
+          pasteClipboard();
+        }
+
+        return;
       }
 
-      if (key === "e" && doc && selectedLevel && !parseError) {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+      if (key === "escape" && pendingConnection) {
         event.preventDefault();
-        clearSelectedLevel();
+        setPendingConnection(null);
+        return;
       }
+
+      if (key === "escape" && tool === "select") {
+        event.preventDefault();
+        setDragState(null);
+        setSelection(null);
+        setPastePreviewActive(false);
+        return;
+      }
+
+      if (isKeyboardPanKey(key) && activeLevel) {
+        event.preventDefault();
+        keyboardPanKeysRef.current.add(key);
+        if (keyboardPanFrameRef.current === null) {
+          keyboardPanLastTimeRef.current = null;
+          keyboardPanFrameRef.current = requestAnimationFrame(function tick(timestamp) {
+            const pressedKeys = keyboardPanKeysRef.current;
+            if (pressedKeys.size === 0) {
+              keyboardPanFrameRef.current = null;
+              keyboardPanLastTimeRef.current = null;
+              return;
+            }
+
+            const lastTimestamp = keyboardPanLastTimeRef.current ?? timestamp;
+            const deltaSeconds = Math.max(0, (timestamp - lastTimestamp) / 1000);
+            keyboardPanLastTimeRef.current = timestamp;
+
+            let velocityX = 0;
+            let velocityY = 0;
+
+            if (pressedKeys.has("a") || pressedKeys.has("arrowleft")) velocityX += 1;
+            if (pressedKeys.has("d") || pressedKeys.has("arrowright")) velocityX -= 1;
+            if (pressedKeys.has("w") || pressedKeys.has("arrowup")) velocityY += 1;
+            if (pressedKeys.has("s") || pressedKeys.has("arrowdown")) velocityY -= 1;
+
+            const magnitude = Math.hypot(velocityX, velocityY);
+            if (magnitude > 0) {
+              const distance = KEYBOARD_PAN_SPEED * deltaSeconds;
+              const stepX = (velocityX / magnitude) * distance;
+              const stepY = (velocityY / magnitude) * distance;
+              setBoardPan((current) => ({
+                x: current.x + stepX,
+                y: current.y + stepY,
+              }));
+            }
+
+            keyboardPanFrameRef.current = requestAnimationFrame(tick);
+          });
+        }
+        return;
+      }
+
+      if (threeDLevelsEnabled && selectedLogicalLevel && key === "q") {
+        event.preventDefault();
+        selectLayerUp();
+      } else if (threeDLevelsEnabled && selectedLogicalLevel && key === "z") {
+        event.preventDefault();
+        selectLayerDown();
+      } else if (key === "b") setTool("brush");
+      else if (key === "c") setTool("connect");
+      else if (key === "l") setTool("line");
+      else if (key === "f") setTool("fill");
+      else if (key === "v") setTool("select");
+      else if ((key === "backspace" || key === "delete") && selection) {
+        event.preventDefault();
+        eraseSelection();
+      }
+    };
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      keyboardPanKeysRef.current.delete(event.key.toLowerCase());
+    };
+
+    const clearKeyboardPan = () => {
+      keyboardPanKeysRef.current.clear();
+      if (keyboardPanFrameRef.current !== null) {
+        cancelAnimationFrame(keyboardPanFrameRef.current);
+        keyboardPanFrameRef.current = null;
+      }
+      keyboardPanLastTimeRef.current = null;
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", clearKeyboardPan);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", clearKeyboardPan);
+    };
+  }, [
+    activeLevel,
+    clipboard,
+    selectedLayerZ,
+    selectedLogicalLevel,
+    selection,
+    threeDLevelsEnabled,
+    pendingConnection,
+  ]);
+
+  useEffect(() => {
+    if (!levelContextMenu) return;
+
+    const close = () => setLevelContextMenu(null);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [levelContextMenu]);
+
+  useEffect(() => {
+    if (!boardMenuOpen) return;
+
+    const close = () => setBoardMenuOpen(null);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [boardMenuOpen]);
+
+  useEffect(() => {
+    if (!openDialog) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenDialog(null);
     };
 
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [clearSelectedLevel, doc, parseError, selectedLevel, undoLastEdit, undoStack.length]);
+  }, [openDialog]);
 
-  // Render image view
   useEffect(() => {
-    if (viewMode !== "image") return;
-    if (!selectedLevel) return;
-    if (!spriteSet) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    try {
-      drawLevelToCanvas(canvas, selectedLevel);
-    } catch (e: unknown) {
-      setParseError(asErrorMessage(e));
+    if (!activeLevel) {
+      keyboardPanKeysRef.current.clear();
+      if (keyboardPanFrameRef.current !== null) {
+        cancelAnimationFrame(keyboardPanFrameRef.current);
+        keyboardPanFrameRef.current = null;
+      }
+      keyboardPanLastTimeRef.current = null;
     }
-  }, [drawLevelToCanvas, selectedLevel, spriteSet, viewMode]);
+  }, [activeLevel]);
 
-  // Load sample by default
-  useEffect(() => {
-    void (async () => {
-      if (doc) return;
-      const resp = await fetch(`${import.meta.env.BASE_URL}sample.levelset.json`);
-      if (!resp.ok) return;
-      openLevelsetJsonText(await resp.text());
-    })();
-  }, [doc, openLevelsetJsonText]);
+  function beginLayoutResize(
+    event: React.PointerEvent<HTMLDivElement>,
+    side: "left" | "right",
+  ): void {
+    event.preventDefault();
+    setLayoutResizeState({
+      side,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startWidth: side === "left" ? leftPanelWidth : rightPanelWidth,
+    });
+  }
+
+  function beginBoardWidgetDrag(
+    event: React.PointerEvent<HTMLDivElement>,
+    widgetId: BoardWidgetId,
+  ): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const widget = boardWidgetRefs.current[widgetId];
+    const layout = boardWidgets?.[widgetId];
+    if (!widget || !layout) return;
+
+    setBoardWidgetDragState({
+      widgetId,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: layout.x,
+      startY: layout.y,
+      width: widget.offsetWidth,
+      height: widget.offsetHeight,
+    });
+  }
+
+  function beginBoardWidgetResize(
+    event: React.PointerEvent<HTMLButtonElement>,
+    widgetId: BoardWidgetId,
+  ): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const layout = boardWidgets?.[widgetId];
+    if (!layout) return;
+
+    setBoardWidgetResizeState({
+      widgetId,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startWidth: layout.width,
+      startHeight: layout.height,
+      startX: layout.x,
+      startY: layout.y,
+    });
+  }
+
+  function toggleBoardWidgetCollapsed(widgetId: BoardWidgetId): void {
+    setBoardWidgets((current) =>
+      current
+        ? {
+            ...current,
+            [widgetId]: {
+              ...current[widgetId],
+              collapsed: !current[widgetId].collapsed,
+            },
+          }
+        : current,
+    );
+  }
+
+  function toggleBoardMenu(menu: "file" | "view" | "options" | "transform"): void {
+    setBoardMenuOpen((current) => (current === menu ? null : menu));
+  }
+
+  function applySelectedLevelTransform(kind: DatTransformKind): void {
+    if (!activeLevel) return;
+
+    if (threeDLevelsEnabled && selectedLogicalLevel) {
+      commitLogicalLevelsetUpdate((groups) => {
+        const group = groups[selectedLogicalIndex];
+        if (!group) return null;
+
+        const nextGroups = [...groups];
+        nextGroups[selectedLogicalIndex] = {
+          ...group,
+          layers: group.layers.map((layer) => transformLevel(layer, kind)),
+        };
+
+        return {
+          groups: nextGroups,
+          selectedLogicalIndex,
+          selectedLayerZ,
+        };
+      });
+    } else {
+      commitSelectedLevelUpdate((level) => transformLevel(level, kind));
+    }
+
+    setSelection(null);
+    setHoverPoint(null);
+    setDragState(null);
+    setBoardMenuOpen(null);
+    setErrorMessage(null);
+  }
+
+  function shiftVisibleLevel(dx: number, dy: number): void {
+    if (!doc || !activeLevel) return;
+
+    if (threeDLevelsEnabled && selectedLogicalLevel) {
+      commitLogicalLevelsetUpdate((groups) => {
+        const group = groups[selectedLogicalIndex];
+        if (!group) return null;
+
+        const nextGroups = [...groups];
+        nextGroups[selectedLogicalIndex] = {
+          ...group,
+          layers: group.layers.map((layer) => shiftLevelWrap(layer, dx, dy)),
+        };
+
+        return {
+          groups: nextGroups,
+          selectedLogicalIndex,
+          selectedLayerZ,
+        };
+      });
+      return;
+    }
+
+    commitSelectedLevelUpdate((level) => shiftLevelWrap(level, dx, dy));
+  }
+
+  function getLevelCountForDisplay(): number {
+    return threeDLevelsEnabled ? (logicalLevelset?.levels.length ?? 0) : (doc?.levels.length ?? 0);
+  }
+
+  function getDropInsertionIndex(): number | null {
+    if (draggedLevelIndex === null || !levelDropState) return null;
+    const levelCount = getLevelCountForDisplay();
+    return clampNumber(
+      levelDropState.index + (levelDropState.position === "after" ? 1 : 0),
+      0,
+      levelCount,
+    );
+  }
+
+  function getReorderedTargetIndex(insertionIndex: number, levelCount: number): number {
+    if (draggedLevelIndex === null) return 0;
+    const adjusted = insertionIndex > draggedLevelIndex ? insertionIndex - 1 : insertionIndex;
+    return clampNumber(adjusted, 0, Math.max(0, levelCount - 1));
+  }
+
+  function getLevelDropStateFromList(listElement: HTMLDivElement, clientY: number): LevelDropState {
+    const items = Array.from(listElement.querySelectorAll<HTMLElement>(".levelListItem"));
+    if (items.length === 0) return null;
+
+    let bestMatch: LevelDropState = { index: 0, position: "before" };
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    items.forEach((item, index) => {
+      const rect = item.getBoundingClientRect();
+      const beforeDistance = Math.abs(clientY - rect.top);
+      if (beforeDistance < bestDistance) {
+        bestDistance = beforeDistance;
+        bestMatch = { index, position: "before" };
+      }
+
+      const afterDistance = Math.abs(clientY - rect.bottom);
+      if (afterDistance < bestDistance) {
+        bestDistance = afterDistance;
+        bestMatch = { index, position: "after" };
+      }
+    });
+
+    return bestMatch;
+  }
+
+  function handleLevelDragStart(index: number): void {
+    setDraggedLevelIndex(index);
+    setLevelDropState(null);
+    setLevelContextMenu(null);
+  }
+
+  function handleLevelDragOver(
+    event: React.DragEvent<HTMLButtonElement | HTMLDivElement>,
+    index: number,
+  ): void {
+    event.preventDefault();
+    const target = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY < target.top + target.height / 2 ? "before" : "after";
+    setLevelDropState((current) =>
+      current?.index === index && current.position === position ? current : { index, position },
+    );
+  }
+
+  function handleLevelDrop(): void {
+    const insertionIndex = getDropInsertionIndex();
+    const levelCount = getLevelCountForDisplay();
+    if (draggedLevelIndex === null || insertionIndex === null || levelCount <= 0) return;
+
+    const targetIndex = getReorderedTargetIndex(insertionIndex, levelCount);
+    if (draggedLevelIndex !== targetIndex) {
+      if (threeDLevelsEnabled) {
+        commitLogicalLevelsetUpdate((groups) => {
+          const nextGroups = [...groups];
+          const [moved] = nextGroups.splice(draggedLevelIndex, 1);
+          if (!moved) return null;
+          nextGroups.splice(targetIndex, 0, moved);
+          return {
+            groups: nextGroups,
+            selectedLogicalIndex: targetIndex,
+            selectedLayerZ: moved.layers.length,
+          };
+        });
+      } else {
+        commitEvent({
+          type: "move-level",
+          from: draggedLevelIndex,
+          to: targetIndex,
+        });
+      }
+    }
+
+    setDraggedLevelIndex(null);
+    setLevelDropState(null);
+  }
+
+  function handleLevelContextMenu(event: React.MouseEvent, index: number): void {
+    event.preventDefault();
+    if (threeDLevelsEnabled) chooseLogicalLevel(index);
+    else chooseRawLevel(index);
+    setLevelContextMenu({
+      index,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.item(0);
+    if (!file) return;
+
+    if (file.name.toLowerCase().endsWith(".dat")) {
+      void openDat(file);
+    } else {
+      void openJson(file);
+    }
+
+    event.target.value = "";
+  }
+
+  function triggerOpenDialog(): void {
+    fileInputRef.current?.click();
+  }
+
+  async function saveCurrentDat(): Promise<void> {
+    if (!doc) return;
+    try {
+      const output = normalizeDatFileName(fileName);
+      const exportDoc = threeDLevelsEnabled ? export3dLevelsetDoc(doc) : doc;
+      await saveBytesLocally(output, encodeDatBytes(exportDoc));
+      setErrorMessage(null);
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setErrorMessage(asErrorMessage(error));
+    }
+  }
+
+  function beginBoardPanGesture(pointerId: number, clientX: number, clientY: number): void {
+    setBoardPanState({
+      pointerId,
+      startClientX: clientX,
+      startClientY: clientY,
+      startPanX: boardPan.x,
+      startPanY: boardPan.y,
+    });
+    setHoverPoint(null);
+  }
+
+  function updateBoardPanGesture(clientX: number, clientY: number): void {
+    if (!boardPanState) return;
+    setBoardPan({
+      x: boardPanState.startPanX + (clientX - boardPanState.startClientX),
+      y: boardPanState.startPanY + (clientY - boardPanState.startClientY),
+    });
+  }
+
+  function handleViewportPointerDown(event: React.PointerEvent<HTMLDivElement>): void {
+    if (!activeLevel || event.target !== event.currentTarget) return;
+    if (!isBoardPanGesture(event.nativeEvent)) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    beginBoardPanGesture(event.pointerId, event.clientX, event.clientY);
+  }
+
+  function handleViewportPointerMove(event: React.PointerEvent<HTMLDivElement>): void {
+    if (!boardPanState || boardPanState.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    updateBoardPanGesture(event.clientX, event.clientY);
+  }
+
+  function handleViewportPointerUp(event: React.PointerEvent<HTMLDivElement>): void {
+    if (!boardPanState || boardPanState.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    setBoardPanState(null);
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function handleViewportPointerCancel(event: React.PointerEvent<HTMLDivElement>): void {
+    if (!boardPanState || boardPanState.pointerId !== event.pointerId) return;
+    setBoardPanState(null);
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>): void {
+    if (!activeLevel) return;
+    event.preventDefault();
+
+    if (isBoardPanGesture(event.nativeEvent)) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      beginBoardPanGesture(event.pointerId, event.clientX, event.clientY);
+      return;
+    }
+
+    const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
+    const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent);
+    setHoverPoint(point);
+    setMetadataError(null);
+
+    if (tool === "connect") {
+      if (event.button !== 0 || !point || !boardPoint) return;
+
+      const index = point.y * 32 + point.x;
+      if (!isConnectionEndpointCell(activeLevel, index)) {
+        setPendingConnection(null);
+        return;
+      }
+
+      if (!pendingConnection) {
+        setPendingConnection({
+          startIndex: index,
+          cursor: boardPoint,
+        });
+        return;
+      }
+
+      if (pendingConnection.startIndex !== index) {
+        commitSelectedLevelUpdate((level) =>
+          connectLevelButtons(level, pendingConnection.startIndex, index),
+        );
+      }
+
+      setPendingConnection(null);
+      return;
+    }
+
+    if (!isSupportedCanvasPointerButton(event.button) || !point) return;
+
+    if (tool === "fill") {
+      commitSelectedLevelUpdate((level) =>
+        fillLevelArea(
+          level,
+          point,
+          getPaintTileForButton(event.button, primaryTile, secondaryTile),
+          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, event.shiftKey),
+        ),
+      );
+      return;
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const dragTile = getPaintTileForButton(event.button, primaryTile, secondaryTile);
+
+    if (tool === "brush") {
+      setDragState({
+        tool: "brush",
+        pointerId: event.pointerId,
+        lastPoint: point,
+        cells: [point.y * 32 + point.x],
+        tile: dragTile,
+        buryOnBottom: event.shiftKey,
+      });
+    } else if (tool === "line") {
+      setDragState({
+        tool: "line",
+        pointerId: event.pointerId,
+        start: point,
+        current: point,
+        tile: dragTile,
+        buryOnBottom: event.shiftKey,
+      });
+    } else {
+      setDragState({
+        tool: "select",
+        pointerId: event.pointerId,
+        start: point,
+        current: point,
+      });
+    }
+  }
+
+  function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>): void {
+    if (boardPanState && boardPanState.pointerId === event.pointerId) {
+      event.preventDefault();
+      setHoverPoint(null);
+      updateBoardPanGesture(event.clientX, event.clientY);
+      return;
+    }
+
+    const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
+    const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent);
+    setHoverPoint(point);
+
+    if (tool === "connect" && pendingConnection && boardPoint) {
+      setPendingConnection((current) =>
+        current
+          ? {
+              ...current,
+              cursor: boardPoint,
+            }
+          : current,
+      );
+    }
+
+    if (!point || !dragState || dragState.pointerId !== event.pointerId) return;
+
+    if (dragState.tool === "brush") {
+      if (dragState.lastPoint.x === point.x && dragState.lastPoint.y === point.y) return;
+      setDragState({
+        ...dragState,
+        lastPoint: point,
+        cells: mergeIndices(dragState.cells, getLineIndices(dragState.lastPoint, point)),
+      });
+      return;
+    }
+
+    setDragState({
+      ...dragState,
+      current: point,
+    });
+  }
+
+  function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>): void {
+    if (boardPanState && boardPanState.pointerId === event.pointerId) {
+      event.preventDefault();
+      setBoardPanState(null);
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
+    }
+
+    if (tool === "connect") return;
+
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+    event.preventDefault();
+
+    const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
+
+    if (dragState.tool === "brush") {
+      commitSelectedLevelUpdate((level) =>
+        paintLevelCells(
+          level,
+          dragState.cells,
+          dragState.tile,
+          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
+        ),
+      );
+    } else if (dragState.tool === "line") {
+      commitSelectedLevelUpdate((level) =>
+        paintLevelLine(
+          level,
+          dragState.start,
+          point ?? dragState.current,
+          dragState.tile,
+          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
+        ),
+      );
+    } else {
+      setSelection(normalizeRect(dragState.start, point ?? dragState.current));
+    }
+
+    setDragState(null);
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function handlePointerCancel(event: React.PointerEvent<HTMLCanvasElement>): void {
+    if (boardPanState && boardPanState.pointerId === event.pointerId) {
+      setBoardPanState(null);
+      setHoverPoint(null);
+      return;
+    }
+
+    if (tool === "connect") return;
+
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+    setDragState(null);
+    setHoverPoint(null);
+  }
+
+  function handleBoardWheel(event: React.WheelEvent<HTMLDivElement>): void {
+    if (!activeLevel || boardSize <= 0) return;
+    event.preventDefault();
+
+    const viewport = boardViewportRef.current;
+    if (!viewport) return;
+
+    const rect = viewport.getBoundingClientRect();
+    const nextZoom = clampNumber(boardZoom * Math.exp(-event.deltaY * 0.0015), 0.25, 6);
+    if (Math.abs(nextZoom - boardZoom) < 0.001) return;
+
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    const worldX = (pointerX - boardPan.x) / boardZoom;
+    const worldY = (pointerY - boardPan.y) / boardZoom;
+
+    setBoardZoom(nextZoom);
+    setBoardPan({
+      x: pointerX - worldX * nextZoom,
+      y: pointerY - worldY * nextZoom,
+    });
+  }
+
+  function handlePaletteWheel(event: React.WheelEvent<HTMLDivElement>): void {
+    if (!event.metaKey && !event.ctrlKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setPaletteTileSizeTarget((current) =>
+      clampNumber(
+        current * Math.exp(-event.deltaY * 0.0025),
+        MIN_PALETTE_TILE_SIZE,
+        MAX_PALETTE_TILE_SIZE,
+      ),
+    );
+  }
+
+  function renderBoardWidget(
+    widgetId: BoardWidgetId,
+    className: string,
+    body: ReactNode,
+    headerActions: ReactNode = null,
+  ): ReactNode {
+    if (!boardWidgets) return null;
+
+    const widget = boardWidgets[widgetId];
+    const layoutRect = editorLayoutRef.current?.getBoundingClientRect();
+
+    return (
+      <div
+        ref={(node) => {
+          boardWidgetRefs.current[widgetId] = node;
+        }}
+        className={`boardCard ${className} ${widget.collapsed ? "collapsed" : ""} ${boardWidgetDragState?.widgetId === widgetId ? "dragging" : ""}`}
+        style={{
+          position: "fixed",
+          left: (layoutRect?.left ?? 0) + widget.x,
+          top: (layoutRect?.top ?? 0) + widget.y,
+          width: widget.collapsed ? undefined : widget.width,
+          height: widget.collapsed ? undefined : widget.height,
+        }}
+        onWheelCapture={(event) => event.stopPropagation()}
+      >
+        <div
+          className="boardCardHeader"
+          onPointerDown={(event) => beginBoardWidgetDrag(event, widgetId)}
+        >
+          <span className="boardCardTitle">{getBoardWidgetTitle(widgetId)}</span>
+          <div
+            className="boardCardHeaderActions"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            {headerActions}
+            <button
+              type="button"
+              className="boardCardToggle"
+              aria-label={
+                widget.collapsed
+                  ? `Expand ${getBoardWidgetTitle(widgetId)}`
+                  : `Collapse ${getBoardWidgetTitle(widgetId)}`
+              }
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleBoardWidgetCollapsed(widgetId);
+              }}
+            >
+              {widget.collapsed ? "+" : "-"}
+            </button>
+          </div>
+        </div>
+        {!widget.collapsed ? <div className="boardCardBody">{body}</div> : null}
+        {!widget.collapsed ? (
+          <button
+            type="button"
+            className="boardCardResizeHandle"
+            aria-label={`Resize ${getBoardWidgetTitle(widgetId)}`}
+            onPointerDown={(event) => beginBoardWidgetResize(event, widgetId)}
+          />
+        ) : null}
+      </div>
+    );
+  }
 
   return (
-    <div className="container">
-      <div className="header">
-        <div ref={menuBarRef} className="menuBar" role="menubar" aria-label="Application menu">
-          <div className="menuShell" onMouseEnter={() => openMenuOnHover("file")}>
-            <button
-              className={`menuTrigger ${openMenu === "file" ? "open" : ""}`}
-              type="button"
-              role="menuitem"
-              aria-haspopup="menu"
-              aria-expanded={openMenu === "file"}
-              onClick={() => toggleMenu("file")}
-            >
-              File
-            </button>
-            {openMenu === "file" ? (
-              <div className="menuPanel" role="menu" aria-label="File">
-                <button
-                  className="menuItem"
-                  type="button"
-                  role="menuitem"
-                  onClick={() => runMenuAction(onOpenClick)}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Open...</span>
-                </button>
-                <div className="menuSeparator" />
-                <button
-                  className="menuItem"
-                  type="button"
-                  role="menuitem"
-                  disabled={!doc || !!parseError}
-                  onClick={() => runMenuAction(onDownloadDat)}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Download DAT</span>
-                </button>
-                <button
-                  className="menuItem"
-                  type="button"
-                  role="menuitem"
-                  disabled={!doc || !!parseError}
-                  onClick={() => runMenuAction(onDownloadJson)}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Download JSON</span>
-                </button>
-                <button
-                  className="menuItem"
-                  type="button"
-                  role="menuitem"
-                  disabled={!selectedLevel || !spriteSet || !!parseError}
-                  onClick={() => runMenuAction(onDownloadPng)}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Download PNG</span>
-                </button>
-              </div>
-            ) : null}
-          </div>
+    <div className="appShell">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".dat,.json"
+        hidden
+        onChange={handleFileChange}
+      />
 
-          <div className="menuShell" onMouseEnter={() => openMenuOnHover("edit")}>
-            <button
-              className={`menuTrigger ${openMenu === "edit" ? "open" : ""}`}
-              type="button"
-              role="menuitem"
-              aria-haspopup="menu"
-              aria-expanded={openMenu === "edit"}
-              onClick={() => toggleMenu("edit")}
-            >
-              Edit
-            </button>
-            {openMenu === "edit" ? (
-              <div className="menuPanel" role="menu" aria-label="Edit">
-                <button
-                  className="menuItem"
-                  type="button"
-                  role="menuitem"
-                  disabled={undoStack.length === 0}
-                  onClick={() => runMenuAction(undoLastEdit)}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Undo</span>
-                  <span className="menuShortcut">Cmd+Z</span>
-                </button>
-                <div className="menuSeparator" />
-                <button
-                  className="menuItem"
-                  type="button"
-                  role="menuitem"
-                  disabled={!doc || !selectedLevel || !!parseError}
-                  onClick={() => runMenuAction(clearSelectedLevel)}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Clear Level</span>
-                  <span className="menuShortcut">Cmd+E</span>
-                </button>
-              </div>
-            ) : null}
-          </div>
+      {spriteError ? <div className="banner errorBanner">{spriteError}</div> : null}
+      {errorMessage ? <div className="banner errorBanner">{errorMessage}</div> : null}
 
-          <div className="menuShell" onMouseEnter={() => openMenuOnHover("transform")}>
-            <button
-              className={`menuTrigger ${openMenu === "transform" ? "open" : ""}`}
-              type="button"
-              role="menuitem"
-              aria-haspopup="menu"
-              aria-expanded={openMenu === "transform"}
-              onClick={() => toggleMenu("transform")}
-            >
-              Transform
-            </button>
-            {openMenu === "transform" ? (
-              <div className="menuPanel" role="menu" aria-label="Transform">
-                {TRANSFORMS.map((t) => (
+      <main className="editorLayout" ref={editorLayoutRef} style={editorLayoutStyle}>
+        <aside className="panel levelPanel">
+          <section className="panelSection">
+            <div className="panelBrand">
+              <div className="panelBrandCopy">
+                <div className="panelBrandHeader">
+                  <div className="brandTitle">DATTools Editor</div>
                   <button
-                    key={t.op}
-                    className="menuItem"
                     type="button"
-                    role="menuitem"
-                    disabled={!doc || !!parseError}
-                    onClick={() => runMenuAction(() => applyTransform(t.op))}
+                    className="boardIconButton brandHelpButton"
+                    aria-label="Open editor help"
+                    title="Open editor help"
+                    onClick={() => setOpenDialog("brandingHelp")}
                   >
-                    <span className="menuMark" aria-hidden="true" />
-                    <span className="menuLabel">{t.label}</span>
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <circle cx="8" cy="8" r="6.25" fill="none" />
+                      <path
+                        d="M6.7 6.1a1.55 1.55 0 1 1 2.5 1.2c-.72.56-1.15.95-1.15 1.7v.35"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx="8" cy="11.95" r="0.75" stroke="none" />
+                    </svg>
                   </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="menuShell" onMouseEnter={() => openMenuOnHover("generate")}>
-            <button
-              className={`menuTrigger ${openMenu === "generate" ? "open" : ""}`}
-              type="button"
-              role="menuitem"
-              aria-haspopup="menu"
-              aria-expanded={openMenu === "generate"}
-              onClick={() => toggleMenu("generate")}
-            >
-              Generate
-            </button>
-            {openMenu === "generate" ? (
-              <div className="menuPanel" role="menu" aria-label="Generate">
-                {GENERATE_MODULES.map((module) => (
-                  <button
-                    key={module.key}
-                    className={`menuItem ${selectedGenerator === module.key ? "checked" : ""}`}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={selectedGenerator === module.key}
-                    onClick={() => runMenuAction(() => setSelectedGenerator(module.key))}
-                  >
-                    <span className="menuMark" aria-hidden="true" />
-                    <span className="menuLabel">{module.label}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="menuShell" onMouseEnter={() => openMenuOnHover("view")}>
-            <button
-              className={`menuTrigger ${openMenu === "view" ? "open" : ""}`}
-              type="button"
-              role="menuitem"
-              aria-haspopup="menu"
-              aria-expanded={openMenu === "view"}
-              onClick={() => toggleMenu("view")}
-            >
-              View
-            </button>
-            {openMenu === "view" ? (
-              <div className="menuPanel" role="menu" aria-label="View">
-                <button
-                  className={`menuItem ${viewMode === "image" ? "checked" : ""}`}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={viewMode === "image"}
-                  onClick={() => runMenuAction(() => setViewMode("image"))}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Image</span>
-                </button>
-                <button
-                  className={`menuItem ${viewMode === "json" ? "checked" : ""}`}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={viewMode === "json"}
-                  onClick={() => runMenuAction(() => setViewMode("json"))}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">JSON</span>
-                </button>
-                <div className="menuSeparator" />
-                <button
-                  className={`menuItem ${showSecrets ? "checked" : ""}`}
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={showSecrets}
-                  onClick={() => runMenuAction(() => setShowSecrets((value) => !value))}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Secrets</span>
-                </button>
-                <button
-                  className={`menuItem ${showConnections ? "checked" : ""}`}
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={showConnections}
-                  onClick={() => runMenuAction(() => setShowConnections((value) => !value))}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Connections</span>
-                </button>
-                <button
-                  className={`menuItem ${showMonsterOrder ? "checked" : ""}`}
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={showMonsterOrder}
-                  onClick={() => runMenuAction(() => setShowMonsterOrder((value) => !value))}
-                >
-                  <span className="menuMark" aria-hidden="true" />
-                  <span className="menuLabel">Monster order</span>
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="headerStatus">
-          <span className="badge">{fileName ?? "no file"}</span>
-          <span className="badge">{doc ? `levels=${doc.levels.length}` : "no doc"}</span>
-          <span className="badge">{parseError ? "INVALID" : "OK"}</span>
-          <span className="badge">
-            {spriteSet ? `tileset=${spriteSet.tileSize}px` : "tileset=missing"}
-          </span>
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".dat,.json"
-          style={{ display: "none" }}
-          onChange={onFileChange}
-        />
-      </div>
-
-      {spriteError ? (
-        <div className="msg error" style={{ margin: 12 }}>
-          {spriteError}
-        </div>
-      ) : null}
-
-      <div className="main">
-        <div className="sidebar">
-          {doc?.levels.map((lv, i) => (
-            <div
-              key={lv.number}
-              className={`sidebarItem ${i === selectedIndex ? "selected" : ""}`}
-              onClick={() => setSelectedIndex(i)}
-            >
-              {lv.number}. {lv.title ?? `Level ${lv.number}`}
-            </div>
-          )) ?? <div className="sidebarItem">Open a .dat or .json…</div>}
-        </div>
-
-        <div className="content">
-          <div className={`workspace ${selectedGenerator ? "hasGeneratorPanel" : ""}`}>
-            <div className="pane">
-              {parseError ? <div className="msg error">{parseError}</div> : null}
-
-              {selectedLevel ? (
-                viewMode === "json" ? (
-                  <textarea
+                </div>
+                <div className="brandSubtitle">Level and levelset authoring for CC1 DAT files</div>
+                <div className="panelMetaStrip">
+                  <input
+                    className="brandingFileInput"
+                    type="text"
+                    aria-label="Levelset filename"
+                    value={fileName}
                     spellCheck={false}
-                    readOnly
-                    value={JSON.stringify(selectedLevel, null, 2) + "\n"}
+                    onChange={(event) => setFileName(event.target.value)}
                   />
-                ) : (
-                  <canvas ref={canvasRef} />
+                  <span className="statusBadge">
+                    {doc
+                      ? `${threeDLevelsEnabled ? (logicalLevelset?.levels.length ?? 0) : doc.levels.length} levels`
+                      : "no document"}
+                  </span>
+                  <button
+                    type="button"
+                    className="actionButton brandingActionButton"
+                    onClick={triggerOpenDialog}
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    className="actionButton brandingActionButton"
+                    disabled={!doc}
+                    onClick={() => {
+                      void saveCurrentDat();
+                    }}
+                  >
+                    Save As
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section className="panelSection levelManagerSection">
+            <div className="sectionHeader">
+              <div>
+                <div className="sectionEyebrow">Levels</div>
+                <h2 className="sectionTitle">Manager</h2>
+              </div>
+              <div className="sectionActions">
+                <button type="button" className="iconButton" onClick={addLevelAfterSelection}>
+                  Add
+                </button>
+              </div>
+            </div>
+            <div className="levelManagerHint">
+              Drag to reorder. Right-click for duplicate or delete.
+            </div>
+
+            <div
+              className="levelList"
+              role="list"
+              aria-label="Level list"
+              onDragOver={(event) => {
+                if (event.target !== event.currentTarget) return;
+                event.preventDefault();
+                const nextDropState = getLevelDropStateFromList(event.currentTarget, event.clientY);
+                if (!nextDropState) return;
+                setLevelDropState((current) =>
+                  current?.index === nextDropState.index &&
+                  current.position === nextDropState.position
+                    ? current
+                    : nextDropState,
+                );
+              }}
+              onDrop={(event) => {
+                if (event.target !== event.currentTarget) return;
+                event.preventDefault();
+                handleLevelDrop();
+              }}
+            >
+              {(threeDLevelsEnabled ? logicalLevelset?.levels.length : doc?.levels.length) ? (
+                (threeDLevelsEnabled ? (logicalLevelset?.levels ?? []) : (doc?.levels ?? [])).map(
+                  (entry, index) => {
+                    const isLogical = threeDLevelsEnabled;
+                    const logicalLevel = isLogical ? (entry as Logical3dLevel) : null;
+                    const rawLevel = !isLogical ? (entry as DatLevelJson) : null;
+                    const itemNumber = isLogical ? logicalLevel!.displayNumber : rawLevel!.number;
+                    const itemTitle = isLogical
+                      ? logicalLevel!.displayTitle || `Level ${logicalLevel!.displayNumber}`
+                      : (rawLevel!.title ?? `Level ${rawLevel!.number}`);
+                    const isSelected = isLogical
+                      ? index === selectedLogicalIndex
+                      : index === selectedIndex;
+                    const showsDropBefore =
+                      draggedLevelIndex !== null &&
+                      levelDropState?.index === index &&
+                      levelDropState.position === "before";
+                    const showsDropAfter =
+                      draggedLevelIndex !== null &&
+                      levelDropState?.index === index &&
+                      levelDropState.position === "after";
+
+                    return (
+                      <button
+                        key={
+                          isLogical
+                            ? `${logicalLevel!.docStartIndex}-${index}`
+                            : `${rawLevel!.number}-${index}`
+                        }
+                        type="button"
+                        draggable
+                        className={`levelListItem ${isSelected ? "selected" : ""} ${draggedLevelIndex === index ? "dragging" : ""} ${showsDropBefore ? "dropBefore" : ""} ${showsDropAfter ? "dropAfter" : ""}`}
+                        onClick={() =>
+                          isLogical ? chooseLogicalLevel(index) : chooseRawLevel(index)
+                        }
+                        onContextMenu={(event) => handleLevelContextMenu(event, index)}
+                        onDragStart={() => handleLevelDragStart(index)}
+                        onDragOver={(event) => {
+                          event.stopPropagation();
+                          handleLevelDragOver(event, index);
+                        }}
+                        onDrop={(event) => {
+                          event.stopPropagation();
+                          event.preventDefault();
+                          handleLevelDrop();
+                        }}
+                        onDragEnd={() => {
+                          setDraggedLevelIndex(null);
+                          setLevelDropState(null);
+                        }}
+                      >
+                        <span className="levelDragGrip" aria-hidden="true">
+                          ::
+                        </span>
+                        <span className="levelListNumber">{itemNumber}</span>
+                        <span className="levelListTitle">{itemTitle}</span>
+                      </button>
+                    );
+                  },
                 )
               ) : (
-                <div className="msg">No level selected.</div>
+                <div className="emptyState">Open a DAT or JSON levelset to start editing.</div>
               )}
             </div>
+          </section>
+        </aside>
 
-            {selectedGenerator === "noise" ? (
-              <aside className="generatorPanel">
-                <div className="generatorHeader">
-                  <div>
-                    <div className="generatorEyebrow">Generate Options</div>
-                    <div className="generatorTitle">Noise</div>
+        <div
+          className={`panelSplitter ${layoutResizeState?.side === "left" ? "active" : ""}`}
+          onPointerDown={(event) => beginLayoutResize(event, "left")}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize level manager"
+        />
+
+        <section className="panel boardPanel">
+          <div
+            className={`boardViewport ${boardPanState ? "panning" : ""}`}
+            ref={boardViewportRef}
+            onWheel={handleBoardWheel}
+            onPointerDown={handleViewportPointerDown}
+            onPointerMove={handleViewportPointerMove}
+            onPointerUp={handleViewportPointerUp}
+            onPointerCancel={handleViewportPointerCancel}
+          >
+            {renderBoardWidget(
+              "controls",
+              "boardControlsCard",
+              <>
+                <div className="boardMenuBar">
+                  <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="menuButton"
+                      aria-expanded={boardMenuOpen === "file"}
+                      onClick={() => toggleBoardMenu("file")}
+                    >
+                      File
+                    </button>
+                    {boardMenuOpen === "file" ? (
+                      <div className="dropdownMenu">
+                        <button
+                          type="button"
+                          className="dropdownMenuItem"
+                          onClick={() => {
+                            setBoardMenuOpen(null);
+                            triggerOpenDialog();
+                          }}
+                        >
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          className="dropdownMenuItem"
+                          disabled={!doc}
+                          onClick={() => {
+                            if (!doc) return;
+                            setBoardMenuOpen(null);
+                            const exportDoc = threeDLevelsEnabled ? export3dLevelsetDoc(doc) : doc;
+                            downloadText("levelset.json", stringifyDatLevelsetJsonV1(exportDoc));
+                          }}
+                        >
+                          Download JSON
+                        </button>
+                        <button
+                          type="button"
+                          className="dropdownMenuItem"
+                          disabled={!doc}
+                          onClick={() => {
+                            setBoardMenuOpen(null);
+                            void saveCurrentDat();
+                          }}
+                        >
+                          Save DAT As...
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
-                  <button
-                    type="button"
-                    className="generatorClose"
-                    onClick={() => setSelectedGenerator(null)}
-                  >
-                    Close
-                  </button>
+
+                  <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="menuButton"
+                      aria-expanded={boardMenuOpen === "view"}
+                      onClick={() => toggleBoardMenu("view")}
+                    >
+                      View
+                    </button>
+                    {boardMenuOpen === "view" ? (
+                      <div className="dropdownMenu">
+                        <button
+                          type="button"
+                          className="dropdownMenuItem"
+                          onClick={() => setShowSecrets((current) => !current)}
+                        >
+                          {`${showSecrets ? "Hide" : "Show"} Secrets`}
+                        </button>
+                        <button
+                          type="button"
+                          className="dropdownMenuItem"
+                          onClick={() => setShowConnections((current) => !current)}
+                        >
+                          {`${showConnections ? "Hide" : "Show"} Connections`}
+                        </button>
+                        <button
+                          type="button"
+                          className="dropdownMenuItem"
+                          onClick={() => setShowMonsterOrder((current) => !current)}
+                        >
+                          {`${showMonsterOrder ? "Hide" : "Show"} Monster Order`}
+                        </button>
+                        <button
+                          type="button"
+                          className="dropdownMenuItem"
+                          onClick={() => setShowValidityWarnings((current) => !current)}
+                        >
+                          {`${showValidityWarnings ? "Hide" : "Show"} Validity Warnings`}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="menuButton"
+                      aria-expanded={boardMenuOpen === "options"}
+                      onClick={() => toggleBoardMenu("options")}
+                    >
+                      Options
+                    </button>
+                    {boardMenuOpen === "options" ? (
+                      <div className="dropdownMenu">
+                        <button
+                          type="button"
+                          className="dropdownMenuItem"
+                          onClick={() => setThreeDLevelsEnabled((current) => !current)}
+                        >
+                          {`${threeDLevelsEnabled ? "Disable" : "Enable"} 3D Levels`}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="menuButton"
+                      aria-expanded={boardMenuOpen === "transform"}
+                      onClick={() => toggleBoardMenu("transform")}
+                    >
+                      Transform
+                    </button>
+                    {boardMenuOpen === "transform" ? (
+                      <div className="dropdownMenu">
+                        {TRANSFORM_MENU_ITEMS.map((item) => (
+                          <button
+                            key={item.kind}
+                            type="button"
+                            className="dropdownMenuItem"
+                            disabled={!doc}
+                            onClick={() => applySelectedLevelTransform(item.kind)}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
-                <p className="generatorSummary">{selectedNoiseType.description}</p>
-                <p className="generatorSummary">Applies the selected tile to the bottom layer.</p>
-
-                <div className="generatorField">
-                  <label className="generatorLabel" htmlFor="noise-type">
-                    Type
-                  </label>
-                  <select
-                    id="noise-type"
-                    className="generatorControl"
-                    value={noiseSettings.type}
-                    onChange={(e) =>
-                      setNoiseSetting("type", e.target.value as NoiseSettings["type"])
+                <div className="boardControlRow boardCommandRow">
+                  <button
+                    type="button"
+                    className="actionButton"
+                    disabled={!canUndo}
+                    onClick={() =>
+                      setEditor((current) => (current ? undoLevelsetEvent(current) : current))
                     }
                   >
-                    {NOISE_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="generatorField">
-                  <label className="generatorLabel" htmlFor="noise-tile">
-                    Tile
-                  </label>
-                  <select
-                    id="noise-tile"
-                    className="generatorControl"
-                    value={noiseSettings.tile}
-                    onChange={(e) => setNoiseSetting("tile", e.target.value)}
-                  >
-                    {TILE_OPTIONS.map((tileName) => (
-                      <option key={tileName} value={tileName}>
-                        {tileName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {noiseSettings.type === "random" ? (
-                  <>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-density">
-                        Density
-                      </label>
-                      <input
-                        id="noise-density"
-                        className="generatorControl"
-                        type="number"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        value={noiseSettings.density}
-                        onChange={(e) => setNoiseNumberSetting("density", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-seed-random">
-                        Seed
-                      </label>
-                      <input
-                        id="noise-seed-random"
-                        className="generatorControl"
-                        type="number"
-                        step="1"
-                        value={noiseSettings.seed}
-                        onChange={(e) => setNoiseNumberSetting("seed", e.target.value)}
-                      />
-                    </div>
-                  </>
-                ) : null}
-
-                {noiseSettings.type === "perlin" ? (
-                  <>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-scale">
-                        Scale
-                      </label>
-                      <input
-                        id="noise-scale"
-                        className="generatorControl"
-                        type="number"
-                        min="1"
-                        step="0.5"
-                        value={noiseSettings.scale}
-                        onChange={(e) => setNoiseNumberSetting("scale", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-threshold-perlin">
-                        Threshold
-                      </label>
-                      <input
-                        id="noise-threshold-perlin"
-                        className="generatorControl"
-                        type="number"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        value={noiseSettings.threshold}
-                        onChange={(e) => setNoiseNumberSetting("threshold", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-octaves">
-                        Octaves
-                      </label>
-                      <input
-                        id="noise-octaves"
-                        className="generatorControl"
-                        type="number"
-                        min="1"
-                        max="8"
-                        step="1"
-                        value={noiseSettings.octaves}
-                        onChange={(e) => setNoiseNumberSetting("octaves", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-seed-perlin">
-                        Seed
-                      </label>
-                      <input
-                        id="noise-seed-perlin"
-                        className="generatorControl"
-                        type="number"
-                        step="1"
-                        value={noiseSettings.seed}
-                        onChange={(e) => setNoiseNumberSetting("seed", e.target.value)}
-                      />
-                    </div>
-                  </>
-                ) : null}
-
-                {noiseSettings.type === "cellular" ? (
-                  <>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-cell-size">
-                        Cell Size
-                      </label>
-                      <input
-                        id="noise-cell-size"
-                        className="generatorControl"
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={noiseSettings.cellSize}
-                        onChange={(e) => setNoiseNumberSetting("cellSize", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-jitter">
-                        Jitter
-                      </label>
-                      <input
-                        id="noise-jitter"
-                        className="generatorControl"
-                        type="number"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={noiseSettings.jitter}
-                        onChange={(e) => setNoiseNumberSetting("jitter", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-threshold-cell">
-                        Threshold
-                      </label>
-                      <input
-                        id="noise-threshold-cell"
-                        className="generatorControl"
-                        type="number"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        value={noiseSettings.threshold}
-                        onChange={(e) => setNoiseNumberSetting("threshold", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-seed-cell">
-                        Seed
-                      </label>
-                      <input
-                        id="noise-seed-cell"
-                        className="generatorControl"
-                        type="number"
-                        step="1"
-                        value={noiseSettings.seed}
-                        onChange={(e) => setNoiseNumberSetting("seed", e.target.value)}
-                      />
-                    </div>
-                  </>
-                ) : null}
-
-                {noiseSettings.type === "stripes" ? (
-                  <>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-spacing">
-                        Spacing
-                      </label>
-                      <input
-                        id="noise-spacing"
-                        className="generatorControl"
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={noiseSettings.spacing}
-                        onChange={(e) => setNoiseNumberSetting("spacing", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-thickness">
-                        Thickness
-                      </label>
-                      <input
-                        id="noise-thickness"
-                        className="generatorControl"
-                        type="number"
-                        min="0.25"
-                        step="0.25"
-                        value={noiseSettings.thickness}
-                        onChange={(e) => setNoiseNumberSetting("thickness", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-angle">
-                        Angle
-                      </label>
-                      <input
-                        id="noise-angle"
-                        className="generatorControl"
-                        type="number"
-                        step="1"
-                        value={noiseSettings.angle}
-                        onChange={(e) => setNoiseNumberSetting("angle", e.target.value)}
-                      />
-                    </div>
-                  </>
-                ) : null}
-
-                {noiseSettings.type === "checker" ? (
-                  <>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-checker-size">
-                        Cell Size
-                      </label>
-                      <input
-                        id="noise-checker-size"
-                        className="generatorControl"
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={noiseSettings.checkerSize}
-                        onChange={(e) => setNoiseNumberSetting("checkerSize", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-offset-x">
-                        Offset X
-                      </label>
-                      <input
-                        id="noise-offset-x"
-                        className="generatorControl"
-                        type="number"
-                        step="1"
-                        value={noiseSettings.offsetX}
-                        onChange={(e) => setNoiseNumberSetting("offsetX", e.target.value)}
-                      />
-                    </div>
-                    <div className="generatorField">
-                      <label className="generatorLabel" htmlFor="noise-offset-y">
-                        Offset Y
-                      </label>
-                      <input
-                        id="noise-offset-y"
-                        className="generatorControl"
-                        type="number"
-                        step="1"
-                        value={noiseSettings.offsetY}
-                        onChange={(e) => setNoiseNumberSetting("offsetY", e.target.value)}
-                      />
-                    </div>
-                  </>
-                ) : null}
-
-                <div className="generatorActions">
-                  <button
-                    type="button"
-                    onClick={applyNoiseGenerator}
-                    disabled={!doc || !selectedLevel || !!parseError}
-                  >
-                    Apply
+                    Undo
                   </button>
                   <button
                     type="button"
-                    onClick={() => setNoiseSettings(makeDefaultNoiseSettings())}
+                    className="actionButton"
+                    disabled={!canRedo}
+                    onClick={() =>
+                      setEditor((current) => (current ? redoLevelsetEvent(current) : current))
+                    }
+                  >
+                    Redo
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={!selection || !activeLevel}
+                    onClick={copySelection}
+                  >
+                    Copy
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={!clipboard || !activeLevel}
+                    onClick={pasteClipboard}
+                  >
+                    Paste
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={!selection || !activeLevel}
+                    onClick={eraseSelection}
+                  >
+                    Erase
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={!activeLevel}
+                    onClick={() => commitSelectedLevelUpdate(clearLevel)}
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                <div className="toggleGroup boardToolRow">
+                  {TOOL_LABELS.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      className={`toolButton ${tool === entry.id ? "active" : ""}`}
+                      onClick={() => setTool(entry.id)}
+                    >
+                      {entry.label}
+                      <span className="toolShortcut">{entry.shortcut}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="boardMeta">
+                  <span className="statusBadge">{`zoom ${Math.round(boardZoom * 100)}%`}</span>
+                  <button
+                    type="button"
+                    className="statusBadge statusBadgeButton"
+                    disabled={!activeLevel || !spriteSet}
+                    onClick={() => resetBoardView(1)}
+                  >
+                    Reset
+                  </button>
+                  {clipboard ? (
+                    <span className="statusBadge">{`clipboard ${clipboard.width}x${clipboard.height}`}</span>
+                  ) : null}
+                  {selection ? (
+                    <span className="statusBadge">{`selection ${selection.width}x${selection.height}`}</span>
+                  ) : null}
+                  {hoverPoint ? (
+                    <span className="statusBadge">{`cell ${hoverPoint.x},${hoverPoint.y}`}</span>
+                  ) : null}
+                </div>
+
+                {hoverCellSummary ? (
+                  <div className="hoverSummary">
+                    <span>{`index ${hoverCellSummary.index}`}</span>
+                    <span>{`top ${hoverCellSummary.top}`}</span>
+                    <span>{`bottom ${hoverCellSummary.bottom}`}</span>
+                  </div>
+                ) : (
+                  <div className="hoverSummary">Hover the map to inspect a cell stack.</div>
+                )}
+              </>,
+            )}
+
+            {threeDLevelsEnabled && selectedLogicalLevel
+              ? renderBoardWidget(
+                  "layers3d",
+                  "board3dCard",
+                  <>
+                    <div className="boardMeta">
+                      <span className="statusBadge">{`z ${selectedLayerZ}/${selectedLogicalLevel.layers.length}`}</span>
+                      <span className="statusBadge">{`${selectedLogicalLevel.layers.length} layers`}</span>
+                    </div>
+
+                    <div className="board3dButtonGrid">
+                      <button
+                        type="button"
+                        className="secondaryButton shortcutButton"
+                        disabled={selectedLayerZ >= selectedLogicalLevel.layers.length}
+                        onClick={selectLayerUp}
+                      >
+                        Layer Up
+                        <span className="toolShortcut">Q</span>
+                      </button>
+                      <button type="button" className="secondaryButton" onClick={addTopLayer}>
+                        + Top
+                      </button>
+                      <button
+                        type="button"
+                        className="secondaryButton"
+                        disabled={selectedLogicalLevel.layers.length <= 1}
+                        onClick={removeTopLayer}
+                      >
+                        - Top
+                      </button>
+                      <button
+                        type="button"
+                        className="secondaryButton shortcutButton"
+                        disabled={selectedLayerZ <= 1}
+                        onClick={selectLayerDown}
+                      >
+                        Layer Down
+                        <span className="toolShortcut">Z</span>
+                      </button>
+                      <button type="button" className="secondaryButton" onClick={addBottomLayer}>
+                        + Bottom
+                      </button>
+                      <button
+                        type="button"
+                        className="secondaryButton"
+                        disabled={selectedLogicalLevel.layers.length <= 1}
+                        onClick={removeBottomLayer}
+                      >
+                        - Bottom
+                      </button>
+                    </div>
+
+                    <div className="boardHelpText">
+                      Use Q to move up a z-layer and Z to move down.
+                    </div>
+                  </>,
+                  <button
+                    type="button"
+                    className="boardIconButton"
+                    aria-label="Explain DAT 3D levels"
+                    title="Explain DAT 3D levels"
+                    onClick={() => setOpenDialog("threeDHelp")}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <circle cx="8" cy="8" r="6.25" fill="none" />
+                      <path
+                        d="M6.7 6.1a1.55 1.55 0 1 1 2.5 1.2c-.72.56-1.15.95-1.15 1.7v.35"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx="8" cy="11.95" r="0.75" stroke="none" />
+                    </svg>
+                  </button>,
+                )
+              : null}
+
+            {activeLevel && spriteSet ? (
+              <div
+                className={`boardStageTransform ${boardPanState ? "panning" : ""}`}
+                style={{
+                  width: boardSize,
+                  height: boardSize,
+                  transform: `translate(${boardPan.x}px, ${boardPan.y}px) scale(${boardZoom})`,
+                }}
+              >
+                {BOARD_TRANSFORM_BUTTONS.map((button) => (
+                  <button
+                    key={button.kind}
+                    type="button"
+                    className={`boardTransformButton ${button.position}`}
+                    aria-label={button.label}
+                    title={button.label}
+                    onClick={() => applySelectedLevelTransform(button.kind)}
+                  >
+                    {renderBoardTransformIcon(button.kind)}
+                  </button>
+                ))}
+                {LEVEL_SHIFT_ARROWS.map((arrow) => (
+                  <button
+                    key={arrow.direction}
+                    type="button"
+                    className={`boardShiftArrow ${arrow.direction}`}
+                    aria-label={arrow.label}
+                    title={arrow.label}
+                    onClick={() => shiftVisibleLevel(arrow.dx, arrow.dy)}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <polygon points="8,3 13,12 3,12" />
+                    </svg>
+                  </button>
+                ))}
+                <div
+                  className="boardStage"
+                  style={{
+                    width: boardSize,
+                    height: boardSize,
+                  }}
+                >
+                  <canvas ref={boardCanvasRef} className="boardCanvas" />
+                  <canvas
+                    ref={overlayCanvasRef}
+                    className="boardCanvas overlayCanvas"
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerCancel}
+                    onContextMenu={(event) => event.preventDefault()}
+                    onPointerLeave={() => {
+                      if (!dragState && !boardPanState) setHoverPoint(null);
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="emptyState largeEmptyState">
+                Select a level and load the sprite set to edit.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div
+          className={`panelSplitter ${layoutResizeState?.side === "right" ? "active" : ""}`}
+          onPointerDown={(event) => beginLayoutResize(event, "right")}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize inspector"
+        />
+
+        <aside className="panel inspectorPanel">
+          <div className="inspectorTabs" role="tablist" aria-label="Inspector tabs">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={inspectorTab === "palette"}
+              className={`inspectorTab ${inspectorTab === "palette" ? "active" : ""}`}
+              onClick={() => setInspectorTab("palette")}
+            >
+              Palette
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={inspectorTab === "metadata"}
+              className={`inspectorTab ${inspectorTab === "metadata" ? "active" : ""}`}
+              onClick={() => setInspectorTab("metadata")}
+            >
+              Metadata
+            </button>
+          </div>
+
+          {inspectorTab === "palette" ? (
+            <section className="panelSection inspectorBody paletteSection compactPaletteSection">
+              <div className="activeTileStrip">
+                <div className="activeTileCompactCard">
+                  <div className="activeTileSlotLabel primary">LMB</div>
+                  <TilePreview
+                    spriteSet={spriteSet}
+                    tile={primaryTile}
+                    displayContext={paletteDisplayContext}
+                    className="activeTileCompactCanvas"
+                    pixelSize={40}
+                    showPaletteDirectionArrow
+                  />
+                  <div className="activeTileCompactBody">
+                    <div className="activeTileCompactName">
+                      {getDat3dTileDisplayName(primaryTile, paletteDisplayContext)}
+                    </div>
+                  </div>
+                </div>
+                <div className="activeTileCompactCard">
+                  <div className="activeTileSlotLabel secondary">RMB</div>
+                  <TilePreview
+                    spriteSet={spriteSet}
+                    tile={secondaryTile}
+                    displayContext={paletteDisplayContext}
+                    className="activeTileCompactCanvas"
+                    pixelSize={40}
+                    showPaletteDirectionArrow
+                  />
+                  <div className="activeTileCompactBody">
+                    <div className="activeTileCompactName">
+                      {getDat3dTileDisplayName(secondaryTile, paletteDisplayContext)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <input
+                id="palette-search"
+                className="textInput"
+                type="text"
+                value={paletteQuery}
+                onChange={(event) => setPaletteQuery(event.target.value)}
+                placeholder="Filter by DAT tile name"
+              />
+
+              <div className="paletteTabs" role="tablist" aria-label="Palette tile groups">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={paletteTab === "normal"}
+                  className={`paletteTab ${paletteTab === "normal" ? "active" : ""}`}
+                  onClick={() => setPaletteTab("normal")}
+                >
+                  Normal
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={paletteTab === "invalid"}
+                  className={`paletteTab ${paletteTab === "invalid" ? "active" : ""}`}
+                  onClick={() => setPaletteTab("invalid")}
+                >
+                  Invalid
+                </button>
+              </div>
+
+              <div
+                ref={paletteGridRef}
+                className="paletteGrid"
+                style={paletteGridStyle}
+                onWheel={handlePaletteWheel}
+              >
+                {filteredTiles.map((tile) => {
+                  const tileId = tileCodeFromName(tile);
+                  const displayTileName = getDat3dTileDisplayName(tile, paletteDisplayContext);
+                  const tileTooltip = `${displayTileName} (id ${tileId}, ${classifyTilePlacement(
+                    tile,
+                    makePaintOptions(threeDLevelsEnabled, selectedLayerZ),
+                  )})`;
+                  const isPrimaryTile = tile === primaryTile;
+                  const isSecondaryTile = tile === secondaryTile;
+                  const isAirTile = threeDLevelsEnabled && tile === DAT_3D_AIR_TILE;
+
+                  return (
+                    <button
+                      key={tile}
+                      type="button"
+                      className={`paletteGridItem ${isPrimaryTile ? "selectedPrimary" : ""} ${isSecondaryTile ? "selectedSecondary" : ""} ${isPrimaryTile && isSecondaryTile ? "selectedBoth" : ""}`}
+                      title={tileTooltip}
+                      aria-label={tileTooltip}
+                      onClick={() => setPrimaryTile(tile)}
+                      onPointerDown={(event) => {
+                        if (event.button !== 2) return;
+                        event.preventDefault();
+                        setSecondaryTile(tile);
+                      }}
+                      onContextMenu={(event) => event.preventDefault()}
+                    >
+                      <TilePreview
+                        spriteSet={spriteSet}
+                        tile={tile}
+                        displayContext={paletteDisplayContext}
+                        className="paletteGridCanvas"
+                        pixelSize={paletteCellSize}
+                        showPaletteDirectionArrow
+                      />
+                      {paletteTab === "invalid" ? (
+                        <span className="paletteGridBadge">
+                          {tileId.toString(16).padStart(2, "0").toUpperCase()}
+                        </span>
+                      ) : null}
+                      {isAirTile ? (
+                        <span className="paletteGridBadge paletteGridAirBadge">AIR</span>
+                      ) : null}
+                      {isPrimaryTile ? <span className="paletteGridMarker primary">L</span> : null}
+                      {isSecondaryTile ? (
+                        <span className="paletteGridMarker secondary">R</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {inspectorTab === "metadata" ? (
+            <section className="panelSection metadataSection inspectorBody">
+              <div className="sectionHeader">
+                <div>
+                  <div className="sectionEyebrow">Metadata</div>
+                  <h2 className="sectionTitle">
+                    {threeDLevelsEnabled && selectedLogicalLevel
+                      ? `Level ${selectedLogicalIndex + 1} / z${selectedLayerZ}`
+                      : "Selected Level"}
+                  </h2>
+                </div>
+                <div className="sectionActions">
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={!canonicalLevel || !activeLevel || !metadataDraft}
+                    onClick={() =>
+                      canonicalLevel &&
+                      activeLevel &&
+                      setMetadataDraft(
+                        makeMetadataDraft(
+                          canonicalLevel,
+                          activeLevel,
+                          threeDLevelsEnabled ? selectedLogicalIndex + 1 : canonicalLevel.number,
+                          threeDLevelsEnabled
+                            ? selectedLogicalLevel?.displayTitle
+                            : canonicalLevel.title,
+                        ),
+                      )
+                    }
                   >
                     Reset
                   </button>
                 </div>
+              </div>
 
-                <div className="generatorMeta">
-                  Last seed:{" "}
-                  {lastAppliedNoiseSeed === null ? "not applied yet" : lastAppliedNoiseSeed}
-                </div>
+              {metadataError ? (
+                <div className="banner subtleErrorBanner">{metadataError}</div>
+              ) : null}
 
-                {!selectedLevel ? (
-                  <div className="msg">Open or select a level before generating.</div>
-                ) : null}
-              </aside>
-            ) : null}
+              {metadataDraft ? (
+                <>
+                  <div className="formGrid">
+                    <label className="fieldGroup">
+                      <span className="fieldLabel">Number</span>
+                      <input
+                        className="textInput"
+                        type="number"
+                        value={metadataDraft.number}
+                        disabled={threeDLevelsEnabled}
+                        onChange={(event) => updateMetadataDraft("number", event.target.value)}
+                        onBlur={() => applyMetadataDraft()}
+                      />
+                    </label>
+                    <label className="fieldGroup">
+                      <span className="fieldLabel">Title</span>
+                      <input
+                        className="textInput"
+                        type="text"
+                        value={metadataDraft.title}
+                        onChange={(event) => updateMetadataDraft("title", event.target.value)}
+                        onBlur={() => applyMetadataDraft()}
+                      />
+                    </label>
+                    <label className="fieldGroup">
+                      <span className="fieldLabel">Author</span>
+                      <input
+                        className="textInput"
+                        type="text"
+                        value={metadataDraft.author}
+                        onChange={(event) => updateMetadataDraft("author", event.target.value)}
+                        onBlur={() => applyMetadataDraft()}
+                      />
+                    </label>
+                    <label className="fieldGroup">
+                      <span className="fieldLabel">Password</span>
+                      <input
+                        className="textInput"
+                        type="text"
+                        value={metadataDraft.password}
+                        onChange={(event) => updateMetadataDraft("password", event.target.value)}
+                        onBlur={() => applyMetadataDraft()}
+                      />
+                    </label>
+                    <label className="fieldGroup">
+                      <span className="fieldLabelRow">
+                        <span className="fieldLabel">Chips</span>
+                        <button
+                          type="button"
+                          className="refreshIconButton"
+                          title={`Set chips to map count (${actualChipCount})`}
+                          aria-label={`Set chips to map count (${actualChipCount})`}
+                          onClick={() => {
+                            if (!metadataDraft) return;
+                            const nextDraft = {
+                              ...metadataDraft,
+                              chips: String(actualChipCount),
+                            };
+                            setMetadataDraft(nextDraft);
+                            setMetadataError(null);
+                            applyMetadataDraft(nextDraft);
+                          }}
+                        >
+                          <svg viewBox="0 0 16 16" aria-hidden="true" className="refreshIcon">
+                            <path
+                              d="M13 3v4H9"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M12.2 7A5 5 0 1 0 13 8"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                      </span>
+                      <input
+                        className={`textInput ${chipFieldTone === "higher" ? "chipFieldHigher" : ""} ${chipFieldTone === "lower" ? "chipFieldLower" : ""}`}
+                        type="number"
+                        value={metadataDraft.chips}
+                        onChange={(event) => updateMetadataDraft("chips", event.target.value)}
+                        onBlur={() => applyMetadataDraft()}
+                      />
+                      <span
+                        className={`fieldHint ${chipFieldTone === "higher" ? "chipHintHigher" : ""} ${chipFieldTone === "lower" ? "chipHintLower" : ""}`}
+                      >
+                        {`Map count: ${actualChipCount}`}
+                      </span>
+                    </label>
+                    <label className="fieldGroup">
+                      <span className="fieldLabel">Time</span>
+                      <input
+                        className="textInput"
+                        type="number"
+                        value={metadataDraft.time}
+                        onChange={(event) => updateMetadataDraft("time", event.target.value)}
+                        onBlur={() => applyMetadataDraft()}
+                      />
+                    </label>
+                  </div>
+
+                  <label className="fieldGroup">
+                    <span className="fieldLabel">
+                      {threeDLevelsEnabled ? `Hint (z${selectedLayerZ})` : "Hint"}
+                    </span>
+                    <textarea
+                      className="textArea"
+                      rows={4}
+                      value={metadataDraft.hint}
+                      onChange={(event) => updateMetadataDraft("hint", event.target.value)}
+                      onBlur={() => applyMetadataDraft()}
+                    />
+                  </label>
+
+                  <details className="advancedMetadataPanel">
+                    <summary className="advancedMetadataSummary">Advanced</summary>
+                    <div className="advancedMetadataBody">
+                      <label className="fieldGroup">
+                        <span className="fieldLabel">Map Detail</span>
+                        <input
+                          className="textInput"
+                          type="number"
+                          value={metadataDraft.mapDetail}
+                          onChange={(event) => updateMetadataDraft("mapDetail", event.target.value)}
+                          onBlur={() => applyMetadataDraft()}
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldLabel">
+                          {threeDLevelsEnabled
+                            ? `Movement JSON (z${selectedLayerZ})`
+                            : "Movement JSON"}
+                        </span>
+                        <textarea
+                          className="textArea codeArea"
+                          rows={3}
+                          value={metadataDraft.movement}
+                          onChange={(event) => updateMetadataDraft("movement", event.target.value)}
+                          onBlur={() => applyMetadataDraft()}
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldLabel">
+                          {threeDLevelsEnabled
+                            ? `Trap Controls JSON (z${selectedLayerZ})`
+                            : "Trap Controls JSON"}
+                        </span>
+                        <textarea
+                          className="textArea codeArea"
+                          rows={5}
+                          value={metadataDraft.trapControls}
+                          onChange={(event) =>
+                            updateMetadataDraft("trapControls", event.target.value)
+                          }
+                          onBlur={() => applyMetadataDraft()}
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldLabel">
+                          {threeDLevelsEnabled
+                            ? `Clone Controls JSON (z${selectedLayerZ})`
+                            : "Clone Controls JSON"}
+                        </span>
+                        <textarea
+                          className="textArea codeArea"
+                          rows={5}
+                          value={metadataDraft.cloneControls}
+                          onChange={(event) =>
+                            updateMetadataDraft("cloneControls", event.target.value)
+                          }
+                          onBlur={() => applyMetadataDraft()}
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldLabel">Field Order JSON</span>
+                        <textarea
+                          className="textArea codeArea"
+                          rows={3}
+                          value={metadataDraft.fieldOrder}
+                          onChange={(event) =>
+                            updateMetadataDraft("fieldOrder", event.target.value)
+                          }
+                          onBlur={() => applyMetadataDraft()}
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldLabel">Extra Fields JSON</span>
+                        <textarea
+                          className="textArea codeArea"
+                          rows={5}
+                          value={metadataDraft.extraFields}
+                          onChange={(event) =>
+                            updateMetadataDraft("extraFields", event.target.value)
+                          }
+                          onBlur={() => applyMetadataDraft()}
+                        />
+                      </label>
+                    </div>
+                  </details>
+                </>
+              ) : (
+                <div className="emptyState">Select a level to edit its metadata.</div>
+              )}
+            </section>
+          ) : null}
+        </aside>
+      </main>
+
+      {levelContextMenu ? (
+        <div
+          className="contextMenu"
+          style={{ left: levelContextMenu.x, top: levelContextMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="contextMenuItem"
+            onClick={() => {
+              duplicateLevelAt(levelContextMenu.index);
+              setLevelContextMenu(null);
+            }}
+          >
+            Duplicate
+          </button>
+          <button
+            type="button"
+            className="contextMenuItem danger"
+            onClick={() => {
+              deleteLevelAt(levelContextMenu.index);
+              setLevelContextMenu(null);
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      ) : null}
+
+      {openDialog === "threeDHelp" ? (
+        <div
+          className="modalBackdrop"
+          onClick={() => setOpenDialog(null)}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div
+            className="modalCard"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="three-d-help-title"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <div className="modalHeader">
+              <div>
+                <div className="sectionEyebrow">3D Levels</div>
+                <h2 id="three-d-help-title" className="modalTitle">
+                  DAT 3D Encoding
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="modalCloseButton"
+                aria-label="Close 3D help"
+                onClick={() => setOpenDialog(null)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modalBody">
+              <p>
+                3D levels are encoded as contiguous <code>Title\N</code> through{" "}
+                <code>Title\1</code> DAT runs.
+              </p>
+              <p>Only engines that support DAT 3D rules will play them correctly.</p>
+              <p>
+                The editor starts you on the top layer. Press <code>Q</code> to move up a z-layer
+                and <code>Z</code> to move down.
+              </p>
+            </div>
+            <div className="modalActions">
+              <button type="button" className="actionButton" onClick={() => setOpenDialog(null)}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      ) : openDialog === "brandingHelp" ? (
+        <div
+          className="modalBackdrop"
+          onClick={() => setOpenDialog(null)}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div
+            className="modalCard modalCardWide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="branding-help-title"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <div className="modalHeader">
+              <div>
+                <div className="sectionEyebrow">Editor Help</div>
+                <h2 id="branding-help-title" className="modalTitle">
+                  DATTools Overview
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="modalCloseButton"
+                aria-label="Close editor help"
+                onClick={() => setOpenDialog(null)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modalBody modalColumns">
+              <section className="modalColumn">
+                <h3 className="modalSectionTitle">Info</h3>
+                <ul className="modalList">
+                  <li>
+                    Edit CC1 DAT levelsets directly or open the JSON representation used by this
+                    editor.
+                  </li>
+                  <li>
+                    The filename in the left rail defines the default name offered by `Save As` and
+                    `Save DAT As...`.
+                  </li>
+                  <li>
+                    The level manager supports add, duplicate, delete, and drag-reorder operations.
+                  </li>
+                  <li>
+                    3D mode groups contiguous `Title\N ... Title\1` DAT runs into one logical level.
+                  </li>
+                  <li>
+                    Palette tabs separate normal tiles from invalid DAT codes while keeping 3D
+                    reinterpretations visible.
+                  </li>
+                </ul>
+              </section>
+              <section className="modalColumn">
+                <h3 className="modalSectionTitle">Controls</h3>
+                <ul className="modalList">
+                  <li>
+                    Paint with left and right mouse buttons using the two active palette
+                    assignments.
+                  </li>
+                  <li>
+                    Pan with middle mouse or `Cmd`/`Ctrl` plus drag. Zoom the board with the mouse
+                    wheel.
+                  </li>
+                  <li>
+                    Hold `W`, `A`, `S`, `D` or the arrow keys to move the camera continuously.
+                  </li>
+                  <li>Tool shortcuts: `B` Brush, `L` Line, `F` Bucket, `V` Select, `C` Connect.</li>
+                  <li>In 3D mode, `Q` moves up a z-layer and `Z` moves down a z-layer.</li>
+                </ul>
+              </section>
+            </div>
+            <div className="modalActions">
+              <button type="button" className="actionButton" onClick={() => setOpenDialog(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

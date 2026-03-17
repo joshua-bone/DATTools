@@ -122,6 +122,25 @@ const TILE_CODE_BY_NAME = new Map<string, number>();
 for (const [k, v] of TILE_NAME_BY_CODE.entries()) TILE_CODE_BY_NAME.set(v, k);
 
 export const CC1_TILE_COUNT = 112;
+export const CC1_TILE_NAMES = Array.from({ length: CC1_TILE_COUNT }, (_, code) =>
+  tileNameFromCode(code),
+);
+export const CC1_LEGACY_INVALID_TILE_CODES = [
+  32, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+] as const;
+const CC1_LEGACY_INVALID_TILE_CODE_SET = new Set<number>(CC1_LEGACY_INVALID_TILE_CODES);
+export const CC1_LEGACY_INVALID_TILE_NAMES = CC1_LEGACY_INVALID_TILE_CODES.map((code) =>
+  tileNameFromCode(code),
+);
+export const CC1_VALID_TILE_NAMES = Array.from({ length: CC1_TILE_COUNT }, (_, code) => code)
+  .filter((code) => !CC1_LEGACY_INVALID_TILE_CODE_SET.has(code))
+  .map((code) => tileNameFromCode(code));
+export const CC1_ALL_TILE_CODE_COUNT = 256;
+export const CC1_INVALID_TILE_NAMES = Array.from(
+  { length: CC1_ALL_TILE_CODE_COUNT - CC1_TILE_COUNT },
+  (_, index) => tileNameFromCode(CC1_TILE_COUNT + index),
+);
+export const CC1_ALL_TILE_NAMES = [...CC1_TILE_NAMES, ...CC1_INVALID_TILE_NAMES];
 
 export function tileNameFromCode(code: number): string {
   const name = TILE_NAME_BY_CODE.get(code);
