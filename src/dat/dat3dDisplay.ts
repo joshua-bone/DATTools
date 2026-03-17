@@ -72,3 +72,27 @@ export function createDat3dDisplayLevel(
     },
   };
 }
+
+export function getAirAboveElevatorIndices(
+  upperLevel: DatLevelJson,
+  lowerLevel: DatLevelJson,
+  context: Dat3dDisplayContext,
+): number[] {
+  if (!context.threeDEnabled || context.layerZ <= 1) return [];
+
+  const indices: number[] = [];
+
+  for (let index = 0; index < upperLevel.map.top.length; index++) {
+    const upperTop = upperLevel.map.top[index] ?? FLOOR_TILE;
+    const upperBottom = upperLevel.map.bottom[index] ?? FLOOR_TILE;
+    if (!cellShouldRenderAsAir(upperTop, upperBottom, context)) continue;
+
+    const lowerTop = lowerLevel.map.top[index] ?? FLOOR_TILE;
+    const lowerBottom = lowerLevel.map.bottom[index] ?? FLOOR_TILE;
+    if (lowerTop === DAT_3D_ELEVATOR_TILE || lowerBottom === DAT_3D_ELEVATOR_TILE) {
+      indices.push(index);
+    }
+  }
+
+  return indices;
+}
