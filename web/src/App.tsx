@@ -2617,9 +2617,14 @@ export default function App() {
   function openSelectedLevelInLexysLabyrinth(): void {
     if (!doc || !lexysLabyrinthTestLevel) return;
 
+    const exportedLevel: DatLevelJson = {
+      ...cloneDatLevel(lexysLabyrinthTestLevel),
+      number: 1,
+    };
+
     const singleLevelDoc: DatLevelsetJsonV1 = {
       ...doc,
-      levels: [cloneDatLevel(lexysLabyrinthTestLevel)],
+      levels: [exportedLevel],
     };
     const levelData = encodeDatBytes(singleLevelDoc);
     const url = new URL("https://c.eev.ee/lexys-labyrinth/");
