@@ -2661,7 +2661,7 @@ export default function App() {
 
   function handleViewportPointerDown(event: React.PointerEvent<HTMLDivElement>): void {
     if (!activeLevel || event.target !== event.currentTarget) return;
-    if (!isBoardPanGesture(event.nativeEvent)) return;
+    if (event.button !== 0 && !isBoardPanGesture(event.nativeEvent)) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     beginBoardPanGesture(event.pointerId, event.clientX, event.clientY);
