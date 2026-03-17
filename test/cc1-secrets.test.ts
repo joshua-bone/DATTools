@@ -4,7 +4,6 @@ import {
   dirFromTileName,
   renderTileWithArrow,
   shouldShowDirectionArrowInPalette,
-  shouldShowDirectionArrowInSecrets,
 } from "../src/dat/render/cc1Secrets.js";
 import { createImage } from "../src/dat/render/rgbaImage.js";
 
@@ -20,13 +19,6 @@ describe("CC1 secret arrow helpers", () => {
     expect(shouldShowDirectionArrowInPalette("ANT_W")).toBe(false);
     expect(shouldShowDirectionArrowInPalette("PLAYER_N")).toBe(false);
     expect(shouldShowDirectionArrowInPalette("WALL")).toBe(false);
-  });
-
-  it("does not mark thin-wall panels for board secret arrows", () => {
-    expect(shouldShowDirectionArrowInSecrets("ANT_W")).toBe(true);
-    expect(shouldShowDirectionArrowInSecrets("FORCE_S")).toBe(true);
-    expect(shouldShowDirectionArrowInSecrets("PANEL_N")).toBe(false);
-    expect(shouldShowDirectionArrowInSecrets("PANEL_W")).toBe(false);
   });
 
   it("extracts tile direction suffixes", () => {

@@ -33,7 +33,11 @@ import {
   type Editable3dLevel,
   type Logical3dLevel,
 } from "../../src/dat/dat3dLevels";
-import { createDat3dDisplayLevel, getDat3dTileDisplayName } from "../../src/dat/dat3dDisplay";
+import {
+  createDat3dDisplayLevel,
+  getAirAboveElevatorIndices,
+  getDat3dTileDisplayName,
+} from "../../src/dat/dat3dDisplay";
 import { transformLevel, type DatTransformKind } from "../../src/dat/datTransforms";
 import {
   parseDatLevelsetJsonV1,
@@ -41,6 +45,7 @@ import {
   type DatLevelJson,
   type DatLevelsetJsonV1,
 } from "../../src/dat/datLevelsetJsonV1";
+import { bytesToBase64 } from "../../src/dat/base64";
 import { renderCc1LevelToRgba } from "../../src/dat/render/cc1LevelRenderer";
 import type { CC1SpriteSet } from "../../src/dat/render/cc1SpriteSet";
 import { drawRgbaImageToCanvas } from "./canvasDrawing";
@@ -76,6 +81,7 @@ import {
 import { TilePreview } from "./TilePreview";
 
 type ToolMode = "brush" | "line" | "fill" | "select" | "connect";
+type LeftPanelTab = "levels" | "controls";
 type InspectorTab = "palette" | "metadata";
 type PaletteTab = "normal" | "invalid";
 
@@ -142,40 +148,6 @@ type LayoutResizeState = Readonly<{
   startWidth: number;
 }>;
 
-type BoardWidgetId = "controls" | "layers3d";
-
-type BoardWidgetState = Readonly<{
-  x: number;
-  y: number;
-  collapsed: boolean;
-  width: number;
-  height: number;
-}>;
-
-type BoardWidgetLayout = Readonly<Record<BoardWidgetId, BoardWidgetState>>;
-
-type BoardWidgetDragState = Readonly<{
-  widgetId: BoardWidgetId;
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startX: number;
-  startY: number;
-  width: number;
-  height: number;
-}>;
-
-type BoardWidgetResizeState = Readonly<{
-  widgetId: BoardWidgetId;
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startWidth: number;
-  startHeight: number;
-  startX: number;
-  startY: number;
-}>;
-
 type LevelContextMenuState = Readonly<{
   index: number;
   x: number;
@@ -206,8 +178,6 @@ const MIN_RIGHT_PANEL_WIDTH = 220;
 const MAX_RIGHT_PANEL_WIDTH = 520;
 const MIN_BOARD_COLUMN_WIDTH = 420;
 const SPLITTER_WIDTH = 10;
-const MIN_BOARD_WIDGET_WIDTH = 340;
-const MIN_BOARD_WIDGET_HEIGHT = 156;
 const THREE_D_STACK_DEPTH = 3;
 const MIN_PALETTE_TILE_SIZE = 36;
 const MAX_PALETTE_TILE_SIZE = 144;
@@ -270,6 +240,10 @@ function downloadBytes(filename: string, bytes: Uint8Array): void {
 
 function downloadText(filename: string, text: string): void {
   downloadBlob(filename, new Blob([text], { type: "application/json" }));
+}
+
+function bytesToUrlSafeBase64(bytes: Uint8Array): string {
+  return bytesToBase64(bytes).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
 }
 
 type SaveFilePickerHandle = {
@@ -587,41 +561,6 @@ function makePaintOptions(threeDEnabled: boolean, layerZ: number, buryOnBottom =
       : {}),
     ...(buryOnBottom ? { buryOnBottom: true } : {}),
   };
-}
-
-function createBoardWidgetLayout(
-  viewportWidth: number,
-  viewportHeight: number,
-  leftPanelWidth: number,
-  rightPanelWidth: number,
-): BoardWidgetLayout {
-  const boardLeft = leftPanelWidth + SPLITTER_WIDTH;
-  const boardRight = viewportWidth - rightPanelWidth - SPLITTER_WIDTH;
-  return {
-    controls: {
-      x: Math.max(boardLeft + 12, boardRight - 420),
-      y: 12,
-      collapsed: false,
-      width: 408,
-      height: 236,
-    },
-    layers3d: {
-      x: Math.max(boardLeft + 12, boardRight - 296),
-      y: Math.min(Math.max(96, viewportHeight - 160), 196),
-      collapsed: false,
-      width: 284,
-      height: 176,
-    },
-  };
-}
-
-function getBoardWidgetTitle(widgetId: BoardWidgetId): string {
-  switch (widgetId) {
-    case "controls":
-      return "Controls";
-    case "layers3d":
-      return "3D Levels";
-  }
 }
 
 function drawConnections(
@@ -1066,6 +1005,26 @@ function drawInvalidCells(
   ctx.restore();
 }
 
+function drawSecretAirElevatorCells(
+  ctx: CanvasRenderingContext2D,
+  tileSize: number,
+  indices: ReadonlyArray<number>,
+): void {
+  if (indices.length === 0) return;
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(64, 151, 232, 0.98)";
+  ctx.lineWidth = Math.max(2, Math.round(tileSize / 10));
+
+  for (const index of indices) {
+    const x = (index % 32) * tileSize;
+    const y = Math.floor(index / 32) * tileSize;
+    ctx.strokeRect(x + 1, y + 1, Math.max(0, tileSize - 2), Math.max(0, tileSize - 2));
+  }
+
+  ctx.restore();
+}
+
 function drawRectOverlay(
   ctx: CanvasRenderingContext2D,
   tileSize: number,
@@ -1147,10 +1106,6 @@ export default function App() {
   const paletteGridRef = useRef<HTMLDivElement>(null);
   const boardCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const boardWidgetRefs = useRef<Record<BoardWidgetId, HTMLDivElement | null>>({
-    controls: null,
-    layers3d: null,
-  });
 
   const [editor, setEditor] = useState<LevelsetEditorHistory | null>(() =>
     createLevelsetEditorHistory(createDefaultLevelsetDocument()),
@@ -1167,6 +1122,7 @@ export default function App() {
   const [secondaryTile, setSecondaryTile] = useState<string>("FLOOR");
   const [paletteQuery, setPaletteQuery] = useState("");
   const deferredPaletteQuery = useDeferredValue(paletteQuery);
+  const [leftPanelTab, setLeftPanelTab] = useState<LeftPanelTab>("levels");
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("palette");
   const [paletteTab, setPaletteTab] = useState<PaletteTab>("normal");
 
@@ -1186,12 +1142,6 @@ export default function App() {
   const [boardViewInitialized, setBoardViewInitialized] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(236);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
-  const [boardWidgets, setBoardWidgets] = useState<BoardWidgetLayout | null>(null);
-  const [boardWidgetDragState, setBoardWidgetDragState] = useState<BoardWidgetDragState | null>(
-    null,
-  );
-  const [boardWidgetResizeState, setBoardWidgetResizeState] =
-    useState<BoardWidgetResizeState | null>(null);
   const [boardMenuOpen, setBoardMenuOpen] = useState<
     "file" | "view" | "options" | "transform" | null
   >(null);
@@ -1220,6 +1170,12 @@ export default function App() {
       selectedLogicalLevel.layers[selectedLogicalLevel.layers.length - 1]?.z ??
       1)
     : 1;
+  const selectedLogicalLevelIs3d = (selectedLogicalLevel?.layers.length ?? 0) > 1;
+  const lexysLabyrinthTestLevel =
+    selectedLogicalLevel && selectedLogicalLevel.layers.length === 1
+      ? (selectedLogicalLevel.layers[0]?.level ?? null)
+      : null;
+  const canTestSelectedLevelInLexysLabyrinth = !!doc && !!lexysLabyrinthTestLevel;
   const activeLevel = threeDLevelsEnabled
     ? (selectedLogicalLevel?.layers[selectedLayerZ - 1]?.level ?? null)
     : selectedLevel;
@@ -1376,80 +1332,6 @@ export default function App() {
     [paletteCellSize, paletteColumnCount],
   );
 
-  function clampBoardWidget(
-    x: number,
-    y: number,
-    widgetWidth: number,
-    widgetHeight: number,
-  ): { x: number; y: number } {
-    const viewport = editorLayoutRef.current;
-    if (!viewport) return { x, y };
-
-    return {
-      x: clampNumber(x, 8, Math.max(8, viewport.clientWidth - widgetWidth - 8)),
-      y: clampNumber(y, 8, Math.max(8, viewport.clientHeight - widgetHeight - 8)),
-    };
-  }
-
-  function clampBoardWidgetSize(
-    widget: BoardWidgetState,
-  ): Pick<BoardWidgetState, "width" | "height"> {
-    const viewport = editorLayoutRef.current;
-    if (!viewport) {
-      return {
-        width: widget.width,
-        height: widget.height,
-      };
-    }
-
-    const maxWidth = Math.max(MIN_BOARD_WIDGET_WIDTH, viewport.clientWidth - 16);
-    const maxHeight = Math.max(MIN_BOARD_WIDGET_HEIGHT, viewport.clientHeight - 16);
-    const minWidth = Math.min(MIN_BOARD_WIDGET_WIDTH, maxWidth);
-    const minHeight = Math.min(MIN_BOARD_WIDGET_HEIGHT, maxHeight);
-
-    return {
-      width: clampNumber(widget.width, minWidth, maxWidth),
-      height: clampNumber(widget.height, minHeight, maxHeight),
-    };
-  }
-
-  function clampAllBoardWidgets(layout: BoardWidgetLayout): BoardWidgetLayout {
-    const nextLayout = { ...layout };
-    let changed = false;
-
-    (Object.keys(layout) as BoardWidgetId[]).forEach((widgetId) => {
-      const currentWidget = layout[widgetId];
-      const widget = boardWidgetRefs.current[widgetId];
-      const clampedSize = clampBoardWidgetSize(currentWidget);
-      const width = widget?.offsetWidth ?? clampedSize.width;
-      const height =
-        widget?.offsetHeight ??
-        (currentWidget.collapsed ? MIN_BOARD_WIDGET_HEIGHT : clampedSize.height);
-      if (!widget) return;
-      const clamped = clampBoardWidget(
-        currentWidget.x,
-        currentWidget.y,
-        currentWidget.collapsed ? widget.offsetWidth : width,
-        currentWidget.collapsed ? widget.offsetHeight : height,
-      );
-      nextLayout[widgetId] = {
-        ...currentWidget,
-        ...clampedSize,
-        ...clamped,
-      };
-      if (
-        clamped.x !== currentWidget.x ||
-        clamped.y !== currentWidget.y ||
-        clampedSize.width !== currentWidget.width ||
-        clampedSize.height !== currentWidget.height
-      ) {
-        changed = true;
-      }
-    });
-
-    return changed ? nextLayout : layout;
-  }
-
   function loadDocument(nextDoc: DatLevelsetJsonV1, nextFileName?: string | null): void {
     setEditor(createLevelsetEditorHistory(nextDoc));
     setFileName(nextFileName ?? fileName);
@@ -1462,10 +1344,7 @@ export default function App() {
     setDraggedLevelIndex(null);
     setLevelDropState(null);
     setLevelContextMenu(null);
-    setBoardWidgetDragState(null);
-    setBoardWidgetResizeState(null);
     setBoardMenuOpen(null);
-    setBoardWidgets(null);
     setBoardZoom(1);
     setBoardPan({ x: 0, y: 0 });
     setBoardViewInitialized(false);
@@ -1607,6 +1486,30 @@ export default function App() {
     if (!threeDLevelsEnabled || !selectedLogicalLevel) return;
     const nextLayer = selectedLogicalLevel.layers[selectedLayerZ - 2] ?? null;
     if (nextLayer) chooseRawLevel(nextLayer.rawIndex);
+  }
+
+  function choosePreviousLevelInList(): void {
+    if (threeDLevelsEnabled) {
+      if (!logicalLevelset || selectedLogicalIndex <= 0) return;
+      chooseLogicalLevel(selectedLogicalIndex - 1);
+      return;
+    }
+
+    if (!doc || selectedIndex <= 0) return;
+    chooseRawLevel(selectedIndex - 1);
+  }
+
+  function chooseNextLevelInList(): void {
+    if (threeDLevelsEnabled) {
+      const logicalLevelCount = logicalLevelset?.levels.length ?? 0;
+      if (logicalLevelCount <= 0 || selectedLogicalIndex >= logicalLevelCount - 1) return;
+      chooseLogicalLevel(selectedLogicalIndex + 1);
+      return;
+    }
+
+    const rawLevelCount = doc?.levels.length ?? 0;
+    if (rawLevelCount <= 0 || selectedIndex >= rawLevelCount - 1) return;
+    chooseRawLevel(selectedIndex + 1);
   }
 
   function updateMetadataDraft<K extends keyof MetadataDraft>(
@@ -1946,92 +1849,6 @@ export default function App() {
   }, [activeLevel, boardSize, boardViewInitialized, spriteSet]);
 
   useEffect(() => {
-    const viewport = editorLayoutRef.current;
-    if (!viewport || boardWidgets) return;
-    setBoardWidgets(
-      createBoardWidgetLayout(
-        viewport.clientWidth,
-        viewport.clientHeight,
-        leftPanelWidth,
-        rightPanelWidth,
-      ),
-    );
-  }, [activeLevel, boardWidgets, leftPanelWidth, rightPanelWidth]);
-
-  useEffect(() => {
-    const viewport = editorLayoutRef.current;
-    if (!viewport || !boardWidgets) return;
-
-    const syncWidgetBounds = () => {
-      setBoardWidgets((current) => (current ? clampAllBoardWidgets(current) : current));
-    };
-
-    syncWidgetBounds();
-
-    const resizeObserver = new ResizeObserver(syncWidgetBounds);
-    resizeObserver.observe(viewport);
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [boardWidgets]);
-
-  useEffect(() => {
-    setBoardWidgets((current) => {
-      if (!current) return current;
-
-      let changed = false;
-      const nextLayout = { ...current };
-
-      (Object.keys(current) as BoardWidgetId[]).forEach((widgetId) => {
-        const widgetState = current[widgetId];
-        if (widgetState.collapsed) return;
-
-        const widget = boardWidgetRefs.current[widgetId];
-        if (!widget) return;
-
-        const header = widget.querySelector<HTMLElement>(".boardCardHeader");
-        const body = widget.querySelector<HTMLElement>(".boardCardBody");
-        if (!header || !body) return;
-
-        const requiredHeight = Math.ceil(header.offsetHeight + body.scrollHeight + 2);
-        if (requiredHeight <= widgetState.height) return;
-
-        const nextHeight = clampBoardWidgetSize({
-          ...widgetState,
-          height: requiredHeight,
-        }).height;
-        const clampedPosition = clampBoardWidget(
-          widgetState.x,
-          widgetState.y,
-          widgetState.width,
-          nextHeight,
-        );
-
-        nextLayout[widgetId] = {
-          ...widgetState,
-          ...clampedPosition,
-          height: nextHeight,
-        };
-        changed = true;
-      });
-
-      return changed ? nextLayout : current;
-    });
-  }, [
-    boardWidgets,
-    canRedo,
-    canUndo,
-    clipboard,
-    hoverCellSummary,
-    hoverPoint,
-    pendingConnection,
-    selectedLayerZ,
-    selectedLogicalLevel,
-    selection,
-    tool,
-  ]);
-
-  useEffect(() => {
     const paletteGrid = paletteGridRef.current;
     if (!paletteGrid) return;
 
@@ -2098,114 +1915,6 @@ export default function App() {
       document.removeEventListener("pointercancel", stopResize);
     };
   }, [layoutResizeState, leftPanelWidth, rightPanelWidth]);
-
-  useEffect(() => {
-    if (!boardWidgetDragState) return;
-
-    const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== boardWidgetDragState.pointerId) return;
-
-      const nextX =
-        boardWidgetDragState.startX + (event.clientX - boardWidgetDragState.startClientX);
-      const nextY =
-        boardWidgetDragState.startY + (event.clientY - boardWidgetDragState.startClientY);
-      const clamped = clampBoardWidget(
-        nextX,
-        nextY,
-        boardWidgetDragState.width,
-        boardWidgetDragState.height,
-      );
-
-      setBoardWidgets((current) =>
-        current
-          ? {
-              ...current,
-              [boardWidgetDragState.widgetId]: {
-                ...current[boardWidgetDragState.widgetId],
-                ...clamped,
-              },
-            }
-          : current,
-      );
-    };
-
-    const stopDrag = (event: PointerEvent) => {
-      if (event.pointerId !== boardWidgetDragState.pointerId) return;
-      setBoardWidgetDragState(null);
-    };
-
-    document.body.style.userSelect = "none";
-    document.addEventListener("pointermove", onPointerMove);
-    document.addEventListener("pointerup", stopDrag);
-    document.addEventListener("pointercancel", stopDrag);
-    return () => {
-      document.body.style.userSelect = "";
-      document.removeEventListener("pointermove", onPointerMove);
-      document.removeEventListener("pointerup", stopDrag);
-      document.removeEventListener("pointercancel", stopDrag);
-    };
-  }, [boardWidgetDragState]);
-
-  useEffect(() => {
-    if (!boardWidgetResizeState) return;
-
-    const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== boardWidgetResizeState.pointerId) return;
-
-      const viewport = editorLayoutRef.current;
-      if (!viewport) return;
-
-      const maxWidth = Math.max(
-        MIN_BOARD_WIDGET_WIDTH,
-        viewport.clientWidth - boardWidgetResizeState.startX - 8,
-      );
-      const maxHeight = Math.max(
-        MIN_BOARD_WIDGET_HEIGHT,
-        viewport.clientHeight - boardWidgetResizeState.startY - 8,
-      );
-      const minWidth = Math.min(MIN_BOARD_WIDGET_WIDTH, maxWidth);
-      const minHeight = Math.min(MIN_BOARD_WIDGET_HEIGHT, maxHeight);
-
-      setBoardWidgets((current) =>
-        current
-          ? {
-              ...current,
-              [boardWidgetResizeState.widgetId]: {
-                ...current[boardWidgetResizeState.widgetId],
-                width: clampNumber(
-                  boardWidgetResizeState.startWidth +
-                    (event.clientX - boardWidgetResizeState.startClientX),
-                  minWidth,
-                  maxWidth,
-                ),
-                height: clampNumber(
-                  boardWidgetResizeState.startHeight +
-                    (event.clientY - boardWidgetResizeState.startClientY),
-                  minHeight,
-                  maxHeight,
-                ),
-              },
-            }
-          : current,
-      );
-    };
-
-    const stopResize = (event: PointerEvent) => {
-      if (event.pointerId !== boardWidgetResizeState.pointerId) return;
-      setBoardWidgetResizeState(null);
-    };
-
-    document.body.style.userSelect = "none";
-    document.addEventListener("pointermove", onPointerMove);
-    document.addEventListener("pointerup", stopResize);
-    document.addEventListener("pointercancel", stopResize);
-    return () => {
-      document.body.style.userSelect = "";
-      document.removeEventListener("pointermove", onPointerMove);
-      document.removeEventListener("pointerup", stopResize);
-      document.removeEventListener("pointercancel", stopResize);
-    };
-  }, [boardWidgetResizeState]);
 
   useEffect(() => {
     const canvas = boardCanvasRef.current;
@@ -2328,6 +2037,27 @@ export default function App() {
 
     if (showValidityWarnings) {
       drawInvalidCells(ctx, spriteSet.tileSize, invalidCellIndices);
+    }
+
+    if (
+      showSecrets &&
+      previewLevel &&
+      threeDLevelsEnabled &&
+      selectedLogicalLevel &&
+      selectedLayerZ > 1
+    ) {
+      const lowerLayerLevel = selectedLogicalLevel.layers[selectedLayerZ - 2]?.level ?? null;
+      if (lowerLayerLevel) {
+        drawSecretAirElevatorCells(
+          ctx,
+          spriteSet.tileSize,
+          getAirAboveElevatorIndices(previewLevel, lowerLayerLevel, {
+            threeDEnabled: true,
+            layerZ: selectedLayerZ,
+            layerCount: selectedLogicalLevel.layers.length,
+          }),
+        );
+      }
     }
 
     if (threeDLevelsEnabled && hoverPoint && selectedLogicalLevel && selectedLayerZ > 1) {
@@ -2459,6 +2189,7 @@ export default function App() {
     previewLevel,
     selectedLayerZ,
     selectedLogicalLevel,
+    showSecrets,
     showValidityWarnings,
     spriteSet,
     threeDLevelsEnabled,
@@ -2499,6 +2230,26 @@ export default function App() {
       }
 
       if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+      if (key === "f7") {
+        event.preventDefault();
+        if (canTestSelectedLevelInLexysLabyrinth) {
+          openSelectedLevelInLexysLabyrinth();
+        }
+        return;
+      }
+
+      if (key === "n") {
+        event.preventDefault();
+        chooseNextLevelInList();
+        return;
+      }
+
+      if (key === "p") {
+        event.preventDefault();
+        choosePreviousLevelInList();
+        return;
+      }
 
       if (key === "escape" && pendingConnection) {
         event.preventDefault();
@@ -2597,7 +2348,13 @@ export default function App() {
   }, [
     activeLevel,
     clipboard,
+    canTestSelectedLevelInLexysLabyrinth,
+    doc,
+    logicalLevelset,
+    selectedIndex,
+    lexysLabyrinthTestLevel,
     selectedLayerZ,
+    selectedLogicalIndex,
     selectedLogicalLevel,
     selection,
     threeDLevelsEnabled,
@@ -2671,67 +2428,6 @@ export default function App() {
       startClientX: event.clientX,
       startWidth: side === "left" ? leftPanelWidth : rightPanelWidth,
     });
-  }
-
-  function beginBoardWidgetDrag(
-    event: React.PointerEvent<HTMLDivElement>,
-    widgetId: BoardWidgetId,
-  ): void {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-
-    const widget = boardWidgetRefs.current[widgetId];
-    const layout = boardWidgets?.[widgetId];
-    if (!widget || !layout) return;
-
-    setBoardWidgetDragState({
-      widgetId,
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      startX: layout.x,
-      startY: layout.y,
-      width: widget.offsetWidth,
-      height: widget.offsetHeight,
-    });
-  }
-
-  function beginBoardWidgetResize(
-    event: React.PointerEvent<HTMLButtonElement>,
-    widgetId: BoardWidgetId,
-  ): void {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-
-    const layout = boardWidgets?.[widgetId];
-    if (!layout) return;
-
-    setBoardWidgetResizeState({
-      widgetId,
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      startWidth: layout.width,
-      startHeight: layout.height,
-      startX: layout.x,
-      startY: layout.y,
-    });
-  }
-
-  function toggleBoardWidgetCollapsed(widgetId: BoardWidgetId): void {
-    setBoardWidgets((current) =>
-      current
-        ? {
-            ...current,
-            [widgetId]: {
-              ...current[widgetId],
-              collapsed: !current[widgetId].collapsed,
-            },
-          }
-        : current,
-    );
   }
 
   function toggleBoardMenu(menu: "file" | "view" | "options" | "transform"): void {
@@ -2916,6 +2612,19 @@ export default function App() {
 
   function triggerOpenDialog(): void {
     fileInputRef.current?.click();
+  }
+
+  function openSelectedLevelInLexysLabyrinth(): void {
+    if (!doc || !lexysLabyrinthTestLevel) return;
+
+    const singleLevelDoc: DatLevelsetJsonV1 = {
+      ...doc,
+      levels: [cloneDatLevel(lexysLabyrinthTestLevel)],
+    };
+    const levelData = encodeDatBytes(singleLevelDoc);
+    const url = new URL("https://c.eev.ee/lexys-labyrinth/");
+    url.hash = `level=${bytesToUrlSafeBase64(levelData)}`;
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
   }
 
   async function saveCurrentDat(): Promise<void> {
@@ -3196,72 +2905,6 @@ export default function App() {
     );
   }
 
-  function renderBoardWidget(
-    widgetId: BoardWidgetId,
-    className: string,
-    body: ReactNode,
-    headerActions: ReactNode = null,
-  ): ReactNode {
-    if (!boardWidgets) return null;
-
-    const widget = boardWidgets[widgetId];
-    const layoutRect = editorLayoutRef.current?.getBoundingClientRect();
-
-    return (
-      <div
-        ref={(node) => {
-          boardWidgetRefs.current[widgetId] = node;
-        }}
-        className={`boardCard ${className} ${widget.collapsed ? "collapsed" : ""} ${boardWidgetDragState?.widgetId === widgetId ? "dragging" : ""}`}
-        style={{
-          position: "fixed",
-          left: (layoutRect?.left ?? 0) + widget.x,
-          top: (layoutRect?.top ?? 0) + widget.y,
-          width: widget.collapsed ? undefined : widget.width,
-          height: widget.collapsed ? undefined : widget.height,
-        }}
-        onWheelCapture={(event) => event.stopPropagation()}
-      >
-        <div
-          className="boardCardHeader"
-          onPointerDown={(event) => beginBoardWidgetDrag(event, widgetId)}
-        >
-          <span className="boardCardTitle">{getBoardWidgetTitle(widgetId)}</span>
-          <div
-            className="boardCardHeaderActions"
-            onPointerDown={(event) => event.stopPropagation()}
-          >
-            {headerActions}
-            <button
-              type="button"
-              className="boardCardToggle"
-              aria-label={
-                widget.collapsed
-                  ? `Expand ${getBoardWidgetTitle(widgetId)}`
-                  : `Collapse ${getBoardWidgetTitle(widgetId)}`
-              }
-              onClick={(event) => {
-                event.stopPropagation();
-                toggleBoardWidgetCollapsed(widgetId);
-              }}
-            >
-              {widget.collapsed ? "+" : "-"}
-            </button>
-          </div>
-        </div>
-        {!widget.collapsed ? <div className="boardCardBody">{body}</div> : null}
-        {!widget.collapsed ? (
-          <button
-            type="button"
-            className="boardCardResizeHandle"
-            aria-label={`Resize ${getBoardWidgetTitle(widgetId)}`}
-            onPointerDown={(event) => beginBoardWidgetResize(event, widgetId)}
-          />
-        ) : null}
-      </div>
-    );
-  }
-
   return (
     <div className="appShell">
       <input
@@ -3337,109 +2980,486 @@ export default function App() {
               </div>
             </div>
           </section>
-          <section className="panelSection levelManagerSection">
-            <div className="sectionHeader">
-              <div>
-                <div className="sectionEyebrow">Levels</div>
-                <h2 className="sectionTitle">Manager</h2>
-              </div>
-              <div className="sectionActions">
-                <button type="button" className="iconButton" onClick={addLevelAfterSelection}>
-                  Add
+          <section className="panelSection leftPanelMenuSection">
+            <div className="boardMenuBar">
+              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="menuButton"
+                  aria-expanded={boardMenuOpen === "file"}
+                  onClick={() => toggleBoardMenu("file")}
+                >
+                  File
                 </button>
+                {boardMenuOpen === "file" ? (
+                  <div className="dropdownMenu">
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        triggerOpenDialog();
+                      }}
+                    >
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!doc}
+                      onClick={() => {
+                        if (!doc) return;
+                        setBoardMenuOpen(null);
+                        const exportDoc = threeDLevelsEnabled ? export3dLevelsetDoc(doc) : doc;
+                        downloadText("levelset.json", stringifyDatLevelsetJsonV1(exportDoc));
+                      }}
+                    >
+                      Download JSON
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!doc}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        void saveCurrentDat();
+                      }}
+                    >
+                      Save DAT As...
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!canTestSelectedLevelInLexysLabyrinth || selectedLogicalLevelIs3d}
+                      onClick={() => {
+                        if (!canTestSelectedLevelInLexysLabyrinth || selectedLogicalLevelIs3d)
+                          return;
+                        setBoardMenuOpen(null);
+                        openSelectedLevelInLexysLabyrinth();
+                      }}
+                    >
+                      Test in Lexy's Labyrinth (F7)
+                    </button>
+                  </div>
+                ) : null}
               </div>
-            </div>
-            <div className="levelManagerHint">
-              Drag to reorder. Right-click for duplicate or delete.
-            </div>
 
-            <div
-              className="levelList"
-              role="list"
-              aria-label="Level list"
-              onDragOver={(event) => {
-                if (event.target !== event.currentTarget) return;
-                event.preventDefault();
-                const nextDropState = getLevelDropStateFromList(event.currentTarget, event.clientY);
-                if (!nextDropState) return;
-                setLevelDropState((current) =>
-                  current?.index === nextDropState.index &&
-                  current.position === nextDropState.position
-                    ? current
-                    : nextDropState,
-                );
-              }}
-              onDrop={(event) => {
-                if (event.target !== event.currentTarget) return;
-                event.preventDefault();
-                handleLevelDrop();
-              }}
-            >
-              {(threeDLevelsEnabled ? logicalLevelset?.levels.length : doc?.levels.length) ? (
-                (threeDLevelsEnabled ? (logicalLevelset?.levels ?? []) : (doc?.levels ?? [])).map(
-                  (entry, index) => {
-                    const isLogical = threeDLevelsEnabled;
-                    const logicalLevel = isLogical ? (entry as Logical3dLevel) : null;
-                    const rawLevel = !isLogical ? (entry as DatLevelJson) : null;
-                    const itemNumber = isLogical ? logicalLevel!.displayNumber : rawLevel!.number;
-                    const itemTitle = isLogical
-                      ? logicalLevel!.displayTitle || `Level ${logicalLevel!.displayNumber}`
-                      : (rawLevel!.title ?? `Level ${rawLevel!.number}`);
-                    const isSelected = isLogical
-                      ? index === selectedLogicalIndex
-                      : index === selectedIndex;
-                    const showsDropBefore =
-                      draggedLevelIndex !== null &&
-                      levelDropState?.index === index &&
-                      levelDropState.position === "before";
-                    const showsDropAfter =
-                      draggedLevelIndex !== null &&
-                      levelDropState?.index === index &&
-                      levelDropState.position === "after";
+              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="menuButton"
+                  aria-expanded={boardMenuOpen === "view"}
+                  onClick={() => toggleBoardMenu("view")}
+                >
+                  View
+                </button>
+                {boardMenuOpen === "view" ? (
+                  <div className="dropdownMenu">
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      onClick={() => setShowSecrets((current) => !current)}
+                    >
+                      {`${showSecrets ? "Hide" : "Show"} Secrets`}
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      onClick={() => setShowConnections((current) => !current)}
+                    >
+                      {`${showConnections ? "Hide" : "Show"} Connections`}
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      onClick={() => setShowMonsterOrder((current) => !current)}
+                    >
+                      {`${showMonsterOrder ? "Hide" : "Show"} Monster Order`}
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      onClick={() => setShowValidityWarnings((current) => !current)}
+                    >
+                      {`${showValidityWarnings ? "Hide" : "Show"} Validity Warnings`}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
 
-                    return (
+              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="menuButton"
+                  aria-expanded={boardMenuOpen === "options"}
+                  onClick={() => toggleBoardMenu("options")}
+                >
+                  Options
+                </button>
+                {boardMenuOpen === "options" ? (
+                  <div className="dropdownMenu">
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      onClick={() => setThreeDLevelsEnabled((current) => !current)}
+                    >
+                      {`${threeDLevelsEnabled ? "Disable" : "Enable"} 3D Levels`}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="menuButton"
+                  aria-expanded={boardMenuOpen === "transform"}
+                  onClick={() => toggleBoardMenu("transform")}
+                >
+                  Transform
+                </button>
+                {boardMenuOpen === "transform" ? (
+                  <div className="dropdownMenu">
+                    {TRANSFORM_MENU_ITEMS.map((item) => (
                       <button
-                        key={
-                          isLogical
-                            ? `${logicalLevel!.docStartIndex}-${index}`
-                            : `${rawLevel!.number}-${index}`
-                        }
+                        key={item.kind}
                         type="button"
-                        draggable
-                        className={`levelListItem ${isSelected ? "selected" : ""} ${draggedLevelIndex === index ? "dragging" : ""} ${showsDropBefore ? "dropBefore" : ""} ${showsDropAfter ? "dropAfter" : ""}`}
-                        onClick={() =>
-                          isLogical ? chooseLogicalLevel(index) : chooseRawLevel(index)
-                        }
-                        onContextMenu={(event) => handleLevelContextMenu(event, index)}
-                        onDragStart={() => handleLevelDragStart(index)}
-                        onDragOver={(event) => {
-                          event.stopPropagation();
-                          handleLevelDragOver(event, index);
-                        }}
-                        onDrop={(event) => {
-                          event.stopPropagation();
-                          event.preventDefault();
-                          handleLevelDrop();
-                        }}
-                        onDragEnd={() => {
-                          setDraggedLevelIndex(null);
-                          setLevelDropState(null);
-                        }}
+                        className="dropdownMenuItem"
+                        disabled={!doc}
+                        onClick={() => applySelectedLevelTransform(item.kind)}
                       >
-                        <span className="levelDragGrip" aria-hidden="true">
-                          ::
-                        </span>
-                        <span className="levelListNumber">{itemNumber}</span>
-                        <span className="levelListTitle">{itemTitle}</span>
+                        {item.label}
                       </button>
-                    );
-                  },
-                )
-              ) : (
-                <div className="emptyState">Open a DAT or JSON levelset to start editing.</div>
-              )}
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </section>
+
+          <div className="inspectorTabs levelPanelTabs" role="tablist" aria-label="Left panel tabs">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={leftPanelTab === "levels"}
+              className={`inspectorTab ${leftPanelTab === "levels" ? "active" : ""}`}
+              onClick={() => setLeftPanelTab("levels")}
+            >
+              Levels
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={leftPanelTab === "controls"}
+              className={`inspectorTab ${leftPanelTab === "controls" ? "active" : ""}`}
+              onClick={() => setLeftPanelTab("controls")}
+            >
+              Controls
+            </button>
+          </div>
+
+          {leftPanelTab === "levels" ? (
+            <section className="panelSection leftPanelTabBody levelManagerSection">
+              <div className="sectionHeader">
+                <div>
+                  <div className="sectionEyebrow">Levels</div>
+                  <h2 className="sectionTitle">Manager</h2>
+                </div>
+                <div className="sectionActions">
+                  <button type="button" className="iconButton" onClick={addLevelAfterSelection}>
+                    Add
+                  </button>
+                </div>
+              </div>
+              <div className="levelManagerHint">
+                Drag to reorder. Right-click for duplicate or delete.
+              </div>
+
+              <div
+                className="levelList"
+                role="list"
+                aria-label="Level list"
+                onDragOver={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  event.preventDefault();
+                  const nextDropState = getLevelDropStateFromList(
+                    event.currentTarget,
+                    event.clientY,
+                  );
+                  if (!nextDropState) return;
+                  setLevelDropState((current) =>
+                    current?.index === nextDropState.index &&
+                    current.position === nextDropState.position
+                      ? current
+                      : nextDropState,
+                  );
+                }}
+                onDrop={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  event.preventDefault();
+                  handleLevelDrop();
+                }}
+              >
+                {(threeDLevelsEnabled ? logicalLevelset?.levels.length : doc?.levels.length) ? (
+                  (threeDLevelsEnabled ? (logicalLevelset?.levels ?? []) : (doc?.levels ?? [])).map(
+                    (entry, index) => {
+                      const isLogical = threeDLevelsEnabled;
+                      const logicalLevel = isLogical ? (entry as Logical3dLevel) : null;
+                      const rawLevel = !isLogical ? (entry as DatLevelJson) : null;
+                      const itemNumber = isLogical ? logicalLevel!.displayNumber : rawLevel!.number;
+                      const itemTitle = isLogical
+                        ? logicalLevel!.displayTitle || `Level ${logicalLevel!.displayNumber}`
+                        : (rawLevel!.title ?? `Level ${rawLevel!.number}`);
+                      const isSelected = isLogical
+                        ? index === selectedLogicalIndex
+                        : index === selectedIndex;
+                      const showsDropBefore =
+                        draggedLevelIndex !== null &&
+                        levelDropState?.index === index &&
+                        levelDropState.position === "before";
+                      const showsDropAfter =
+                        draggedLevelIndex !== null &&
+                        levelDropState?.index === index &&
+                        levelDropState.position === "after";
+
+                      return (
+                        <button
+                          key={
+                            isLogical
+                              ? `${logicalLevel!.docStartIndex}-${index}`
+                              : `${rawLevel!.number}-${index}`
+                          }
+                          type="button"
+                          draggable
+                          className={`levelListItem ${isSelected ? "selected" : ""} ${draggedLevelIndex === index ? "dragging" : ""} ${showsDropBefore ? "dropBefore" : ""} ${showsDropAfter ? "dropAfter" : ""}`}
+                          onClick={() =>
+                            isLogical ? chooseLogicalLevel(index) : chooseRawLevel(index)
+                          }
+                          onContextMenu={(event) => handleLevelContextMenu(event, index)}
+                          onDragStart={() => handleLevelDragStart(index)}
+                          onDragOver={(event) => {
+                            event.stopPropagation();
+                            handleLevelDragOver(event, index);
+                          }}
+                          onDrop={(event) => {
+                            event.stopPropagation();
+                            event.preventDefault();
+                            handleLevelDrop();
+                          }}
+                          onDragEnd={() => {
+                            setDraggedLevelIndex(null);
+                            setLevelDropState(null);
+                          }}
+                        >
+                          <span className="levelDragGrip" aria-hidden="true">
+                            ::
+                          </span>
+                          <span className="levelListNumber">{itemNumber}</span>
+                          <span className="levelListTitle">{itemTitle}</span>
+                        </button>
+                      );
+                    },
+                  )
+                ) : (
+                  <div className="emptyState">Open a DAT or JSON levelset to start editing.</div>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {leftPanelTab === "controls" ? (
+            <section className="panelSection leftPanelTabBody controlsPanelSection">
+              <div className="sectionHeader">
+                <div>
+                  <div className="sectionEyebrow">Board</div>
+                  <h2 className="sectionTitle">Controls</h2>
+                </div>
+              </div>
+
+              <div className="boardControlRow boardCommandRow">
+                <button
+                  type="button"
+                  className="actionButton"
+                  disabled={!canUndo}
+                  onClick={() =>
+                    setEditor((current) => (current ? undoLevelsetEvent(current) : current))
+                  }
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  className="actionButton"
+                  disabled={!canRedo}
+                  onClick={() =>
+                    setEditor((current) => (current ? redoLevelsetEvent(current) : current))
+                  }
+                >
+                  Redo
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!selection || !activeLevel}
+                  onClick={copySelection}
+                >
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!clipboard || !activeLevel}
+                  onClick={pasteClipboard}
+                >
+                  Paste
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!selection || !activeLevel}
+                  onClick={eraseSelection}
+                >
+                  Erase
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!activeLevel}
+                  onClick={() => commitSelectedLevelUpdate(clearLevel)}
+                >
+                  Clear
+                </button>
+              </div>
+
+              <div className="toggleGroup boardToolRow">
+                {TOOL_LABELS.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    className={`toolButton ${tool === entry.id ? "active" : ""}`}
+                    onClick={() => setTool(entry.id)}
+                  >
+                    {entry.label}
+                    <span className="toolShortcut">{entry.shortcut}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="boardMeta">
+                <span className="statusBadge">{`zoom ${Math.round(boardZoom * 100)}%`}</span>
+                <button
+                  type="button"
+                  className="statusBadge statusBadgeButton"
+                  disabled={!activeLevel || !spriteSet}
+                  onClick={() => resetBoardView(1)}
+                >
+                  Reset
+                </button>
+                {clipboard ? (
+                  <span className="statusBadge">{`clipboard ${clipboard.width}x${clipboard.height}`}</span>
+                ) : null}
+                {selection ? (
+                  <span className="statusBadge">{`selection ${selection.width}x${selection.height}`}</span>
+                ) : null}
+                {hoverPoint ? (
+                  <span className="statusBadge">{`cell ${hoverPoint.x},${hoverPoint.y}`}</span>
+                ) : null}
+              </div>
+
+              {hoverCellSummary ? (
+                <div className="hoverSummary">
+                  <span>{`index ${hoverCellSummary.index}`}</span>
+                  <span>{`top ${hoverCellSummary.top}`}</span>
+                  <span>{`bottom ${hoverCellSummary.bottom}`}</span>
+                </div>
+              ) : (
+                <div className="hoverSummary">Hover the map to inspect a cell stack.</div>
+              )}
+
+              {threeDLevelsEnabled && selectedLogicalLevel ? (
+                <section className="leftPanelSubsection">
+                  <div className="sectionHeader leftPanelSubsectionHeader">
+                    <div>
+                      <div className="sectionEyebrow">3D Levels</div>
+                      <h3 className="sectionTitle">Layers</h3>
+                    </div>
+                    <div className="sectionActions">
+                      <button
+                        type="button"
+                        className="boardIconButton"
+                        aria-label="Explain DAT 3D levels"
+                        title="Explain DAT 3D levels"
+                        onClick={() => setOpenDialog("threeDHelp")}
+                      >
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <circle cx="8" cy="8" r="6.25" fill="none" />
+                          <path
+                            d="M6.7 6.1a1.55 1.55 0 1 1 2.5 1.2c-.72.56-1.15.95-1.15 1.7v.35"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <circle cx="8" cy="11.95" r="0.75" stroke="none" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="boardMeta">
+                    <span className="statusBadge">{`z ${selectedLayerZ}/${selectedLogicalLevel.layers.length}`}</span>
+                    <span className="statusBadge">{`${selectedLogicalLevel.layers.length} layers`}</span>
+                  </div>
+
+                  <div className="board3dButtonGrid">
+                    <button
+                      type="button"
+                      className="secondaryButton shortcutButton"
+                      disabled={selectedLayerZ >= selectedLogicalLevel.layers.length}
+                      onClick={selectLayerUp}
+                    >
+                      Layer Up
+                      <span className="toolShortcut">Q</span>
+                    </button>
+                    <button type="button" className="secondaryButton" onClick={addTopLayer}>
+                      + Top
+                    </button>
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      disabled={selectedLogicalLevel.layers.length <= 1}
+                      onClick={removeTopLayer}
+                    >
+                      - Top
+                    </button>
+                    <button
+                      type="button"
+                      className="secondaryButton shortcutButton"
+                      disabled={selectedLayerZ <= 1}
+                      onClick={selectLayerDown}
+                    >
+                      Layer Down
+                      <span className="toolShortcut">Z</span>
+                    </button>
+                    <button type="button" className="secondaryButton" onClick={addBottomLayer}>
+                      + Bottom
+                    </button>
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      disabled={selectedLogicalLevel.layers.length <= 1}
+                      onClick={removeBottomLayer}
+                    >
+                      - Bottom
+                    </button>
+                  </div>
+
+                  <div className="boardHelpText">
+                    Use Q to move up a z-layer and Z to move down.
+                  </div>
+                </section>
+              ) : null}
+            </section>
+          ) : null}
         </aside>
 
         <div
@@ -3460,331 +3480,6 @@ export default function App() {
             onPointerUp={handleViewportPointerUp}
             onPointerCancel={handleViewportPointerCancel}
           >
-            {renderBoardWidget(
-              "controls",
-              "boardControlsCard",
-              <>
-                <div className="boardMenuBar">
-                  <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="menuButton"
-                      aria-expanded={boardMenuOpen === "file"}
-                      onClick={() => toggleBoardMenu("file")}
-                    >
-                      File
-                    </button>
-                    {boardMenuOpen === "file" ? (
-                      <div className="dropdownMenu">
-                        <button
-                          type="button"
-                          className="dropdownMenuItem"
-                          onClick={() => {
-                            setBoardMenuOpen(null);
-                            triggerOpenDialog();
-                          }}
-                        >
-                          Open
-                        </button>
-                        <button
-                          type="button"
-                          className="dropdownMenuItem"
-                          disabled={!doc}
-                          onClick={() => {
-                            if (!doc) return;
-                            setBoardMenuOpen(null);
-                            const exportDoc = threeDLevelsEnabled ? export3dLevelsetDoc(doc) : doc;
-                            downloadText("levelset.json", stringifyDatLevelsetJsonV1(exportDoc));
-                          }}
-                        >
-                          Download JSON
-                        </button>
-                        <button
-                          type="button"
-                          className="dropdownMenuItem"
-                          disabled={!doc}
-                          onClick={() => {
-                            setBoardMenuOpen(null);
-                            void saveCurrentDat();
-                          }}
-                        >
-                          Save DAT As...
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="menuButton"
-                      aria-expanded={boardMenuOpen === "view"}
-                      onClick={() => toggleBoardMenu("view")}
-                    >
-                      View
-                    </button>
-                    {boardMenuOpen === "view" ? (
-                      <div className="dropdownMenu">
-                        <button
-                          type="button"
-                          className="dropdownMenuItem"
-                          onClick={() => setShowSecrets((current) => !current)}
-                        >
-                          {`${showSecrets ? "Hide" : "Show"} Secrets`}
-                        </button>
-                        <button
-                          type="button"
-                          className="dropdownMenuItem"
-                          onClick={() => setShowConnections((current) => !current)}
-                        >
-                          {`${showConnections ? "Hide" : "Show"} Connections`}
-                        </button>
-                        <button
-                          type="button"
-                          className="dropdownMenuItem"
-                          onClick={() => setShowMonsterOrder((current) => !current)}
-                        >
-                          {`${showMonsterOrder ? "Hide" : "Show"} Monster Order`}
-                        </button>
-                        <button
-                          type="button"
-                          className="dropdownMenuItem"
-                          onClick={() => setShowValidityWarnings((current) => !current)}
-                        >
-                          {`${showValidityWarnings ? "Hide" : "Show"} Validity Warnings`}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="menuButton"
-                      aria-expanded={boardMenuOpen === "options"}
-                      onClick={() => toggleBoardMenu("options")}
-                    >
-                      Options
-                    </button>
-                    {boardMenuOpen === "options" ? (
-                      <div className="dropdownMenu">
-                        <button
-                          type="button"
-                          className="dropdownMenuItem"
-                          onClick={() => setThreeDLevelsEnabled((current) => !current)}
-                        >
-                          {`${threeDLevelsEnabled ? "Disable" : "Enable"} 3D Levels`}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="menuButton"
-                      aria-expanded={boardMenuOpen === "transform"}
-                      onClick={() => toggleBoardMenu("transform")}
-                    >
-                      Transform
-                    </button>
-                    {boardMenuOpen === "transform" ? (
-                      <div className="dropdownMenu">
-                        {TRANSFORM_MENU_ITEMS.map((item) => (
-                          <button
-                            key={item.kind}
-                            type="button"
-                            className="dropdownMenuItem"
-                            disabled={!doc}
-                            onClick={() => applySelectedLevelTransform(item.kind)}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="boardControlRow boardCommandRow">
-                  <button
-                    type="button"
-                    className="actionButton"
-                    disabled={!canUndo}
-                    onClick={() =>
-                      setEditor((current) => (current ? undoLevelsetEvent(current) : current))
-                    }
-                  >
-                    Undo
-                  </button>
-                  <button
-                    type="button"
-                    className="actionButton"
-                    disabled={!canRedo}
-                    onClick={() =>
-                      setEditor((current) => (current ? redoLevelsetEvent(current) : current))
-                    }
-                  >
-                    Redo
-                  </button>
-                  <button
-                    type="button"
-                    className="secondaryButton"
-                    disabled={!selection || !activeLevel}
-                    onClick={copySelection}
-                  >
-                    Copy
-                  </button>
-                  <button
-                    type="button"
-                    className="secondaryButton"
-                    disabled={!clipboard || !activeLevel}
-                    onClick={pasteClipboard}
-                  >
-                    Paste
-                  </button>
-                  <button
-                    type="button"
-                    className="secondaryButton"
-                    disabled={!selection || !activeLevel}
-                    onClick={eraseSelection}
-                  >
-                    Erase
-                  </button>
-                  <button
-                    type="button"
-                    className="secondaryButton"
-                    disabled={!activeLevel}
-                    onClick={() => commitSelectedLevelUpdate(clearLevel)}
-                  >
-                    Clear
-                  </button>
-                </div>
-
-                <div className="toggleGroup boardToolRow">
-                  {TOOL_LABELS.map((entry) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      className={`toolButton ${tool === entry.id ? "active" : ""}`}
-                      onClick={() => setTool(entry.id)}
-                    >
-                      {entry.label}
-                      <span className="toolShortcut">{entry.shortcut}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="boardMeta">
-                  <span className="statusBadge">{`zoom ${Math.round(boardZoom * 100)}%`}</span>
-                  <button
-                    type="button"
-                    className="statusBadge statusBadgeButton"
-                    disabled={!activeLevel || !spriteSet}
-                    onClick={() => resetBoardView(1)}
-                  >
-                    Reset
-                  </button>
-                  {clipboard ? (
-                    <span className="statusBadge">{`clipboard ${clipboard.width}x${clipboard.height}`}</span>
-                  ) : null}
-                  {selection ? (
-                    <span className="statusBadge">{`selection ${selection.width}x${selection.height}`}</span>
-                  ) : null}
-                  {hoverPoint ? (
-                    <span className="statusBadge">{`cell ${hoverPoint.x},${hoverPoint.y}`}</span>
-                  ) : null}
-                </div>
-
-                {hoverCellSummary ? (
-                  <div className="hoverSummary">
-                    <span>{`index ${hoverCellSummary.index}`}</span>
-                    <span>{`top ${hoverCellSummary.top}`}</span>
-                    <span>{`bottom ${hoverCellSummary.bottom}`}</span>
-                  </div>
-                ) : (
-                  <div className="hoverSummary">Hover the map to inspect a cell stack.</div>
-                )}
-              </>,
-            )}
-
-            {threeDLevelsEnabled && selectedLogicalLevel
-              ? renderBoardWidget(
-                  "layers3d",
-                  "board3dCard",
-                  <>
-                    <div className="boardMeta">
-                      <span className="statusBadge">{`z ${selectedLayerZ}/${selectedLogicalLevel.layers.length}`}</span>
-                      <span className="statusBadge">{`${selectedLogicalLevel.layers.length} layers`}</span>
-                    </div>
-
-                    <div className="board3dButtonGrid">
-                      <button
-                        type="button"
-                        className="secondaryButton shortcutButton"
-                        disabled={selectedLayerZ >= selectedLogicalLevel.layers.length}
-                        onClick={selectLayerUp}
-                      >
-                        Layer Up
-                        <span className="toolShortcut">Q</span>
-                      </button>
-                      <button type="button" className="secondaryButton" onClick={addTopLayer}>
-                        + Top
-                      </button>
-                      <button
-                        type="button"
-                        className="secondaryButton"
-                        disabled={selectedLogicalLevel.layers.length <= 1}
-                        onClick={removeTopLayer}
-                      >
-                        - Top
-                      </button>
-                      <button
-                        type="button"
-                        className="secondaryButton shortcutButton"
-                        disabled={selectedLayerZ <= 1}
-                        onClick={selectLayerDown}
-                      >
-                        Layer Down
-                        <span className="toolShortcut">Z</span>
-                      </button>
-                      <button type="button" className="secondaryButton" onClick={addBottomLayer}>
-                        + Bottom
-                      </button>
-                      <button
-                        type="button"
-                        className="secondaryButton"
-                        disabled={selectedLogicalLevel.layers.length <= 1}
-                        onClick={removeBottomLayer}
-                      >
-                        - Bottom
-                      </button>
-                    </div>
-
-                    <div className="boardHelpText">
-                      Use Q to move up a z-layer and Z to move down.
-                    </div>
-                  </>,
-                  <button
-                    type="button"
-                    className="boardIconButton"
-                    aria-label="Explain DAT 3D levels"
-                    title="Explain DAT 3D levels"
-                    onClick={() => setOpenDialog("threeDHelp")}
-                  >
-                    <svg viewBox="0 0 16 16" aria-hidden="true">
-                      <circle cx="8" cy="8" r="6.25" fill="none" />
-                      <path
-                        d="M6.7 6.1a1.55 1.55 0 1 1 2.5 1.2c-.72.56-1.15.95-1.15 1.7v.35"
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <circle cx="8" cy="11.95" r="0.75" stroke="none" />
-                    </svg>
-                  </button>,
-                )
-              : null}
-
             {activeLevel && spriteSet ? (
               <div
                 className={`boardStageTransform ${boardPanState ? "panning" : ""}`}
@@ -4412,6 +4107,9 @@ export default function App() {
                     Hold `W`, `A`, `S`, `D` or the arrow keys to move the camera continuously.
                   </li>
                   <li>Tool shortcuts: `B` Brush, `L` Line, `F` Bucket, `V` Select, `C` Connect.</li>
+                  <li>
+                    `N` moves to the next level in the level list and `P` moves to the previous one.
+                  </li>
                   <li>In 3D mode, `Q` moves up a z-layer and `Z` moves down a z-layer.</li>
                 </ul>
               </section>

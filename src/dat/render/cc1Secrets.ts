@@ -13,7 +13,6 @@ const AMBIGUOUS_DIRECTION_TILE_PREFIXES = [
   "BLOB_",
   "PARAMECIUM_",
 ] as const;
-const SECRET_ARROW_EXCLUDED_PREFIXES = ["PANEL_"] as const;
 
 export function dirFromTileName(name: string): Dir | null {
   const match = DIRECTIONAL_TILE_PATTERN.exec(name);
@@ -24,13 +23,6 @@ export function shouldShowDirectionArrowInPalette(name: string): boolean {
   return (
     dirFromTileName(name) !== null &&
     AMBIGUOUS_DIRECTION_TILE_PREFIXES.some((prefix) => name.startsWith(prefix))
-  );
-}
-
-export function shouldShowDirectionArrowInSecrets(name: string): boolean {
-  return (
-    dirFromTileName(name) !== null &&
-    !SECRET_ARROW_EXCLUDED_PREFIXES.some((prefix) => name.startsWith(prefix))
   );
 }
 

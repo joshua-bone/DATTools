@@ -35,12 +35,14 @@ function makeSpriteSet(): CC1SpriteSet {
     ["FLOOR", [10, 20, 30, 255]],
     ["WALL", [200, 40, 30, 255]],
     ["CHIP", [30, 200, 80, 255]],
+    ["BALL_N", [20, 40, 220, 255]],
+    ["ANT_N", [30, 180, 60, 255]],
   ]);
 
   return {
-    tileSize: 1,
+    tileSize: 8,
     get(name: string) {
-      return createImage(1, 1, colors.get(name) ?? [0, 0, 0, 0]);
+      return createImage(8, 8, colors.get(name) ?? [0, 0, 0, 0]);
     },
   };
 }
@@ -64,5 +66,47 @@ describe("CC1 level renderer", () => {
     });
 
     expect(pixelAt0(img)).toEqual([30, 200, 80, 255]);
+  });
+
+  it("shows secret arrows for ambiguous directional tiles", () => {
+    const img = renderCc1LevelToRgba(makeLevel("BALL_N", "FLOOR"), makeSpriteSet(), {
+      showSecrets: true,
+    });
+
+    let hasOpaqueRedPixel = false;
+    for (let index = 0; index < img.data.length; index += 4) {
+      if (
+        img.data[index + 0] === 255 &&
+        img.data[index + 1] === 0 &&
+        img.data[index + 2] === 0 &&
+        img.data[index + 3] === 255
+      ) {
+        hasOpaqueRedPixel = true;
+        break;
+      }
+    }
+
+    expect(hasOpaqueRedPixel).toBe(true);
+  });
+
+  it("does not show secret arrows for visually clear directional tiles", () => {
+    const img = renderCc1LevelToRgba(makeLevel("ANT_N", "FLOOR"), makeSpriteSet(), {
+      showSecrets: true,
+    });
+
+    let hasOpaqueRedPixel = false;
+    for (let index = 0; index < img.data.length; index += 4) {
+      if (
+        img.data[index + 0] === 255 &&
+        img.data[index + 1] === 0 &&
+        img.data[index + 2] === 0 &&
+        img.data[index + 3] === 255
+      ) {
+        hasOpaqueRedPixel = true;
+        break;
+      }
+    }
+
+    expect(hasOpaqueRedPixel).toBe(false);
   });
 });

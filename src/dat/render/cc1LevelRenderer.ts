@@ -9,7 +9,7 @@ import {
   dirFromTileName,
   makeArrow,
   overlayArrowInPlace,
-  shouldShowDirectionArrowInSecrets,
+  shouldShowDirectionArrowInPalette,
 } from "./cc1Secrets.js";
 
 export type RenderOptions = Readonly<{
@@ -72,7 +72,7 @@ export function renderCc1LevelToRgba(
 
         blit(tileImg, topImg, 0, 0);
 
-        if (opts.showSecrets && shouldShowDirectionArrowInSecrets(topName)) {
+        if (opts.showSecrets && shouldShowDirectionArrowInPalette(topName)) {
           const d = dirFromTileName(topName);
           if (d) overlayArrowInPlace(tileImg, getArrow(d));
         }
