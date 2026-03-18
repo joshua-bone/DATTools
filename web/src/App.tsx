@@ -84,6 +84,7 @@ type ToolMode = "brush" | "line" | "fill" | "select" | "connect";
 type LeftPanelTab = "levels" | "controls";
 type InspectorTab = "palette" | "metadata";
 type PaletteTab = "normal" | "invalid";
+type LayoutModePreference = "auto" | "desktop" | "tablet";
 type TabletDrawerSide = "left" | "right" | null;
 type PaletteAssignmentTarget = "primary" | "secondary";
 
@@ -206,6 +207,7 @@ const MAX_PALETTE_TILE_SIZE = 144;
 const KEYBOARD_PAN_SPEED = 520;
 const TABLET_LAYOUT_MIN_VIEWPORT = 700;
 const TABLET_LAYOUT_MAX_VIEWPORT = 1400;
+const LAYOUT_MODE_PREFERENCE_STORAGE_KEY = "dattools-layout-mode";
 const DAT_3D_VALID_TERRAIN_TILES = new Set<string>([DAT_3D_AIR_TILE, "CHIP_EXIT"]);
 const DEFAULT_LEVELSET_FILENAME = "NEW_LEVELSET.DAT";
 const DEFAULT_MAGIC_NUMBER = 174764;
@@ -228,6 +230,10 @@ function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+}
+
+function isLayoutModePreference(value: string | null): value is LayoutModePreference {
+  return value === "auto" || value === "desktop" || value === "tablet";
 }
 
 function isKeyboardPanKey(key: string): boolean {
@@ -1185,6 +1191,11 @@ export default function App() {
   const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(false);
   const [paletteViewportWidth, setPaletteViewportWidth] = useState(0);
   const [paletteTileSizeTarget, setPaletteTileSizeTarget] = useState(MIN_PALETTE_TILE_SIZE);
+  const [layoutModePreference, setLayoutModePreference] = useState<LayoutModePreference>(() => {
+    if (typeof window === "undefined") return "auto";
+    const storedPreference = window.localStorage.getItem(LAYOUT_MODE_PREFERENCE_STORAGE_KEY);
+    return isLayoutModePreference(storedPreference) ? storedPreference : "auto";
+  });
   const [viewportSize, setViewportSize] = useState<ViewportSize>(() => ({
     width: typeof window === "undefined" ? 0 : window.innerWidth,
     height: typeof window === "undefined" ? 0 : window.innerHeight,
@@ -1192,8 +1203,14 @@ export default function App() {
   const [hasCoarsePointer, setHasCoarsePointer] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches,
   );
+  const [hasAnyCoarsePointer, setHasAnyCoarsePointer] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(any-pointer: coarse)").matches,
+  );
   const [hasHoverPointer, setHasHoverPointer] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches,
+  );
+  const [hasTouchCapability, setHasTouchCapability] = useState(
+    () => typeof navigator !== "undefined" && navigator.maxTouchPoints > 0,
   );
   const [tabletDrawerSide, setTabletDrawerSide] = useState<TabletDrawerSide>(null);
   const [paletteAssignmentTarget, setPaletteAssignmentTarget] =
@@ -1209,11 +1226,17 @@ export default function App() {
 
   const shortestViewportSide = Math.min(viewportSize.width, viewportSize.height);
   const longestViewportSide = Math.max(viewportSize.width, viewportSize.height);
-  const isTabletLayout =
-    hasCoarsePointer &&
+  const autoTabletLayout =
+    (hasCoarsePointer || (hasAnyCoarsePointer && hasTouchCapability)) &&
     !hasHoverPointer &&
     shortestViewportSide >= TABLET_LAYOUT_MIN_VIEWPORT &&
     longestViewportSide <= TABLET_LAYOUT_MAX_VIEWPORT;
+  const isTabletLayout =
+    layoutModePreference === "tablet"
+      ? true
+      : layoutModePreference === "desktop"
+        ? false
+        : autoTabletLayout;
   const isTabletPortrait = isTabletLayout && viewportSize.width < viewportSize.height;
   const boardPanActive = !!boardPanState || !!touchGestureState;
 
@@ -1386,6 +1409,7 @@ export default function App() {
   );
   const appShellClassName = `appShell ${isTabletLayout ? "tabletLayout" : ""} ${isTabletPortrait ? "tabletPortrait" : ""}`;
   const editorLayoutClassName = `editorLayout ${isTabletLayout ? "tabletEditorLayout" : ""} ${tabletDrawerSide ? `tabletDrawerOpen drawer-${tabletDrawerSide}` : ""}`;
+  const automaticLayoutLabel = `Automatic Layout (${autoTabletLayout ? "Tablet" : "Desktop"})`;
   const paletteColumnCount = useMemo(() => {
     if (paletteViewportWidth <= 0) return 4;
     return Math.max(1, Math.floor(paletteViewportWidth / paletteTileSizeTarget));
@@ -1407,6 +1431,7 @@ export default function App() {
     if (typeof window === "undefined") return;
 
     const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
+    const anyCoarsePointerQuery = window.matchMedia("(any-pointer: coarse)");
     const hoverPointerQuery = window.matchMedia("(hover: hover)");
     const updateViewportState = () => {
       setViewportSize({
@@ -1414,19 +1439,28 @@ export default function App() {
         height: window.innerHeight,
       });
       setHasCoarsePointer(coarsePointerQuery.matches);
+      setHasAnyCoarsePointer(anyCoarsePointerQuery.matches);
       setHasHoverPointer(hoverPointerQuery.matches);
+      setHasTouchCapability(typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
     };
 
     updateViewportState();
     window.addEventListener("resize", updateViewportState);
     coarsePointerQuery.addEventListener("change", updateViewportState);
+    anyCoarsePointerQuery.addEventListener("change", updateViewportState);
     hoverPointerQuery.addEventListener("change", updateViewportState);
     return () => {
       window.removeEventListener("resize", updateViewportState);
       coarsePointerQuery.removeEventListener("change", updateViewportState);
+      anyCoarsePointerQuery.removeEventListener("change", updateViewportState);
       hoverPointerQuery.removeEventListener("change", updateViewportState);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LAYOUT_MODE_PREFERENCE_STORAGE_KEY, layoutModePreference);
+  }, [layoutModePreference]);
 
   useEffect(() => {
     if (isTabletLayout) return;
@@ -3461,6 +3495,30 @@ export default function App() {
                       onClick={() => setThreeDLevelsEnabled((current) => !current)}
                     >
                       {`${threeDLevelsEnabled ? "Disable" : "Enable"} 3D Levels`}
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={layoutModePreference === "auto"}
+                      onClick={() => setLayoutModePreference("auto")}
+                    >
+                      {`${automaticLayoutLabel}${layoutModePreference === "auto" ? " (Current)" : ""}`}
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={layoutModePreference === "desktop"}
+                      onClick={() => setLayoutModePreference("desktop")}
+                    >
+                      {`Force Desktop Layout${layoutModePreference === "desktop" ? " (Current)" : ""}`}
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={layoutModePreference === "tablet"}
+                      onClick={() => setLayoutModePreference("tablet")}
+                    >
+                      {`Force Tablet Layout${layoutModePreference === "tablet" ? " (Current)" : ""}`}
                     </button>
                   </div>
                 ) : null}
