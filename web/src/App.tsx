@@ -84,6 +84,8 @@ type ToolMode = "brush" | "line" | "fill" | "select" | "connect";
 type LeftPanelTab = "levels" | "controls";
 type InspectorTab = "palette" | "metadata";
 type PaletteTab = "normal" | "invalid";
+type TabletDrawerSide = "left" | "right" | null;
+type PaletteAssignmentTarget = "primary" | "secondary";
 
 type MetadataDraft = Readonly<{
   number: string;
@@ -141,6 +143,26 @@ type BoardCursorPoint = Readonly<{
   y: number;
 }>;
 
+type ViewportSize = Readonly<{
+  width: number;
+  height: number;
+}>;
+
+type TouchPoint = Readonly<{
+  clientX: number;
+  clientY: number;
+}>;
+
+type TouchGestureState = Readonly<{
+  pointerIds: readonly [number, number];
+  startPanX: number;
+  startPanY: number;
+  startZoom: number;
+  startCenterX: number;
+  startCenterY: number;
+  startDistance: number;
+}> | null;
+
 type LayoutResizeState = Readonly<{
   side: "left" | "right";
   pointerId: number;
@@ -182,6 +204,8 @@ const THREE_D_STACK_DEPTH = 3;
 const MIN_PALETTE_TILE_SIZE = 36;
 const MAX_PALETTE_TILE_SIZE = 144;
 const KEYBOARD_PAN_SPEED = 520;
+const TABLET_LAYOUT_MIN_VIEWPORT = 700;
+const TABLET_LAYOUT_MAX_VIEWPORT = 1400;
 const DAT_3D_VALID_TERRAIN_TILES = new Set<string>([DAT_3D_AIR_TILE, "CHIP_EXIT"]);
 const DEFAULT_LEVELSET_FILENAME = "NEW_LEVELSET.DAT";
 const DEFAULT_MAGIC_NUMBER = 174764;
@@ -534,6 +558,21 @@ function isSupportedCanvasPointerButton(button: number): boolean {
 
 function isBoardPanGesture(event: Pick<PointerEvent, "button" | "metaKey" | "ctrlKey">): boolean {
   return event.button === 1 || (event.button === 0 && (event.metaKey || event.ctrlKey));
+}
+
+function isTouchPointer(event: Pick<PointerEvent, "pointerType">): boolean {
+  return event.pointerType === "touch";
+}
+
+function getTouchCenter(a: TouchPoint, b: TouchPoint): TouchPoint {
+  return {
+    clientX: (a.clientX + b.clientX) / 2,
+    clientY: (a.clientY + b.clientY) / 2,
+  };
+}
+
+function getTouchDistance(a: TouchPoint, b: TouchPoint): number {
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 }
 
 function clampNumber(value: number, min: number, max: number): number {
@@ -1096,6 +1135,7 @@ export default function App() {
   const keyboardPanKeysRef = useRef<Set<string>>(new Set());
   const keyboardPanFrameRef = useRef<number | null>(null);
   const keyboardPanLastTimeRef = useRef<number | null>(null);
+  const touchBoardPointsRef = useRef<Map<number, TouchPoint>>(new Map());
   const editorLayoutRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const boardViewportRef = useRef<HTMLDivElement>(null);
@@ -1145,6 +1185,20 @@ export default function App() {
   const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(false);
   const [paletteViewportWidth, setPaletteViewportWidth] = useState(0);
   const [paletteTileSizeTarget, setPaletteTileSizeTarget] = useState(MIN_PALETTE_TILE_SIZE);
+  const [viewportSize, setViewportSize] = useState<ViewportSize>(() => ({
+    width: typeof window === "undefined" ? 0 : window.innerWidth,
+    height: typeof window === "undefined" ? 0 : window.innerHeight,
+  }));
+  const [hasCoarsePointer, setHasCoarsePointer] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches,
+  );
+  const [hasHoverPointer, setHasHoverPointer] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches,
+  );
+  const [tabletDrawerSide, setTabletDrawerSide] = useState<TabletDrawerSide>(null);
+  const [paletteAssignmentTarget, setPaletteAssignmentTarget] =
+    useState<PaletteAssignmentTarget>("primary");
+  const [touchGestureState, setTouchGestureState] = useState<TouchGestureState>(null);
 
   const [showSecrets, setShowSecrets] = useState(true);
   const [showConnections, setShowConnections] = useState(true);
@@ -1152,6 +1206,16 @@ export default function App() {
   const [showValidityWarnings, setShowValidityWarnings] = useState(true);
 
   const [metadataDraft, setMetadataDraft] = useState<MetadataDraft | null>(null);
+
+  const shortestViewportSide = Math.min(viewportSize.width, viewportSize.height);
+  const longestViewportSide = Math.max(viewportSize.width, viewportSize.height);
+  const isTabletLayout =
+    hasCoarsePointer &&
+    !hasHoverPointer &&
+    shortestViewportSide >= TABLET_LAYOUT_MIN_VIEWPORT &&
+    longestViewportSide <= TABLET_LAYOUT_MAX_VIEWPORT;
+  const isTabletPortrait = isTabletLayout && viewportSize.width < viewportSize.height;
+  const boardPanActive = !!boardPanState || !!touchGestureState;
 
   const doc = editor?.doc ?? null;
   const selectedIndex = editor?.selectedIndex ?? 0;
@@ -1181,6 +1245,15 @@ export default function App() {
   const boardSize = spriteSet ? spriteSet.tileSize * 32 : 0;
   const canUndo = (editor?.cursor ?? 0) > 0;
   const canRedo = editor ? editor.cursor < editor.events.length : false;
+  const displayedLevelCount = threeDLevelsEnabled
+    ? (logicalLevelset?.levels.length ?? 0)
+    : (doc?.levels.length ?? 0);
+  const canMoveDisplayedLevelUp = threeDLevelsEnabled
+    ? selectedLogicalIndex > 0
+    : selectedIndex > 0;
+  const canMoveDisplayedLevelDown = threeDLevelsEnabled
+    ? selectedLogicalIndex < displayedLevelCount - 1
+    : selectedIndex < displayedLevelCount - 1;
   const actualChipCount = useMemo(
     () =>
       threeDLevelsEnabled
@@ -1311,6 +1384,8 @@ export default function App() {
       }) as CSSProperties,
     [leftPanelWidth, rightPanelWidth],
   );
+  const appShellClassName = `appShell ${isTabletLayout ? "tabletLayout" : ""} ${isTabletPortrait ? "tabletPortrait" : ""}`;
+  const editorLayoutClassName = `editorLayout ${isTabletLayout ? "tabletEditorLayout" : ""} ${tabletDrawerSide ? `tabletDrawerOpen drawer-${tabletDrawerSide}` : ""}`;
   const paletteColumnCount = useMemo(() => {
     if (paletteViewportWidth <= 0) return 4;
     return Math.max(1, Math.floor(paletteViewportWidth / paletteTileSizeTarget));
@@ -1327,6 +1402,55 @@ export default function App() {
       }) as CSSProperties,
     [paletteCellSize, paletteColumnCount],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
+    const hoverPointerQuery = window.matchMedia("(hover: hover)");
+    const updateViewportState = () => {
+      setViewportSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+      setHasCoarsePointer(coarsePointerQuery.matches);
+      setHasHoverPointer(hoverPointerQuery.matches);
+    };
+
+    updateViewportState();
+    window.addEventListener("resize", updateViewportState);
+    coarsePointerQuery.addEventListener("change", updateViewportState);
+    hoverPointerQuery.addEventListener("change", updateViewportState);
+    return () => {
+      window.removeEventListener("resize", updateViewportState);
+      coarsePointerQuery.removeEventListener("change", updateViewportState);
+      hoverPointerQuery.removeEventListener("change", updateViewportState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isTabletLayout) return;
+    setTabletDrawerSide(null);
+    setPaletteAssignmentTarget("primary");
+    setTouchGestureState(null);
+    touchBoardPointsRef.current.clear();
+  }, [isTabletLayout]);
+
+  useEffect(() => {
+    if (!isTabletLayout) return;
+    setPaletteTileSizeTarget((current) => Math.max(current, 56));
+  }, [isTabletLayout]);
+
+  useEffect(() => {
+    if (!tabletDrawerSide) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setTabletDrawerSide(null);
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [tabletDrawerSide]);
 
   function loadDocument(nextDoc: DatLevelsetJsonV1, nextFileName?: string | null): void {
     setEditor(createLevelsetEditorHistory(nextDoc));
@@ -2593,6 +2717,63 @@ export default function App() {
     });
   }
 
+  function toggleTabletLeftPanel(tab: LeftPanelTab): void {
+    setLeftPanelTab(tab);
+    setBoardMenuOpen(null);
+    setLevelContextMenu(null);
+    setTabletDrawerSide((current) => (current === "left" && leftPanelTab === tab ? null : "left"));
+  }
+
+  function toggleTabletRightPanel(tab: InspectorTab): void {
+    setInspectorTab(tab);
+    setBoardMenuOpen(null);
+    setLevelContextMenu(null);
+    setTabletDrawerSide((current) =>
+      current === "right" && inspectorTab === tab ? null : "right",
+    );
+  }
+
+  function closeTabletDrawers(): void {
+    setTabletDrawerSide(null);
+  }
+
+  function assignPaletteTile(tile: string, target: PaletteAssignmentTarget): void {
+    if (target === "secondary") setSecondaryTile(tile);
+    else setPrimaryTile(tile);
+  }
+
+  function moveDisplayedLevelBy(offset: -1 | 1): void {
+    if (!doc) return;
+
+    if (threeDLevelsEnabled) {
+      const sourceIndex = selectedLogicalIndex;
+      const targetIndex = sourceIndex + offset;
+      if (targetIndex < 0 || targetIndex >= displayedLevelCount) return;
+
+      commitLogicalLevelsetUpdate((groups) => {
+        const nextGroups = [...groups];
+        const [moved] = nextGroups.splice(sourceIndex, 1);
+        if (!moved) return null;
+        nextGroups.splice(targetIndex, 0, moved);
+        return {
+          groups: nextGroups,
+          selectedLogicalIndex: targetIndex,
+          selectedLayerZ: Math.min(selectedLayerZ, moved.layers.length),
+        };
+      });
+      return;
+    }
+
+    const sourceIndex = selectedIndex;
+    const targetIndex = sourceIndex + offset;
+    if (targetIndex < 0 || targetIndex >= displayedLevelCount) return;
+    commitEvent({
+      type: "move-level",
+      from: sourceIndex,
+      to: targetIndex,
+    });
+  }
+
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): void {
     const file = event.target.files?.item(0);
     if (!file) return;
@@ -2643,6 +2824,61 @@ export default function App() {
     setHoverPoint(null);
   }
 
+  function beginTouchBoardGesture(): void {
+    const entries = Array.from(touchBoardPointsRef.current.entries());
+    if (entries.length < 2) return;
+
+    const [firstPointer, secondPointer] = entries;
+    if (!firstPointer || !secondPointer) return;
+    const [firstPointerId, firstPoint] = firstPointer;
+    const [secondPointerId, secondPoint] = secondPointer;
+    const startCenter = getTouchCenter(firstPoint, secondPoint);
+
+    setTouchGestureState({
+      pointerIds: [firstPointerId, secondPointerId],
+      startPanX: boardPan.x,
+      startPanY: boardPan.y,
+      startZoom: boardZoom,
+      startCenterX: startCenter.clientX,
+      startCenterY: startCenter.clientY,
+      startDistance: Math.max(1, getTouchDistance(firstPoint, secondPoint)),
+    });
+    setDragState(null);
+    setPendingConnection(null);
+    setBoardPanState(null);
+    setHoverPoint(null);
+  }
+
+  function updateTouchBoardGesture(): void {
+    if (!touchGestureState) return;
+
+    const [firstPointerId, secondPointerId] = touchGestureState.pointerIds;
+    const firstPoint = touchBoardPointsRef.current.get(firstPointerId);
+    const secondPoint = touchBoardPointsRef.current.get(secondPointerId);
+    if (!firstPoint || !secondPoint) {
+      setTouchGestureState(null);
+      return;
+    }
+
+    const currentCenter = getTouchCenter(firstPoint, secondPoint);
+    const currentDistance = Math.max(1, getTouchDistance(firstPoint, secondPoint));
+    const nextZoom = clampNumber(
+      touchGestureState.startZoom * (currentDistance / touchGestureState.startDistance),
+      0.25,
+      6,
+    );
+    const worldX =
+      (touchGestureState.startCenterX - touchGestureState.startPanX) / touchGestureState.startZoom;
+    const worldY =
+      (touchGestureState.startCenterY - touchGestureState.startPanY) / touchGestureState.startZoom;
+
+    setBoardZoom(nextZoom);
+    setBoardPan({
+      x: currentCenter.clientX - worldX * nextZoom,
+      y: currentCenter.clientY - worldY * nextZoom,
+    });
+  }
+
   function updateBoardPanGesture(clientX: number, clientY: number): void {
     if (!boardPanState) return;
     setBoardPan({
@@ -2679,6 +2915,21 @@ export default function App() {
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>): void {
     if (!activeLevel) return;
+
+    const isTabletTouchPointer = isTabletLayout && isTouchPointer(event.nativeEvent);
+    if (isTabletTouchPointer) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      touchBoardPointsRef.current.set(event.pointerId, {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+      if (touchBoardPointsRef.current.size >= 2) {
+        event.preventDefault();
+        beginTouchBoardGesture();
+        return;
+      }
+    }
+
     event.preventDefault();
 
     if (isBoardPanGesture(event.nativeEvent)) {
@@ -2765,6 +3016,23 @@ export default function App() {
   }
 
   function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>): void {
+    const isTrackedTabletTouch =
+      isTabletLayout &&
+      isTouchPointer(event.nativeEvent) &&
+      touchBoardPointsRef.current.has(event.pointerId);
+    if (isTrackedTabletTouch) {
+      touchBoardPointsRef.current.set(event.pointerId, {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+      if (touchGestureState) {
+        event.preventDefault();
+        setHoverPoint(null);
+        updateTouchBoardGesture();
+        return;
+      }
+    }
+
     if (boardPanState && boardPanState.pointerId === event.pointerId) {
       event.preventDefault();
       setHoverPoint(null);
@@ -2806,6 +3074,22 @@ export default function App() {
   }
 
   function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>): void {
+    const isTrackedTabletTouch =
+      isTabletLayout &&
+      isTouchPointer(event.nativeEvent) &&
+      touchBoardPointsRef.current.has(event.pointerId);
+    if (touchGestureState && isTrackedTabletTouch) {
+      event.preventDefault();
+      touchBoardPointsRef.current.delete(event.pointerId);
+      setTouchGestureState(null);
+      setHoverPoint(null);
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
+    }
+    if (isTrackedTabletTouch) {
+      touchBoardPointsRef.current.delete(event.pointerId);
+    }
+
     if (boardPanState && boardPanState.pointerId === event.pointerId) {
       event.preventDefault();
       setBoardPanState(null);
@@ -2813,9 +3097,19 @@ export default function App() {
       return;
     }
 
-    if (tool === "connect") return;
+    if (tool === "connect") {
+      if (isTrackedTabletTouch) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      return;
+    }
 
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      if (isTrackedTabletTouch) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      return;
+    }
     event.preventDefault();
 
     const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
@@ -2848,15 +3142,38 @@ export default function App() {
   }
 
   function handlePointerCancel(event: React.PointerEvent<HTMLCanvasElement>): void {
+    const isTrackedTabletTouch =
+      isTabletLayout &&
+      isTouchPointer(event.nativeEvent) &&
+      touchBoardPointsRef.current.has(event.pointerId);
+    if (isTrackedTabletTouch) {
+      touchBoardPointsRef.current.delete(event.pointerId);
+      if (touchGestureState) {
+        setTouchGestureState(null);
+        setHoverPoint(null);
+        return;
+      }
+    }
+
     if (boardPanState && boardPanState.pointerId === event.pointerId) {
       setBoardPanState(null);
       setHoverPoint(null);
       return;
     }
 
-    if (tool === "connect") return;
+    if (tool === "connect") {
+      if (isTrackedTabletTouch) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      return;
+    }
 
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      if (isTrackedTabletTouch) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      return;
+    }
     setDragState(null);
     setHoverPoint(null);
   }
@@ -2898,7 +3215,7 @@ export default function App() {
   }
 
   return (
-    <div className="appShell">
+    <div className={appShellClassName}>
       <input
         ref={fileInputRef}
         type="file"
@@ -2910,8 +3227,56 @@ export default function App() {
       {spriteError ? <div className="banner errorBanner">{spriteError}</div> : null}
       {errorMessage ? <div className="banner errorBanner">{errorMessage}</div> : null}
 
-      <main className="editorLayout" ref={editorLayoutRef} style={editorLayoutStyle}>
-        <aside className="panel levelPanel">
+      <main className={editorLayoutClassName} ref={editorLayoutRef} style={editorLayoutStyle}>
+        {isTabletLayout && tabletDrawerSide ? (
+          <button
+            type="button"
+            className="tabletDrawerScrim"
+            aria-label="Close side panel"
+            onClick={closeTabletDrawers}
+          />
+        ) : null}
+
+        {isTabletLayout ? (
+          <>
+            <div className="tabletPanelToggleCluster left">
+              <button
+                type="button"
+                className={`tabletPanelToggleButton ${tabletDrawerSide === "left" && leftPanelTab === "levels" ? "active" : ""}`}
+                onClick={() => toggleTabletLeftPanel("levels")}
+              >
+                Levels
+              </button>
+              <button
+                type="button"
+                className={`tabletPanelToggleButton ${tabletDrawerSide === "left" && leftPanelTab === "controls" ? "active" : ""}`}
+                onClick={() => toggleTabletLeftPanel("controls")}
+              >
+                Controls
+              </button>
+            </div>
+            <div className="tabletPanelToggleCluster right">
+              <button
+                type="button"
+                className={`tabletPanelToggleButton ${tabletDrawerSide === "right" && inspectorTab === "palette" ? "active" : ""}`}
+                onClick={() => toggleTabletRightPanel("palette")}
+              >
+                Palette
+              </button>
+              <button
+                type="button"
+                className={`tabletPanelToggleButton ${tabletDrawerSide === "right" && inspectorTab === "metadata" ? "active" : ""}`}
+                onClick={() => toggleTabletRightPanel("metadata")}
+              >
+                Metadata
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        <aside
+          className={`panel levelPanel ${isTabletLayout ? "tabletDrawerPanel tabletDrawerLeft" : ""} ${tabletDrawerSide === "left" ? "open" : ""}`}
+        >
           <section className="panelSection">
             <div className="panelBrand">
               <div className="panelBrandCopy">
@@ -3157,15 +3522,67 @@ export default function App() {
                   <div className="sectionEyebrow">Levels</div>
                   <h2 className="sectionTitle">Manager</h2>
                 </div>
-                <div className="sectionActions">
-                  <button type="button" className="iconButton" onClick={addLevelAfterSelection}>
-                    Add
-                  </button>
-                </div>
+                {!isTabletLayout ? (
+                  <div className="sectionActions">
+                    <button type="button" className="iconButton" onClick={addLevelAfterSelection}>
+                      Add
+                    </button>
+                  </div>
+                ) : null}
               </div>
               <div className="levelManagerHint">
-                Drag to reorder. Right-click for duplicate or delete.
+                {isTabletLayout
+                  ? "Tap to select. Use the actions below to duplicate, delete, or move the selected level."
+                  : "Drag to reorder. Right-click for duplicate or delete."}
               </div>
+
+              {isTabletLayout ? (
+                <div className="boardControlRow tabletLevelActionRow">
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    onClick={addLevelAfterSelection}
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={displayedLevelCount <= 0}
+                    onClick={() =>
+                      duplicateLevelAt(threeDLevelsEnabled ? selectedLogicalIndex : selectedIndex)
+                    }
+                  >
+                    Duplicate
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={displayedLevelCount <= 0}
+                    onClick={() =>
+                      deleteLevelAt(threeDLevelsEnabled ? selectedLogicalIndex : selectedIndex)
+                    }
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={!canMoveDisplayedLevelUp}
+                    onClick={() => moveDisplayedLevelBy(-1)}
+                  >
+                    Move Up
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={!canMoveDisplayedLevelDown}
+                    onClick={() => moveDisplayedLevelBy(1)}
+                  >
+                    Move Down
+                  </button>
+                </div>
+              ) : null}
 
               <div
                 className="levelList"
@@ -3222,7 +3639,7 @@ export default function App() {
                               : `${rawLevel!.number}-${index}`
                           }
                           type="button"
-                          draggable
+                          draggable={!isTabletLayout}
                           className={`levelListItem ${isSelected ? "selected" : ""} ${draggedLevelIndex === index ? "dragging" : ""} ${showsDropBefore ? "dropBefore" : ""} ${showsDropAfter ? "dropAfter" : ""}`}
                           onClick={() =>
                             isLogical ? chooseLogicalLevel(index) : chooseRawLevel(index)
@@ -3365,7 +3782,11 @@ export default function App() {
                   <span>{`bottom ${hoverCellSummary.bottom}`}</span>
                 </div>
               ) : (
-                <div className="hoverSummary">Hover the map to inspect a cell stack.</div>
+                <div className="hoverSummary">
+                  {isTabletLayout
+                    ? "Tap a cell to inspect a cell stack."
+                    : "Hover the map to inspect a cell stack."}
+                </div>
               )}
 
               {threeDLevelsEnabled && selectedLogicalLevel ? (
@@ -3464,7 +3885,7 @@ export default function App() {
 
         <section className="panel boardPanel">
           <div
-            className={`boardViewport ${boardPanState ? "panning" : ""}`}
+            className={`boardViewport ${boardPanActive ? "panning" : ""}`}
             ref={boardViewportRef}
             onWheel={handleBoardWheel}
             onPointerDown={handleViewportPointerDown}
@@ -3474,7 +3895,7 @@ export default function App() {
           >
             {activeLevel && spriteSet ? (
               <div
-                className={`boardStageTransform ${boardPanState ? "panning" : ""}`}
+                className={`boardStageTransform ${boardPanActive ? "panning" : ""}`}
                 style={{
                   width: boardSize,
                   height: boardSize,
@@ -3524,7 +3945,7 @@ export default function App() {
                     onPointerCancel={handlePointerCancel}
                     onContextMenu={(event) => event.preventDefault()}
                     onPointerLeave={() => {
-                      if (!dragState && !boardPanState) setHoverPoint(null);
+                      if (!dragState && !boardPanActive) setHoverPoint(null);
                     }}
                   />
                 </div>
@@ -3545,7 +3966,9 @@ export default function App() {
           aria-label="Resize inspector"
         />
 
-        <aside className="panel inspectorPanel">
+        <aside
+          className={`panel inspectorPanel ${isTabletLayout ? "tabletDrawerPanel tabletDrawerRight" : ""} ${tabletDrawerSide === "right" ? "open" : ""}`}
+        >
           <div className="inspectorTabs" role="tablist" aria-label="Inspector tabs">
             <button
               type="button"
@@ -3570,38 +3993,85 @@ export default function App() {
           {inspectorTab === "palette" ? (
             <section className="panelSection inspectorBody paletteSection compactPaletteSection">
               <div className="activeTileStrip">
-                <div className="activeTileCompactCard">
-                  <div className="activeTileSlotLabel primary">LMB</div>
-                  <TilePreview
-                    spriteSet={spriteSet}
-                    tile={primaryTile}
-                    displayContext={paletteDisplayContext}
-                    className="activeTileCompactCanvas"
-                    pixelSize={40}
-                    showPaletteDirectionArrow
-                  />
-                  <div className="activeTileCompactBody">
-                    <div className="activeTileCompactName">
-                      {getDat3dTileDisplayName(primaryTile, paletteDisplayContext)}
+                {isTabletLayout ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`activeTileCompactCard touchTargetButton ${paletteAssignmentTarget === "primary" ? "targeted" : ""}`}
+                      onClick={() => setPaletteAssignmentTarget("primary")}
+                    >
+                      <div className="activeTileSlotLabel primary">Primary</div>
+                      <TilePreview
+                        spriteSet={spriteSet}
+                        tile={primaryTile}
+                        displayContext={paletteDisplayContext}
+                        className="activeTileCompactCanvas"
+                        pixelSize={40}
+                        showPaletteDirectionArrow
+                      />
+                      <div className="activeTileCompactBody">
+                        <div className="activeTileCompactName">
+                          {getDat3dTileDisplayName(primaryTile, paletteDisplayContext)}
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`activeTileCompactCard touchTargetButton ${paletteAssignmentTarget === "secondary" ? "targeted" : ""}`}
+                      onClick={() => setPaletteAssignmentTarget("secondary")}
+                    >
+                      <div className="activeTileSlotLabel secondary">Secondary</div>
+                      <TilePreview
+                        spriteSet={spriteSet}
+                        tile={secondaryTile}
+                        displayContext={paletteDisplayContext}
+                        className="activeTileCompactCanvas"
+                        pixelSize={40}
+                        showPaletteDirectionArrow
+                      />
+                      <div className="activeTileCompactBody">
+                        <div className="activeTileCompactName">
+                          {getDat3dTileDisplayName(secondaryTile, paletteDisplayContext)}
+                        </div>
+                      </div>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="activeTileCompactCard">
+                      <div className="activeTileSlotLabel primary">LMB</div>
+                      <TilePreview
+                        spriteSet={spriteSet}
+                        tile={primaryTile}
+                        displayContext={paletteDisplayContext}
+                        className="activeTileCompactCanvas"
+                        pixelSize={40}
+                        showPaletteDirectionArrow
+                      />
+                      <div className="activeTileCompactBody">
+                        <div className="activeTileCompactName">
+                          {getDat3dTileDisplayName(primaryTile, paletteDisplayContext)}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className="activeTileCompactCard">
-                  <div className="activeTileSlotLabel secondary">RMB</div>
-                  <TilePreview
-                    spriteSet={spriteSet}
-                    tile={secondaryTile}
-                    displayContext={paletteDisplayContext}
-                    className="activeTileCompactCanvas"
-                    pixelSize={40}
-                    showPaletteDirectionArrow
-                  />
-                  <div className="activeTileCompactBody">
-                    <div className="activeTileCompactName">
-                      {getDat3dTileDisplayName(secondaryTile, paletteDisplayContext)}
+                    <div className="activeTileCompactCard">
+                      <div className="activeTileSlotLabel secondary">RMB</div>
+                      <TilePreview
+                        spriteSet={spriteSet}
+                        tile={secondaryTile}
+                        displayContext={paletteDisplayContext}
+                        className="activeTileCompactCanvas"
+                        pixelSize={40}
+                        showPaletteDirectionArrow
+                      />
+                      <div className="activeTileCompactBody">
+                        <div className="activeTileCompactName">
+                          {getDat3dTileDisplayName(secondaryTile, paletteDisplayContext)}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
 
               <input
@@ -3658,8 +4128,14 @@ export default function App() {
                       className={`paletteGridItem ${isPrimaryTile ? "selectedPrimary" : ""} ${isSecondaryTile ? "selectedSecondary" : ""} ${isPrimaryTile && isSecondaryTile ? "selectedBoth" : ""}`}
                       title={tileTooltip}
                       aria-label={tileTooltip}
-                      onClick={() => setPrimaryTile(tile)}
+                      onClick={() =>
+                        assignPaletteTile(
+                          tile,
+                          isTabletLayout ? paletteAssignmentTarget : "primary",
+                        )
+                      }
                       onPointerDown={(event) => {
+                        if (isTabletLayout) return;
                         if (event.button !== 2) return;
                         event.preventDefault();
                         setSecondaryTile(tile);
