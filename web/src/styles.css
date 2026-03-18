@@ -886,6 +886,32 @@ button:disabled {
   font-size: 11px;
 }
 
+.dropdownSubmenuWrap {
+  position: relative;
+}
+
+.dropdownMenuItemWithCaret {
+  position: relative;
+  padding-right: 24px;
+}
+
+.dropdownMenuItemWithCaret::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-top: 1.5px solid var(--muted);
+  border-right: 1.5px solid var(--muted);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.dropdownSubmenu {
+  top: -5px;
+  left: calc(100% + 6px);
+}
+
 .dropdownMenuItem:hover:not(:disabled) {
   background: rgba(35, 95, 122, 0.08);
   box-shadow: none;

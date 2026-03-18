@@ -1212,6 +1212,7 @@ export default function App() {
   const [hasTouchCapability, setHasTouchCapability] = useState(
     () => typeof navigator !== "undefined" && navigator.maxTouchPoints > 0,
   );
+  const [viewSubmenuOpen, setViewSubmenuOpen] = useState<"layout" | null>(null);
   const [tabletDrawerSide, setTabletDrawerSide] = useState<TabletDrawerSide>(null);
   const [paletteAssignmentTarget, setPaletteAssignmentTarget] =
     useState<PaletteAssignmentTarget>("primary");
@@ -2548,6 +2549,11 @@ export default function App() {
   }, [boardMenuOpen]);
 
   useEffect(() => {
+    if (boardMenuOpen === "view") return;
+    setViewSubmenuOpen(null);
+  }, [boardMenuOpen]);
+
+  useEffect(() => {
     if (!openDialog) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -2586,6 +2592,10 @@ export default function App() {
 
   function toggleBoardMenu(menu: "file" | "view" | "options" | "transform"): void {
     setBoardMenuOpen((current) => (current === menu ? null : menu));
+  }
+
+  function toggleViewSubmenu(submenu: "layout"): void {
+    setViewSubmenuOpen((current) => (current === submenu ? null : submenu));
   }
 
   function applySelectedLevelTransform(kind: DatTransformKind): void {
@@ -3474,6 +3484,44 @@ export default function App() {
                     >
                       {`${showValidityWarnings ? "Hide" : "Show"} Validity Warnings`}
                     </button>
+                    <div className="dropdownSubmenuWrap">
+                      <button
+                        type="button"
+                        className="dropdownMenuItem dropdownMenuItemWithCaret"
+                        aria-expanded={viewSubmenuOpen === "layout"}
+                        onClick={() => toggleViewSubmenu("layout")}
+                      >
+                        Layout
+                      </button>
+                      {viewSubmenuOpen === "layout" ? (
+                        <div className="dropdownMenu dropdownSubmenu">
+                          <button
+                            type="button"
+                            className="dropdownMenuItem"
+                            disabled={layoutModePreference === "auto"}
+                            onClick={() => setLayoutModePreference("auto")}
+                          >
+                            {`${automaticLayoutLabel}${layoutModePreference === "auto" ? " (Current)" : ""}`}
+                          </button>
+                          <button
+                            type="button"
+                            className="dropdownMenuItem"
+                            disabled={layoutModePreference === "desktop"}
+                            onClick={() => setLayoutModePreference("desktop")}
+                          >
+                            {`Desktop${layoutModePreference === "desktop" ? " (Current)" : ""}`}
+                          </button>
+                          <button
+                            type="button"
+                            className="dropdownMenuItem"
+                            disabled={layoutModePreference === "tablet"}
+                            onClick={() => setLayoutModePreference("tablet")}
+                          >
+                            {`Tablet${layoutModePreference === "tablet" ? " (Current)" : ""}`}
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -3495,30 +3543,6 @@ export default function App() {
                       onClick={() => setThreeDLevelsEnabled((current) => !current)}
                     >
                       {`${threeDLevelsEnabled ? "Disable" : "Enable"} 3D Levels`}
-                    </button>
-                    <button
-                      type="button"
-                      className="dropdownMenuItem"
-                      disabled={layoutModePreference === "auto"}
-                      onClick={() => setLayoutModePreference("auto")}
-                    >
-                      {`${automaticLayoutLabel}${layoutModePreference === "auto" ? " (Current)" : ""}`}
-                    </button>
-                    <button
-                      type="button"
-                      className="dropdownMenuItem"
-                      disabled={layoutModePreference === "desktop"}
-                      onClick={() => setLayoutModePreference("desktop")}
-                    >
-                      {`Force Desktop Layout${layoutModePreference === "desktop" ? " (Current)" : ""}`}
-                    </button>
-                    <button
-                      type="button"
-                      className="dropdownMenuItem"
-                      disabled={layoutModePreference === "tablet"}
-                      onClick={() => setLayoutModePreference("tablet")}
-                    >
-                      {`Force Tablet Layout${layoutModePreference === "tablet" ? " (Current)" : ""}`}
                     </button>
                   </div>
                 ) : null}
