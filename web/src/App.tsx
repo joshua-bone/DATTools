@@ -2409,13 +2409,13 @@ export default function App() {
         return;
       }
 
-      if (key === "<") {
+      if (key === "<" || key === ",") {
         event.preventDefault();
         rotateSelectedPaletteTile("counterclockwise");
         return;
       }
 
-      if (key === ">") {
+      if (key === ">" || key === ".") {
         event.preventDefault();
         rotateSelectedPaletteTile("clockwise");
         return;
@@ -4690,8 +4690,8 @@ export default function App() {
                     `N` moves to the next level in the level list and `P` moves to the previous one.
                   </li>
                   <li>
-                    `&lt;` and `&gt;` rotate the active palette assignment counterclockwise or
-                    clockwise.
+                    `,`/`&lt;` and `.`/`&gt;` rotate the active palette assignment counterclockwise
+                    or clockwise.
                   </li>
                   <li>In 3D mode, `Q` moves up a z-layer and `Z` moves down a z-layer.</li>
                 </ul>
