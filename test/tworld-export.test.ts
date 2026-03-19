@@ -47,7 +47,7 @@ describe("Tile World DAT export", () => {
     const encoded = url.hash.replace(/^#dat=/u, "");
     const decoded = decodeDatBytes(gunzipSync(decodeUrlSafeBase64(encoded)));
 
-    expect(url.origin + url.pathname).toBe("http://www.joshua-bone.github.io/tworld/");
+    expect(url.origin + url.pathname).toBe("https://joshua-bone.github.io/tworld/");
     expect(url.searchParams.get("level")).toBe("2");
     expect(url.searchParams.get("ruleset")).toBe("MS");
     expect(url.searchParams.get("slot")).toBe("MY_PACK.dat");

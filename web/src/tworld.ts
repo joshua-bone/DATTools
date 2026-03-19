@@ -15,7 +15,7 @@ export function buildTworldUrl(
   slot: string,
 ): string {
   const compressed = gzipSync(encodeDatBytes(doc));
-  const url = new URL("http://www.joshua-bone.github.io/tworld/");
+  const url = new URL("https://joshua-bone.github.io/tworld/");
   url.searchParams.set("level", String(level));
   url.searchParams.set("ruleset", ruleset);
   url.searchParams.set("slot", slot);
