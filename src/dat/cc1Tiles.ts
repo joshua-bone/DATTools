@@ -121,6 +121,9 @@ const TILE_NAME_BY_CODE = new Map<number, string>([
 const TILE_CODE_BY_NAME = new Map<string, number>();
 for (const [k, v] of TILE_NAME_BY_CODE.entries()) TILE_CODE_BY_NAME.set(v, k);
 
+const ORTHOGONAL_DIRECTION_SUFFIXES = ["N", "E", "S", "W"] as const;
+const DIAGONAL_DIRECTION_SUFFIXES = ["NE", "SE", "SW", "NW"] as const;
+
 export const CC1_TILE_COUNT = 112;
 export const CC1_TILE_NAMES = Array.from({ length: CC1_TILE_COUNT }, (_, code) =>
   tileNameFromCode(code),
@@ -156,4 +159,35 @@ export function tileCodeFromName(name: string): number {
   if (m) return parseInt(m[1]!, 16);
 
   throw new Error(`Unknown tile name '${name}' (expected known name or UNKNOWN_0xNN)`);
+}
+
+export function rotateDirectionalTileName(
+  name: string,
+  direction: "clockwise" | "counterclockwise",
+): string | null {
+  if (name === "PANEL_SE") return null;
+
+  const diagonalMatch = /^(.*)_(NE|SE|SW|NW)$/.exec(name);
+  if (diagonalMatch) {
+    const currentDirection = diagonalMatch[2] as (typeof DIAGONAL_DIRECTION_SUFFIXES)[number];
+    const currentIndex = DIAGONAL_DIRECTION_SUFFIXES.indexOf(currentDirection);
+    const offset = direction === "clockwise" ? 1 : -1;
+    const nextIndex =
+      (currentIndex + offset + DIAGONAL_DIRECTION_SUFFIXES.length) %
+      DIAGONAL_DIRECTION_SUFFIXES.length;
+    return `${diagonalMatch[1]}_${DIAGONAL_DIRECTION_SUFFIXES[nextIndex]}`;
+  }
+
+  const orthogonalMatch = /^(.*)_(N|E|S|W)$/.exec(name);
+  if (orthogonalMatch) {
+    const currentDirection = orthogonalMatch[2] as (typeof ORTHOGONAL_DIRECTION_SUFFIXES)[number];
+    const currentIndex = ORTHOGONAL_DIRECTION_SUFFIXES.indexOf(currentDirection);
+    const offset = direction === "clockwise" ? 1 : -1;
+    const nextIndex =
+      (currentIndex + offset + ORTHOGONAL_DIRECTION_SUFFIXES.length) %
+      ORTHOGONAL_DIRECTION_SUFFIXES.length;
+    return `${orthogonalMatch[1]}_${ORTHOGONAL_DIRECTION_SUFFIXES[nextIndex]}`;
+  }
+
+  return null;
 }

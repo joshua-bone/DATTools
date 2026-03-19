@@ -12,6 +12,7 @@ import {
   CC1_INVALID_TILE_NAMES,
   CC1_LEGACY_INVALID_TILE_NAMES,
   CC1_VALID_TILE_NAMES,
+  rotateDirectionalTileName,
   tileCodeFromName,
 } from "@/src/dat/cc1Tiles";
 import { decodeDatBytes, encodeDatBytes } from "@/src/dat/datCodec";
@@ -1162,6 +1163,8 @@ export default function App() {
   const [tool, setTool] = useState<ToolMode>("brush");
   const [primaryTile, setPrimaryTile] = useState<string>("WALL");
   const [secondaryTile, setSecondaryTile] = useState<string>("FLOOR");
+  const [lastPaletteAssignmentTarget, setLastPaletteAssignmentTarget] =
+    useState<PaletteAssignmentTarget>("primary");
   const [paletteQuery, setPaletteQuery] = useState("");
   const deferredPaletteQuery = useDeferredValue(paletteQuery);
   const [leftPanelTab, setLeftPanelTab] = useState<LeftPanelTab>("levels");
@@ -2406,6 +2409,18 @@ export default function App() {
         return;
       }
 
+      if (key === "<") {
+        event.preventDefault();
+        rotateSelectedPaletteTile("counterclockwise");
+        return;
+      }
+
+      if (key === ">") {
+        event.preventDefault();
+        rotateSelectedPaletteTile("clockwise");
+        return;
+      }
+
       if (key === "escape" && pendingConnection) {
         event.preventDefault();
         setPendingConnection(null);
@@ -2506,11 +2521,16 @@ export default function App() {
     canTestSelectedLevelInLexysLabyrinth,
     doc,
     logicalLevelset,
+    lastPaletteAssignmentTarget,
     selectedIndex,
     lexysLabyrinthTestLevel,
+    isTabletLayout,
+    paletteAssignmentTarget,
+    primaryTile,
     selectedLayerZ,
     selectedLogicalIndex,
     selectedLogicalLevel,
+    secondaryTile,
     selection,
     threeDLevelsEnabled,
     pendingConnection,
@@ -2782,8 +2802,17 @@ export default function App() {
   }
 
   function assignPaletteTile(tile: string, target: PaletteAssignmentTarget): void {
+    setLastPaletteAssignmentTarget(target);
     if (target === "secondary") setSecondaryTile(tile);
     else setPrimaryTile(tile);
+  }
+
+  function rotateSelectedPaletteTile(direction: "clockwise" | "counterclockwise"): void {
+    const target = isTabletLayout ? paletteAssignmentTarget : lastPaletteAssignmentTarget;
+    const currentTile = target === "secondary" ? secondaryTile : primaryTile;
+    const rotatedTile = rotateDirectionalTileName(currentTile, direction);
+    if (!rotatedTile) return;
+    assignPaletteTile(rotatedTile, target);
   }
 
   function moveDisplayedLevelBy(offset: -1 | 1): void {
@@ -4220,7 +4249,7 @@ export default function App() {
                         if (isTabletLayout) return;
                         if (event.button !== 2) return;
                         event.preventDefault();
-                        setSecondaryTile(tile);
+                        assignPaletteTile(tile, "secondary");
                       }}
                       onContextMenu={(event) => event.preventDefault()}
                     >
@@ -4659,6 +4688,10 @@ export default function App() {
                   <li>Tool shortcuts: `B` Brush, `L` Line, `F` Bucket, `V` Select, `C` Connect.</li>
                   <li>
                     `N` moves to the next level in the level list and `P` moves to the previous one.
+                  </li>
+                  <li>
+                    `&lt;` and `&gt;` rotate the active palette assignment counterclockwise or
+                    clockwise.
                   </li>
                   <li>In 3D mode, `Q` moves up a z-layer and `Z` moves down a z-layer.</li>
                 </ul>
