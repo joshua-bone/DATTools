@@ -2383,6 +2383,31 @@ export default function App() {
         if (key === "v" && clipboard) {
           event.preventDefault();
           pasteClipboard();
+          return;
+        }
+
+        if (key === "5") {
+          event.preventDefault();
+          if (doc) {
+            openSelectedLevelInTworld("MS");
+          }
+          return;
+        }
+
+        if (key === "6") {
+          event.preventDefault();
+          if (doc) {
+            openSelectedLevelInTworld("Lynx");
+          }
+          return;
+        }
+
+        if (key === "7") {
+          event.preventDefault();
+          if (canTestSelectedLevelInLexysLabyrinth) {
+            openSelectedLevelInLexysLabyrinth();
+          }
+          return;
         }
 
         return;
@@ -4751,6 +4776,7 @@ export default function App() {
                   <li>
                     `F5` tests the current DAT in Tile World MS rules, `F6` tests it in Tile World
                     Lynx rules, and `F7` tests the current non-3D level in Lexy&apos;s Labyrinth.
+                    `Ctrl`/`Cmd` + `5`/`6`/`7` trigger the same launches.
                   </li>
                   <li>In 3D mode, `Q` moves up a z-layer and `Z` moves down a z-layer.</li>
                 </ul>
