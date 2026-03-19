@@ -51,6 +51,7 @@ import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import { drawRgbaImageToCanvas } from "@/web/src/canvasDrawing";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
+import { buildTworldUrl } from "@/web/src/tworld";
 import {
   clearLevel,
   classifyTilePlacement,
@@ -1257,12 +1258,12 @@ export default function App() {
       selectedLogicalLevel.layers[selectedLogicalLevel.layers.length - 1]?.z ??
       1)
     : 1;
-  const selectedLogicalLevelIs3d = (selectedLogicalLevel?.layers.length ?? 0) > 1;
-  const lexysLabyrinthTestLevel =
+  const displayedExternalTestLevelNumber = selectedLogicalIndex + 1;
+  const singleLevelExternalTestLevel =
     selectedLogicalLevel && selectedLogicalLevel.layers.length === 1
       ? (selectedLogicalLevel.layers[0]?.level ?? null)
       : null;
-  const canTestSelectedLevelInLexysLabyrinth = !!doc && !!lexysLabyrinthTestLevel;
+  const canTestSelectedLevelInLexysLabyrinth = !!doc && !!singleLevelExternalTestLevel;
   const activeLevel = threeDLevelsEnabled
     ? (selectedLogicalLevel?.layers[selectedLayerZ - 1]?.level ?? null)
     : selectedLevel;
@@ -2389,6 +2390,22 @@ export default function App() {
 
       if (event.altKey || event.ctrlKey || event.metaKey) return;
 
+      if (key === "f5") {
+        event.preventDefault();
+        if (doc) {
+          openSelectedLevelInTworld("MS");
+        }
+        return;
+      }
+
+      if (key === "f6") {
+        event.preventDefault();
+        if (doc) {
+          openSelectedLevelInTworld("Lynx");
+        }
+        return;
+      }
+
       if (key === "f7") {
         event.preventDefault();
         if (canTestSelectedLevelInLexysLabyrinth) {
@@ -2520,10 +2537,11 @@ export default function App() {
     clipboard,
     canTestSelectedLevelInLexysLabyrinth,
     doc,
+    displayedExternalTestLevelNumber,
+    fileName,
     logicalLevelset,
     lastPaletteAssignmentTarget,
     selectedIndex,
-    lexysLabyrinthTestLevel,
     isTabletLayout,
     paletteAssignmentTarget,
     primaryTile,
@@ -2864,10 +2882,24 @@ export default function App() {
     fileInputRef.current?.click();
   }
 
-  function openSelectedLevelInLexysLabyrinth(): void {
-    if (!doc || !lexysLabyrinthTestLevel) return;
+  function openSelectedLevelInTworld(ruleset: "MS" | "Lynx"): void {
+    if (!doc) return;
     window.open(
-      buildLexysLabyrinthSharedUrl(doc, lexysLabyrinthTestLevel),
+      buildTworldUrl(
+        doc,
+        displayedExternalTestLevelNumber,
+        ruleset,
+        normalizeDatFileName(fileName),
+      ),
+      "_blank",
+      "noopener,noreferrer",
+    );
+  }
+
+  function openSelectedLevelInLexysLabyrinth(): void {
+    if (!doc || !singleLevelExternalTestLevel) return;
+    window.open(
+      buildLexysLabyrinthSharedUrl(doc, singleLevelExternalTestLevel),
       "_blank",
       "noopener,noreferrer",
     );
@@ -3460,10 +3492,33 @@ export default function App() {
                     <button
                       type="button"
                       className="dropdownMenuItem"
-                      disabled={!canTestSelectedLevelInLexysLabyrinth || selectedLogicalLevelIs3d}
+                      disabled={!doc}
                       onClick={() => {
-                        if (!canTestSelectedLevelInLexysLabyrinth || selectedLogicalLevelIs3d)
-                          return;
+                        if (!doc) return;
+                        setBoardMenuOpen(null);
+                        openSelectedLevelInTworld("MS");
+                      }}
+                    >
+                      Test in MS (F5)
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!doc}
+                      onClick={() => {
+                        if (!doc) return;
+                        setBoardMenuOpen(null);
+                        openSelectedLevelInTworld("Lynx");
+                      }}
+                    >
+                      Test in Lynx (F6)
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!canTestSelectedLevelInLexysLabyrinth}
+                      onClick={() => {
+                        if (!canTestSelectedLevelInLexysLabyrinth) return;
                         setBoardMenuOpen(null);
                         openSelectedLevelInLexysLabyrinth();
                       }}
@@ -4692,6 +4747,10 @@ export default function App() {
                   <li>
                     `,`/`&lt;` and `.`/`&gt;` rotate the active palette assignment counterclockwise
                     or clockwise.
+                  </li>
+                  <li>
+                    `F5` tests the current DAT in Tile World MS rules, `F6` tests it in Tile World
+                    Lynx rules, and `F7` tests the current non-3D level in Lexy&apos;s Labyrinth.
                   </li>
                   <li>In 3D mode, `Q` moves up a z-layer and `Z` moves down a z-layer.</li>
                 </ul>

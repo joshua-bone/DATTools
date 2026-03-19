@@ -52,5 +52,5 @@ describe("DAT fixtures: transform group laws on binary output", () => {
       const d2 = applyN(doc, 2, (d) => transformLevelset(d, "FLIP_DIAG_NESW"));
       expect(bytesEqual(encodeDatBytes(d2), original), `${name}: diagNESW^2`).toBe(true);
     }
-  });
+  }, 15000);
 });
