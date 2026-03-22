@@ -1,16 +1,11 @@
 import { useEffect, useRef } from "react";
 
 import { getDat3dTileSpriteName, type Dat3dDisplayContext } from "@/src/dat/dat3dDisplay";
-import {
-  dirFromTileName,
-  renderTileWithArrow,
-  shouldShowDirectionArrowInPalette,
-} from "@/src/dat/render/cc1Secrets";
-import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
-import { drawRgbaImageToCanvas } from "@/web/src/canvasDrawing";
+import { dirFromTileName, shouldShowDirectionArrowInPalette } from "@/src/dat/render/cc1Secrets";
+import type { CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
 
 type TilePreviewProps = Readonly<{
-  spriteSet: CC1SpriteSet | null;
+  canvasSpriteCache: CanvasSpriteCache | null;
   tile: string;
   displayContext?: Dat3dDisplayContext;
   className?: string;
@@ -19,7 +14,7 @@ type TilePreviewProps = Readonly<{
 }>;
 
 export function TilePreview({
-  spriteSet,
+  canvasSpriteCache,
   tile,
   displayContext,
   className,
@@ -31,20 +26,30 @@ export function TilePreview({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    if (!spriteSet) {
+    if (!canvasSpriteCache) {
       canvas.width = 1;
       canvas.height = 1;
       return;
     }
+
+    canvas.width = canvasSpriteCache.tileSize;
+    canvas.height = canvasSpriteCache.tileSize;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
     const spriteName = displayContext ? getDat3dTileSpriteName(tile, displayContext) : tile;
-    const baseImage = spriteSet.get(spriteName);
     const overlayDir =
       showPaletteDirectionArrow && shouldShowDirectionArrowInPalette(tile)
         ? dirFromTileName(tile)
         : null;
-    const previewImage = overlayDir ? renderTileWithArrow(baseImage, overlayDir) : baseImage;
-    drawRgbaImageToCanvas(canvas, previewImage);
-  }, [displayContext, showPaletteDirectionArrow, spriteSet, tile]);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(canvasSpriteCache.getSprite(spriteName), 0, 0);
+    if (overlayDir) {
+      ctx.drawImage(canvasSpriteCache.getArrow(overlayDir), 0, 0);
+    }
+  }, [canvasSpriteCache, displayContext, showPaletteDirectionArrow, tile]);
 
   return (
     <canvas

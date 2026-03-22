@@ -51,9 +51,13 @@ import {
   type DatLevelJson,
   type DatLevelsetJsonV1,
 } from "@/src/dat/datLevelsetJsonV1";
-import { renderCc1CellToRgba, renderCc1LevelToRgba } from "@/src/dat/render/cc1LevelRenderer";
 import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
-import { drawRgbaImageToCanvas, drawRgbaImageToContext } from "@/web/src/canvasDrawing";
+import {
+  drawCc1CellToContext,
+  drawCc1LevelToCanvas,
+  drawCc1LevelToContext,
+} from "@/web/src/canvasLevelRenderer";
+import { createCanvasSpriteCache, type CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
 import {
@@ -247,6 +251,7 @@ type BoardEditorSurfaceProps = Readonly<{
   selectedLogicalLevel: Logical3dLevel | null;
   selectedLayerZ: number;
   spriteSet: CC1SpriteSet | null;
+  canvasSpriteCache: CanvasSpriteCache | null;
   boardSize: number;
   showSecrets: boolean;
   showConnections: boolean;
@@ -1223,7 +1228,7 @@ function drawLayerAlignedHoverCell(
 
 function drawBrushPreviewCellsToContext(
   ctx: CanvasRenderingContext2D,
-  spriteSet: CC1SpriteSet,
+  canvasSpriteCache: CanvasSpriteCache,
   level: DatLevelJson,
   previewIndices: ReadonlyArray<number>,
   brushState: Readonly<{
@@ -1242,15 +1247,20 @@ function drawBrushPreviewCellsToContext(
 
   for (const previewCell of previewCells) {
     const displayCell = createDat3dDisplayCell(previewCell.top, previewCell.bottom, displayContext);
-    const image = renderCc1CellToRgba(displayCell.top, displayCell.bottom, spriteSet, {
-      showSecrets,
-    });
-    const x = (previewCell.index % 32) * spriteSet.tileSize;
-    const y = Math.floor(previewCell.index / 32) * spriteSet.tileSize;
+    const x = (previewCell.index % 32) * canvasSpriteCache.tileSize;
+    const y = Math.floor(previewCell.index / 32) * canvasSpriteCache.tileSize;
 
-    ctx.clearRect(x, y, spriteSet.tileSize, spriteSet.tileSize);
-    drawRgbaImageToContext(ctx, image, x, y);
-    drawGridCellOutline(ctx, spriteSet.tileSize, previewCell.index);
+    ctx.clearRect(x, y, canvasSpriteCache.tileSize, canvasSpriteCache.tileSize);
+    drawCc1CellToContext(
+      ctx,
+      displayCell.top,
+      displayCell.bottom,
+      canvasSpriteCache,
+      { showSecrets },
+      x,
+      y,
+    );
+    drawGridCellOutline(ctx, canvasSpriteCache.tileSize, previewCell.index);
   }
 }
 
@@ -1486,6 +1496,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       selectedLogicalLevel,
       selectedLayerZ,
       spriteSet,
+      canvasSpriteCache,
       boardSize,
       showSecrets,
       showConnections,
@@ -1802,7 +1813,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     useEffect(() => {
       const canvas = boardCanvasRef.current;
-      if (!canvas || !previewLevel || !spriteSet) return;
+      if (!canvas || !previewLevel || !spriteSet || !canvasSpriteCache) return;
 
       try {
         const ctx = canvas.getContext("2d");
@@ -1814,9 +1825,8 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
             layerZ,
             layerCount,
           });
-          const image = renderCc1LevelToRgba(displayLevel, spriteSet, { showSecrets });
           const tempCanvas = document.createElement("canvas");
-          drawRgbaImageToCanvas(tempCanvas, image);
+          drawCc1LevelToCanvas(tempCanvas, displayLevel, canvasSpriteCache, { showSecrets });
           return tempCanvas;
         };
 
@@ -1857,8 +1867,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           ctx.drawImage(activeCanvas, 0, 0);
         } else {
           const displayLevel = createDat3dDisplayLevel(previewLevel, activeDisplayContext);
-          const image = renderCc1LevelToRgba(displayLevel, spriteSet, { showSecrets });
-          drawRgbaImageToCanvas(canvas, image);
+          drawCc1LevelToContext(ctx, displayLevel, canvasSpriteCache, { showSecrets });
         }
 
         const overlayContext = canvas.getContext("2d");
@@ -1891,6 +1900,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       shouldDrawMonsterOrder,
       showSecrets,
       spriteSet,
+      canvasSpriteCache,
       threeDLevelsEnabled,
       onSetErrorMessage,
     ]);
@@ -2066,10 +2076,10 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       }
 
       const brushState = dragState?.tool === "brush" ? dragState : null;
-      if (brushState && activeLevel) {
+      if (brushState && activeLevel && canvasSpriteCache) {
         drawBrushPreviewCellsToContext(
           ctx,
-          spriteSet,
+          canvasSpriteCache,
           activeLevel,
           resolveBrushPreviewRenderCells(brushState.cells, brushState.dirtyCells, true, true),
           brushState,
@@ -2094,13 +2104,14 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       shouldDrawValidityWarnings,
       showSecrets,
       spriteSet,
+      canvasSpriteCache,
       threeDLevelsEnabled,
     ]);
 
     useEffect(() => {
       const brushState = dragState?.tool === "brush" ? dragState : null;
       const canvas = overlayCanvasRef.current;
-      if (!brushState || !canvas || !spriteSet || !activeLevel) {
+      if (!brushState || !canvas || !spriteSet || !canvasSpriteCache || !activeLevel) {
         brushPreviewReplayKeyRef.current = null;
         return;
       }
@@ -2129,7 +2140,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
       drawBrushPreviewCellsToContext(
         ctx,
-        spriteSet,
+        canvasSpriteCache,
         activeLevel,
         previewIndices,
         brushState,
@@ -2147,6 +2158,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       selectedLayerZ,
       showSecrets,
       spriteSet,
+      canvasSpriteCache,
       threeDLevelsEnabled,
     ]);
 
@@ -2339,10 +2351,10 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         brushPreviewReplayKeyRef.current = null;
         brushDragStateRef.current = nextDragState;
         const ctx = overlayCanvasRef.current?.getContext("2d");
-        if (ctx && spriteSet) {
+        if (ctx && canvasSpriteCache) {
           drawBrushPreviewCellsToContext(
             ctx,
-            spriteSet,
+            canvasSpriteCache,
             activeLevel,
             nextDragState.cells,
             nextDragState,
@@ -2600,7 +2612,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           onPointerUp={handleViewportPointerUp}
           onPointerCancel={handleViewportPointerCancel}
         >
-          {activeLevel && spriteSet ? (
+          {activeLevel && spriteSet && canvasSpriteCache ? (
             <div
               className={`boardStageTransform ${boardPanActive ? "panning" : ""}`}
               style={{
@@ -2788,6 +2800,10 @@ export default function App() {
   const canonicalLevel = threeDLevelsEnabled
     ? (selectedLogicalLevel?.layers[0]?.level ?? null)
     : selectedLevel;
+  const canvasSpriteCache = useMemo(
+    () => (spriteSet ? createCanvasSpriteCache(spriteSet) : null),
+    [spriteSet],
+  );
   const boardSize = spriteSet ? spriteSet.tileSize * 32 : 0;
   const canUndo = (editor?.cursor ?? 0) > 0;
   const canRedo = editor ? editor.cursor < editor.events.length : false;
@@ -4593,6 +4609,7 @@ export default function App() {
           selectedLogicalLevel={selectedLogicalLevel}
           selectedLayerZ={selectedLayerZ}
           spriteSet={spriteSet}
+          canvasSpriteCache={canvasSpriteCache}
           boardSize={boardSize}
           showSecrets={showSecrets}
           showConnections={showConnections}
@@ -4658,7 +4675,7 @@ export default function App() {
                     >
                       <div className="activeTileSlotLabel primary">Primary</div>
                       <TilePreview
-                        spriteSet={spriteSet}
+                        canvasSpriteCache={canvasSpriteCache}
                         tile={primaryTile}
                         displayContext={paletteDisplayContext}
                         className="activeTileCompactCanvas"
@@ -4678,7 +4695,7 @@ export default function App() {
                     >
                       <div className="activeTileSlotLabel secondary">Secondary</div>
                       <TilePreview
-                        spriteSet={spriteSet}
+                        canvasSpriteCache={canvasSpriteCache}
                         tile={secondaryTile}
                         displayContext={paletteDisplayContext}
                         className="activeTileCompactCanvas"
@@ -4697,7 +4714,7 @@ export default function App() {
                     <div className="activeTileCompactCard">
                       <div className="activeTileSlotLabel primary">LMB</div>
                       <TilePreview
-                        spriteSet={spriteSet}
+                        canvasSpriteCache={canvasSpriteCache}
                         tile={primaryTile}
                         displayContext={paletteDisplayContext}
                         className="activeTileCompactCanvas"
@@ -4713,7 +4730,7 @@ export default function App() {
                     <div className="activeTileCompactCard">
                       <div className="activeTileSlotLabel secondary">RMB</div>
                       <TilePreview
-                        spriteSet={spriteSet}
+                        canvasSpriteCache={canvasSpriteCache}
                         tile={secondaryTile}
                         displayContext={paletteDisplayContext}
                         className="activeTileCompactCanvas"
@@ -4799,7 +4816,7 @@ export default function App() {
                       onContextMenu={(event) => event.preventDefault()}
                     >
                       <TilePreview
-                        spriteSet={spriteSet}
+                        canvasSpriteCache={canvasSpriteCache}
                         tile={tile}
                         displayContext={paletteDisplayContext}
                         className="paletteGridCanvas"

@@ -37,6 +37,7 @@ function makeSpriteSet(): CC1SpriteSet {
     ["CHIP", [30, 200, 80, 255]],
     ["BALL_N", [20, 40, 220, 255]],
     ["ANT_N", [30, 180, 60, 255]],
+    ["BLUE_WALL_FAKE", [100, 100, 100, 255]],
   ]);
 
   return {
@@ -116,5 +117,13 @@ describe("CC1 level renderer", () => {
     }
 
     expect(hasOpaqueRedPixel).toBe(false);
+  });
+
+  it("lightens fake blue walls when secrets are visible", () => {
+    const img = renderCc1CellToRgba("BLUE_WALL_FAKE", "FLOOR", makeSpriteSet(), {
+      showSecrets: true,
+    });
+
+    expect(pixelAt0(img)).toEqual([140, 140, 140, 255]);
   });
 });

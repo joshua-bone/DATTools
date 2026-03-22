@@ -1,37 +1,14 @@
 // src/dat/render/cc1LevelRenderer.ts
 import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
+import {
+  applySpriteEffectInPlace,
+  buildCc1CellRenderSteps,
+  type RenderOptions,
+} from "@/src/dat/render/cc1CellRenderPlan";
 import type { RgbaImage } from "@/src/dat/render/rgbaImage";
 import { createImage, cloneImage, blit } from "@/src/dat/render/rgbaImage";
 import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
-import {
-  lightenImageInPlace,
-  makeSemiTransparentInPlace,
-  dirFromTileName,
-  makeArrow,
-  overlayArrowInPlace,
-  shouldShowDirectionArrowInPalette,
-} from "@/src/dat/render/cc1Secrets";
-
-export type RenderOptions = Readonly<{
-  showSecrets: boolean;
-}>;
-
-const BLOCKS = new Set<string>([
-  "BLOCK",
-  "CLONE_BLOCK_N",
-  "CLONE_BLOCK_W",
-  "CLONE_BLOCK_S",
-  "CLONE_BLOCK_E",
-]);
-
-function shouldOverlayTopTile(topName: string, bottomName: string): boolean {
-  if (topName === bottomName) return false;
-
-  // DAT top-layer FLOOR acts like "no top tile", so the bottom terrain remains visible.
-  if (topName === "FLOOR") return false;
-
-  return true;
-}
+import { makeArrow, overlayArrowInPlace } from "@/src/dat/render/cc1Secrets";
 
 function renderCc1CellToRgbaWithArrowCache(
   topName: string,
@@ -50,28 +27,26 @@ function renderCc1CellToRgbaWithArrowCache(
     return arrow;
   };
 
-  let tileImg = cloneImage(sprites.get(bottomName));
+  const steps = buildCc1CellRenderSteps(topName, bottomName, opts);
+  let tileImg: RgbaImage | null = null;
 
-  if (shouldOverlayTopTile(topName, bottomName)) {
-    const topImg = cloneImage(sprites.get(topName));
-
-    if (opts.showSecrets && BLOCKS.has(topName)) {
-      makeSemiTransparentInPlace(topImg);
+  for (const step of steps) {
+    if (step.kind === "sprite") {
+      const sprite = cloneImage(sprites.get(step.spriteName));
+      applySpriteEffectInPlace(sprite, step.effect);
+      if (!tileImg) tileImg = sprite;
+      else blit(tileImg, sprite, 0, 0);
+      continue;
     }
 
-    if (opts.showSecrets && topName === "BLUE_WALL_FAKE") {
-      lightenImageInPlace(topImg, 40);
+    if (!tileImg) {
+      tileImg = createImage(size, size, [0, 0, 0, 0]);
     }
 
-    blit(tileImg, topImg, 0, 0);
-
-    if (opts.showSecrets && shouldShowDirectionArrowInPalette(topName)) {
-      const d = dirFromTileName(topName);
-      if (d) overlayArrowInPlace(tileImg, getArrow(d));
-    }
+    overlayArrowInPlace(tileImg, getArrow(step.dir));
   }
 
-  return tileImg;
+  return tileImg ?? createImage(size, size, [0, 0, 0, 0]);
 }
 
 export function renderCc1CellToRgba(
