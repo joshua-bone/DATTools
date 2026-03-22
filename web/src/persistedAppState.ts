@@ -16,6 +16,7 @@ export type PersistedAppPreferences = Readonly<{
   showMonsterOrder: boolean;
   showValidityWarnings: boolean;
   threeDLevelsEnabled: boolean;
+  experimentalViewportRenderer: boolean;
 }>;
 
 export type PersistedEditorSession = Readonly<{
@@ -30,6 +31,7 @@ export const DEFAULT_PERSISTED_APP_PREFERENCES: PersistedAppPreferences = {
   showMonsterOrder: true,
   showValidityWarnings: true,
   threeDLevelsEnabled: false,
+  experimentalViewportRenderer: false,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -84,6 +86,11 @@ export function parsePersistedAppPreferences(value: string | null): PersistedApp
         parsed,
         "threeDLevelsEnabled",
         DEFAULT_PERSISTED_APP_PREFERENCES.threeDLevelsEnabled,
+      ),
+      experimentalViewportRenderer: readBoolean(
+        parsed,
+        "experimentalViewportRenderer",
+        DEFAULT_PERSISTED_APP_PREFERENCES.experimentalViewportRenderer,
       ),
     };
   } catch {

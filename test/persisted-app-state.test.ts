@@ -26,6 +26,7 @@ describe("persisted app preferences", () => {
       showMonsterOrder: false,
       showValidityWarnings: true,
       threeDLevelsEnabled: true,
+      experimentalViewportRenderer: true,
     });
 
     expect(parsePersistedAppPreferences(serialized)).toEqual({
@@ -34,6 +35,7 @@ describe("persisted app preferences", () => {
       showMonsterOrder: false,
       showValidityWarnings: true,
       threeDLevelsEnabled: true,
+      experimentalViewportRenderer: true,
     });
   });
 

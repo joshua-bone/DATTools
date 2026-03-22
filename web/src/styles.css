@@ -929,6 +929,15 @@ button:disabled {
   cursor: grabbing;
 }
 
+.boardChromeFrame {
+  position: absolute;
+  pointer-events: none;
+}
+
+.boardChromeFrame > * {
+  pointer-events: auto;
+}
+
 .boardShiftArrow {
   position: absolute;
   z-index: 3;
