@@ -3,6 +3,7 @@ import { DAT_3D_AIR_TILE, DAT_3D_ELEVATOR_TILE } from "@/src/dat/dat3dLevels";
 import { DAT_3D_AIR_SPRITE_NAME, DAT_3D_ELEVATOR_SPRITE_NAME } from "@/src/dat/render/cc1SpriteSet";
 
 const FLOOR_TILE = "FLOOR";
+const OVERLAY_BUFFER_TILE_NAME = "OVERLAY_BUFFER";
 
 export type Dat3dDisplayContext = Readonly<{
   threeDEnabled: boolean;
@@ -19,6 +20,9 @@ export function getDat3dTileDisplayName(tile: string, context: Dat3dDisplayConte
   if (context.threeDEnabled && tile === DAT_3D_AIR_TILE) return "AIR";
   if (context.threeDEnabled && tile === DAT_3D_ELEVATOR_TILE) {
     return "ELEVATOR";
+  }
+  if (!context.threeDEnabled && tile === "NOT_USED_0") {
+    return OVERLAY_BUFFER_TILE_NAME;
   }
   return tile;
 }

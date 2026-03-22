@@ -1,5 +1,5 @@
 // src/dat/render/cc1SpriteSet.ts
-import { CC1_TILE_COUNT, tileNameFromCode } from "@/src/dat/cc1Tiles";
+import { CC1_TILE_COUNT, tileCodeFromName, tileNameFromCode } from "@/src/dat/cc1Tiles";
 import type { RgbaImage } from "@/src/dat/render/rgbaImage";
 import { cropRect, createImage } from "@/src/dat/render/rgbaImage";
 
@@ -115,6 +115,25 @@ const ELEVATOR_UP_GLYPHS: Readonly<Record<"U" | "P", ReadonlyArray<string>>> = {
   P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
 };
 
+const HEX_GLYPHS: Readonly<Record<string, ReadonlyArray<string>>> = {
+  "0": ["111", "101", "101", "101", "111"],
+  "1": ["010", "110", "010", "010", "111"],
+  "2": ["111", "001", "111", "100", "111"],
+  "3": ["111", "001", "111", "001", "111"],
+  "4": ["101", "101", "111", "001", "001"],
+  "5": ["111", "100", "111", "001", "111"],
+  "6": ["111", "100", "111", "101", "111"],
+  "7": ["111", "001", "001", "001", "001"],
+  "8": ["111", "101", "111", "101", "111"],
+  "9": ["111", "101", "111", "001", "111"],
+  A: ["111", "101", "111", "101", "101"],
+  B: ["110", "101", "110", "101", "110"],
+  C: ["111", "100", "100", "100", "111"],
+  D: ["110", "101", "101", "101", "110"],
+  E: ["111", "100", "110", "100", "111"],
+  F: ["111", "100", "110", "100", "100"],
+};
+
 function drawBitmapGlyph(
   img: RgbaImage,
   x: number,
@@ -226,6 +245,38 @@ function makeDat3dElevatorSprite(size: number): RgbaImage {
   return base;
 }
 
+function makeUnknownByteSprite(size: number, code: number): RgbaImage {
+  const base = createImage(size, size, [126, 126, 126, 255]);
+  const border = Math.max(1, Math.floor(size / 8));
+  const bevel = Math.max(1, Math.floor(size / 10));
+  const scale = Math.max(1, Math.floor(size / 6));
+  const label = code.toString(16).padStart(2, "0").toUpperCase();
+  const glyphWidth = 3 * scale;
+  const glyphHeight = 5 * scale;
+  const gap = scale;
+  const totalWidth = glyphWidth * 2 + gap;
+  const startX = Math.max(border, Math.floor((size - totalWidth) / 2));
+  const startY = Math.max(border, Math.floor((size - glyphHeight) / 2));
+  const text = [34, 34, 34, 255] as const;
+  const textShadow = [224, 224, 224, 192] as const;
+
+  strokeRect(base, 0, 0, size, size, border, [74, 74, 74, 255]);
+  fillRect(base, border, border, size - border * 2, bevel, [170, 170, 170, 255]);
+  fillRect(base, border, border, bevel, size - border * 2, [170, 170, 170, 255]);
+  fillRect(base, border, size - border - bevel, size - border * 2, bevel, [98, 98, 98, 255]);
+  fillRect(base, size - border - bevel, border, bevel, size - border * 2, [98, 98, 98, 255]);
+
+  for (const [index, digit] of label.split("").entries()) {
+    const glyph = HEX_GLYPHS[digit];
+    if (!glyph) continue;
+    const x = startX + index * (glyphWidth + gap);
+    drawBitmapGlyph(base, x + scale, startY + scale, glyph, scale, textShadow);
+    drawBitmapGlyph(base, x, startY, glyph, scale, text);
+  }
+
+  return base;
+}
+
 export function buildCc1SpriteSet(sheet: RgbaImage): CC1SpriteSet {
   if (sheet.height % 16 !== 0)
     throw new Error(`Spritesheet height must be divisible by 16, got ${sheet.height}`);
@@ -286,7 +337,18 @@ export function buildCc1SpriteSet(sheet: RgbaImage): CC1SpriteSet {
     get(name: string): RgbaImage {
       const hit = sprites.get(name);
       if (hit) return hit;
-      // unknown tile -> fully transparent placeholder
+
+      try {
+        const code = tileCodeFromName(name);
+        if (code >= CC1_TILE_COUNT) {
+          const fallback = makeUnknownByteSprite(size, code);
+          sprites.set(name, fallback);
+          return fallback;
+        }
+      } catch {
+        // Keep the transparent placeholder for non-tile sprite keys.
+      }
+
       return createImage(size, size, [0, 0, 0, 0]);
     },
   };

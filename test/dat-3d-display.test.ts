@@ -13,6 +13,16 @@ import { DAT_3D_AIR_SPRITE_NAME, DAT_3D_ELEVATOR_SPRITE_NAME } from "@/src/dat/r
 import { createEmptyLevel } from "@/web/src/levelEditing";
 
 describe("3D display elevator rendering", () => {
+  it("labels NOT_USED_0 as OVERLAY_BUFFER outside 3D mode", () => {
+    expect(
+      getDat3dTileDisplayName("NOT_USED_0", {
+        threeDEnabled: false,
+        layerZ: 1,
+        layerCount: 1,
+      }),
+    ).toBe("OVERLAY_BUFFER");
+  });
+
   it("always treats tile 57 as elevator while 3D mode is enabled", () => {
     const context = {
       threeDEnabled: true,

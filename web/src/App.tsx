@@ -1220,6 +1220,39 @@ function drawLayerAlignedHoverCell(
   ctx.restore();
 }
 
+function drawBrushPreviewCellsToContext(
+  ctx: CanvasRenderingContext2D,
+  spriteSet: CC1SpriteSet,
+  level: DatLevelJson,
+  previewIndices: ReadonlyArray<number>,
+  brushState: Readonly<{
+    tile: string;
+    buryOnBottom: boolean;
+  }>,
+  displayContext: BoardDisplayContext,
+  showSecrets: boolean,
+): void {
+  const previewCells = previewPaintLevelCells(
+    level,
+    previewIndices,
+    brushState.tile,
+    makePaintOptions(displayContext.threeDEnabled, displayContext.layerZ, brushState.buryOnBottom),
+  );
+
+  for (const previewCell of previewCells) {
+    const displayCell = createDat3dDisplayCell(previewCell.top, previewCell.bottom, displayContext);
+    const image = renderCc1CellToRgba(displayCell.top, displayCell.bottom, spriteSet, {
+      showSecrets,
+    });
+    const x = (previewCell.index % 32) * spriteSet.tileSize;
+    const y = Math.floor(previewCell.index / 32) * spriteSet.tileSize;
+
+    ctx.clearRect(x, y, spriteSet.tileSize, spriteSet.tileSize);
+    drawRgbaImageToContext(ctx, image, x, y);
+    drawGridCellOutline(ctx, spriteSet.tileSize, previewCell.index);
+  }
+}
+
 function useBoardEditorStatus(statusStore: BoardEditorStatusStore) {
   return useSyncExternalStore(
     statusStore.subscribe,
@@ -1602,7 +1635,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     const boardPanActive = !!boardPanState || !!touchGestureState;
     const isBrushDragging = dragState?.tool === "brush";
     const shouldDrawConnections = showConnections && !isBrushDragging;
-    const shouldDrawMonsterOrder = showMonsterOrder && !isBrushDragging;
+    const shouldDrawMonsterOrder = showMonsterOrder;
     const shouldDrawValidityWarnings = showValidityWarnings && !isBrushDragging;
 
     const previewLevel = useMemo(() => {
@@ -2077,29 +2110,15 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           : brushState.dirtyCells;
       if (previewIndices.length === 0) return;
 
-      const previewCells = previewPaintLevelCells(
+      drawBrushPreviewCellsToContext(
+        ctx,
+        spriteSet,
         activeLevel,
         previewIndices,
-        brushState.tile,
-        makePaintOptions(threeDLevelsEnabled, selectedLayerZ, brushState.buryOnBottom),
+        brushState,
+        activeDisplayContext,
+        showSecrets,
       );
-
-      for (const previewCell of previewCells) {
-        const displayCell = createDat3dDisplayCell(
-          previewCell.top,
-          previewCell.bottom,
-          activeDisplayContext,
-        );
-        const image = renderCc1CellToRgba(displayCell.top, displayCell.bottom, spriteSet, {
-          showSecrets,
-        });
-        const x = (previewCell.index % 32) * spriteSet.tileSize;
-        const y = Math.floor(previewCell.index / 32) * spriteSet.tileSize;
-
-        ctx.clearRect(x, y, spriteSet.tileSize, spriteSet.tileSize);
-        drawRgbaImageToContext(ctx, image, x, y);
-        drawGridCellOutline(ctx, spriteSet.tileSize, previewCell.index);
-      }
 
       brushPreviewReplayKeyRef.current = replayKey;
     }, [
@@ -2302,6 +2321,18 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         };
         brushPreviewReplayKeyRef.current = null;
         brushDragStateRef.current = nextDragState;
+        const ctx = overlayCanvasRef.current?.getContext("2d");
+        if (ctx && spriteSet) {
+          drawBrushPreviewCellsToContext(
+            ctx,
+            spriteSet,
+            activeLevel,
+            nextDragState.cells,
+            nextDragState,
+            activeDisplayContext,
+            showSecrets,
+          );
+        }
         setDragState(nextDragState);
       } else if (tool === "line") {
         brushDragStateRef.current = null;
