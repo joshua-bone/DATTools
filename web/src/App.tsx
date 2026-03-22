@@ -898,7 +898,7 @@ function renderBoardTransformIcon(kind: DatTransformKind): ReactNode {
               orient="auto-start-reverse"
             >
               <path
-                d="M0.9 1 5.1 3 2.9 5.95"
+                d="M5.1 1 0.9 3 3.1 5.95"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.6"
