@@ -4,7 +4,7 @@ export function drawRgbaImageToCanvas(canvas: HTMLCanvasElement, image: RgbaImag
   canvas.width = image.width;
   canvas.height = image.height;
 
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D context unavailable");
 
   const clamped = new Uint8ClampedArray(image.data);

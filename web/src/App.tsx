@@ -347,6 +347,18 @@ function mergeIndices(base: ReadonlyArray<number>, extra: ReadonlyArray<number>)
   return out;
 }
 
+function gridPointsEqual(a: GridPoint | null, b: GridPoint | null): boolean {
+  return a?.x === b?.x && a?.y === b?.y;
+}
+
+function mergeBrushDragCells(
+  state: BrushDragState,
+  point: GridPoint | null,
+): ReadonlyArray<number> {
+  if (!point || gridPointsEqual(state.lastPoint, point)) return state.cells;
+  return mergeIndices(state.cells, getLineIndices(state.lastPoint, point));
+}
+
 function metadataDraftEquals(a: MetadataDraft, b: MetadataDraft): boolean {
   return (
     a.number === b.number &&
@@ -1143,6 +1155,9 @@ export default function App() {
   const keyboardPanKeysRef = useRef<Set<string>>(new Set());
   const keyboardPanFrameRef = useRef<number | null>(null);
   const keyboardPanLastTimeRef = useRef<number | null>(null);
+  const brushDragFrameRef = useRef<number | null>(null);
+  const brushDragPendingPointRef = useRef<GridPoint | null>(null);
+  const brushDragStateRef = useRef<BrushDragState | null>(null);
   const touchBoardPointsRef = useRef<Map<number, TouchPoint>>(new Map());
   const editorLayoutRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1229,6 +1244,50 @@ export default function App() {
 
   const [metadataDraft, setMetadataDraft] = useState<MetadataDraft | null>(null);
 
+  function setHoverPointIfChanged(nextPoint: GridPoint | null): void {
+    setHoverPoint((current) => (gridPointsEqual(current, nextPoint) ? current : nextPoint));
+  }
+
+  function cancelScheduledBrushDrag(): GridPoint | null {
+    const pendingPoint = brushDragPendingPointRef.current;
+    brushDragPendingPointRef.current = null;
+    if (brushDragFrameRef.current !== null) {
+      cancelAnimationFrame(brushDragFrameRef.current);
+      brushDragFrameRef.current = null;
+    }
+    return pendingPoint;
+  }
+
+  function scheduleBrushDrag(point: GridPoint): void {
+    brushDragPendingPointRef.current = point;
+    if (brushDragFrameRef.current !== null) return;
+
+    brushDragFrameRef.current = requestAnimationFrame(() => {
+      brushDragFrameRef.current = null;
+      const nextPoint = brushDragPendingPointRef.current;
+      brushDragPendingPointRef.current = null;
+      if (!nextPoint) return;
+
+      setDragState((current) => {
+        if (!current || current.tool !== "brush") return current;
+
+        const nextCells = mergeBrushDragCells(current, nextPoint);
+        if (nextCells === current.cells) {
+          brushDragStateRef.current = current;
+          return current;
+        }
+
+        const nextState: BrushDragState = {
+          ...current,
+          lastPoint: nextPoint,
+          cells: nextCells,
+        };
+        brushDragStateRef.current = nextState;
+        return nextState;
+      });
+    });
+  }
+
   const shortestViewportSide = Math.min(viewportSize.width, viewportSize.height);
   const longestViewportSide = Math.max(viewportSize.width, viewportSize.height);
   const autoTabletLayout =
@@ -1244,6 +1303,10 @@ export default function App() {
         : autoTabletLayout;
   const isTabletPortrait = isTabletLayout && viewportSize.width < viewportSize.height;
   const boardPanActive = !!boardPanState || !!touchGestureState;
+  const isBrushDragging = dragState?.tool === "brush";
+  const shouldDrawConnections = showConnections && !isBrushDragging;
+  const shouldDrawMonsterOrder = showMonsterOrder && !isBrushDragging;
+  const shouldDrawValidityWarnings = showValidityWarnings && !isBrushDragging;
 
   const doc = editor?.doc ?? null;
   const selectedIndex = editor?.selectedIndex ?? 0;
@@ -1365,14 +1428,14 @@ export default function App() {
   }, [activeLevel, dragState, selectedLayerZ, threeDLevelsEnabled]);
   const invalidCellIndices = useMemo(
     () =>
-      previewLevel
+      previewLevel && !isBrushDragging
         ? getInvalidCellIndices(previewLevel, makePaintOptions(threeDLevelsEnabled, selectedLayerZ))
         : [],
-    [previewLevel, selectedLayerZ, threeDLevelsEnabled],
+    [isBrushDragging, previewLevel, selectedLayerZ, threeDLevelsEnabled],
   );
 
   const hoverCellSummary = useMemo(() => {
-    if (!hoverPoint || !previewLevel) return null;
+    if (isBrushDragging || !hoverPoint || !previewLevel) return null;
     const index = hoverPoint.y * 32 + hoverPoint.x;
     const top = previewLevel.map.top[index] ?? "FLOOR";
     const bottom = previewLevel.map.bottom[index] ?? "FLOOR";
@@ -1384,7 +1447,14 @@ export default function App() {
           ? "AIR"
           : getDat3dTileDisplayName(bottom, activeDisplayContext),
     };
-  }, [activeDisplayContext, hoverPoint, previewLevel, selectedLayerZ, threeDLevelsEnabled]);
+  }, [
+    activeDisplayContext,
+    hoverPoint,
+    isBrushDragging,
+    previewLevel,
+    selectedLayerZ,
+    threeDLevelsEnabled,
+  ]);
 
   const liveSelection = useMemo(() => {
     if (dragState?.tool !== "select") return selection;
@@ -1431,6 +1501,18 @@ export default function App() {
       }) as CSSProperties,
     [paletteCellSize, paletteColumnCount],
   );
+
+  useEffect(() => {
+    if (dragState?.tool === "brush") return;
+    brushDragStateRef.current = null;
+    cancelScheduledBrushDrag();
+  }, [dragState]);
+
+  useEffect(() => {
+    return () => {
+      cancelScheduledBrushDrag();
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1496,7 +1578,7 @@ export default function App() {
     setFileName(nextFileName ?? fileName);
     setSelection(null);
     setPendingConnection(null);
-    setHoverPoint(null);
+    setHoverPointIfChanged(null);
     setDragState(null);
     setBoardPanState(null);
     setLayoutResizeState(null);
@@ -1615,7 +1697,7 @@ export default function App() {
   function chooseRawLevel(index: number): void {
     setEditor((current) => (current ? selectLevelInHistory(current, index) : current));
     setSelection(null);
-    setHoverPoint(null);
+    setHoverPointIfChanged(null);
     setDragState(null);
     setLevelContextMenu(null);
     setMetadataError(null);
@@ -2080,7 +2162,7 @@ export default function App() {
     if (!canvas || !previewLevel || !spriteSet) return;
 
     try {
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas 2D context unavailable");
 
       const renderLayerCanvas = (level: DatLevelJson, layerZ: number, layerCount: number) => {
@@ -2136,10 +2218,10 @@ export default function App() {
         drawRgbaImageToCanvas(canvas, image);
       }
 
-      const overlayContext = canvas.getContext("2d", { willReadFrequently: true });
+      const overlayContext = canvas.getContext("2d");
       if (!overlayContext) throw new Error("Canvas 2D context unavailable");
 
-      if (showConnections) {
+      if (shouldDrawConnections) {
         drawConnections(
           overlayContext,
           spriteSet.tileSize,
@@ -2148,7 +2230,7 @@ export default function App() {
         );
       }
 
-      if (showMonsterOrder) {
+      if (shouldDrawMonsterOrder) {
         drawMonsterOrder(overlayContext, spriteSet.tileSize, previewLevel.movement);
       }
     } catch (error: unknown) {
@@ -2162,8 +2244,8 @@ export default function App() {
     previewLevel,
     selectedLayerZ,
     selectedLogicalLevel,
-    showConnections,
-    showMonsterOrder,
+    shouldDrawConnections,
+    shouldDrawMonsterOrder,
     showSecrets,
     spriteSet,
     threeDLevelsEnabled,
@@ -2177,7 +2259,7 @@ export default function App() {
     canvas.width = size;
     canvas.height = size;
 
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     ctx.clearRect(0, 0, size, size);
@@ -2194,7 +2276,7 @@ export default function App() {
       else drawGrid(ctx, spriteSet.tileSize);
     }
 
-    if (showValidityWarnings) {
+    if (shouldDrawValidityWarnings) {
       drawInvalidCells(ctx, spriteSet.tileSize, invalidCellIndices);
     }
 
@@ -2349,7 +2431,7 @@ export default function App() {
     selectedLayerZ,
     selectedLogicalLevel,
     showSecrets,
-    showValidityWarnings,
+    shouldDrawValidityWarnings,
     spriteSet,
     threeDLevelsEnabled,
   ]);
@@ -2686,7 +2768,7 @@ export default function App() {
     }
 
     setSelection(null);
-    setHoverPoint(null);
+    setHoverPointIfChanged(null);
     setDragState(null);
     setBoardMenuOpen(null);
     setErrorMessage(null);
@@ -2951,7 +3033,7 @@ export default function App() {
       startPanX: boardPan.x,
       startPanY: boardPan.y,
     });
-    setHoverPoint(null);
+    setHoverPointIfChanged(null);
   }
 
   function beginTouchBoardGesture(): void {
@@ -2976,7 +3058,7 @@ export default function App() {
     setDragState(null);
     setPendingConnection(null);
     setBoardPanState(null);
-    setHoverPoint(null);
+    setHoverPointIfChanged(null);
   }
 
   function updateTouchBoardGesture(): void {
@@ -3070,7 +3152,7 @@ export default function App() {
 
     const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
     const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent);
-    setHoverPoint(point);
+    setHoverPointIfChanged(point);
     setMetadataError(null);
 
     if (tool === "connect") {
@@ -3118,15 +3200,18 @@ export default function App() {
     const dragTile = getPaintTileForButton(event.button, primaryTile, secondaryTile);
 
     if (tool === "brush") {
-      setDragState({
+      const nextDragState: BrushDragState = {
         tool: "brush",
         pointerId: event.pointerId,
         lastPoint: point,
         cells: [point.y * 32 + point.x],
         tile: dragTile,
         buryOnBottom: event.shiftKey,
-      });
+      };
+      brushDragStateRef.current = nextDragState;
+      setDragState(nextDragState);
     } else if (tool === "line") {
+      brushDragStateRef.current = null;
       setDragState({
         tool: "line",
         pointerId: event.pointerId,
@@ -3136,6 +3221,7 @@ export default function App() {
         buryOnBottom: event.shiftKey,
       });
     } else {
+      brushDragStateRef.current = null;
       setDragState({
         tool: "select",
         pointerId: event.pointerId,
@@ -3157,7 +3243,7 @@ export default function App() {
       });
       if (touchGestureState) {
         event.preventDefault();
-        setHoverPoint(null);
+        setHoverPointIfChanged(null);
         updateTouchBoardGesture();
         return;
       }
@@ -3165,14 +3251,15 @@ export default function App() {
 
     if (boardPanState && boardPanState.pointerId === event.pointerId) {
       event.preventDefault();
-      setHoverPoint(null);
+      setHoverPointIfChanged(null);
       updateBoardPanGesture(event.clientX, event.clientY);
       return;
     }
 
     const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
     const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent);
-    setHoverPoint(point);
+    if (dragState?.tool === "brush") setHoverPointIfChanged(null);
+    else setHoverPointIfChanged(point);
 
     if (tool === "connect" && pendingConnection && boardPoint) {
       setPendingConnection((current) =>
@@ -3188,15 +3275,12 @@ export default function App() {
     if (!point || !dragState || dragState.pointerId !== event.pointerId) return;
 
     if (dragState.tool === "brush") {
-      if (dragState.lastPoint.x === point.x && dragState.lastPoint.y === point.y) return;
-      setDragState({
-        ...dragState,
-        lastPoint: point,
-        cells: mergeIndices(dragState.cells, getLineIndices(dragState.lastPoint, point)),
-      });
+      if (gridPointsEqual(dragState.lastPoint, point)) return;
+      scheduleBrushDrag(point);
       return;
     }
 
+    if (gridPointsEqual(dragState.current, point)) return;
     setDragState({
       ...dragState,
       current: point,
@@ -3212,7 +3296,7 @@ export default function App() {
       event.preventDefault();
       touchBoardPointsRef.current.delete(event.pointerId);
       setTouchGestureState(null);
-      setHoverPoint(null);
+      setHoverPointIfChanged(null);
       event.currentTarget.releasePointerCapture(event.pointerId);
       return;
     }
@@ -3234,7 +3318,15 @@ export default function App() {
       return;
     }
 
-    if (!dragState || dragState.pointerId !== event.pointerId) {
+    const activeBrushDragState =
+      dragState?.tool === "brush" && dragState.pointerId === event.pointerId
+        ? dragState
+        : brushDragStateRef.current?.pointerId === event.pointerId
+          ? brushDragStateRef.current
+          : null;
+    const activeDragState = activeBrushDragState ?? dragState;
+
+    if (!activeDragState || activeDragState.pointerId !== event.pointerId) {
       if (isTrackedTabletTouch) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
@@ -3244,27 +3336,32 @@ export default function App() {
 
     const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
 
-    if (dragState.tool === "brush") {
+    if (activeDragState.tool === "brush") {
+      const pendingBrushPoint = cancelScheduledBrushDrag();
+      const finalPoint = point ?? pendingBrushPoint ?? activeDragState.lastPoint;
+      const finalCells = mergeBrushDragCells(activeDragState, finalPoint);
       commitSelectedLevelUpdate((level) =>
         paintLevelCells(
           level,
-          dragState.cells,
-          dragState.tile,
-          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
+          finalCells,
+          activeDragState.tile,
+          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, activeDragState.buryOnBottom),
         ),
       );
-    } else if (dragState.tool === "line") {
+      brushDragStateRef.current = null;
+      setHoverPointIfChanged(finalPoint);
+    } else if (activeDragState.tool === "line") {
       commitSelectedLevelUpdate((level) =>
         paintLevelLine(
           level,
-          dragState.start,
-          point ?? dragState.current,
-          dragState.tile,
-          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
+          activeDragState.start,
+          point ?? activeDragState.current,
+          activeDragState.tile,
+          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, activeDragState.buryOnBottom),
         ),
       );
     } else {
-      setSelection(normalizeRect(dragState.start, point ?? dragState.current));
+      setSelection(normalizeRect(activeDragState.start, point ?? activeDragState.current));
     }
 
     setDragState(null);
@@ -3280,14 +3377,16 @@ export default function App() {
       touchBoardPointsRef.current.delete(event.pointerId);
       if (touchGestureState) {
         setTouchGestureState(null);
-        setHoverPoint(null);
+        cancelScheduledBrushDrag();
+        brushDragStateRef.current = null;
+        setHoverPointIfChanged(null);
         return;
       }
     }
 
     if (boardPanState && boardPanState.pointerId === event.pointerId) {
       setBoardPanState(null);
-      setHoverPoint(null);
+      setHoverPointIfChanged(null);
       return;
     }
 
@@ -3298,14 +3397,24 @@ export default function App() {
       return;
     }
 
-    if (!dragState || dragState.pointerId !== event.pointerId) {
+    const activeBrushDragState =
+      dragState?.tool === "brush" && dragState.pointerId === event.pointerId
+        ? dragState
+        : brushDragStateRef.current?.pointerId === event.pointerId
+          ? brushDragStateRef.current
+          : null;
+    const activeDragState = activeBrushDragState ?? dragState;
+
+    if (!activeDragState || activeDragState.pointerId !== event.pointerId) {
       if (isTrackedTabletTouch) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
       return;
     }
+    cancelScheduledBrushDrag();
+    brushDragStateRef.current = null;
     setDragState(null);
-    setHoverPoint(null);
+    setHoverPointIfChanged(null);
   }
 
   function handleBoardWheel(event: React.WheelEvent<HTMLDivElement>): void {
@@ -4136,7 +4245,7 @@ export default function App() {
                     onPointerCancel={handlePointerCancel}
                     onContextMenu={(event) => event.preventDefault()}
                     onPointerLeave={() => {
-                      if (!dragState && !boardPanActive) setHoverPoint(null);
+                      if (!dragState && !boardPanActive) setHoverPointIfChanged(null);
                     }}
                   />
                 </div>
