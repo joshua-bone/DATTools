@@ -58,6 +58,7 @@ import {
   drawCc1LevelToCanvas,
   drawCc1LevelToContext,
 } from "@/web/src/canvasLevelRenderer";
+import { drawPresentedBoardLayers, ensureCanvasSize } from "@/web/src/boardCanvasPresentation";
 import { createCanvasSpriteCache, type CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
 import { resolveBoardTileRedrawPlan } from "@/web/src/boardRenderInvalidation";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
@@ -324,6 +325,13 @@ function getBoardBaseCanvasContext(canvas: HTMLCanvasElement): CanvasRenderingCo
 
 function getOverlayCanvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   return canvas.getContext("2d", { desynchronized: true });
+}
+
+function getOrCreateInternalCanvas(ref: { current: HTMLCanvasElement | null }): HTMLCanvasElement {
+  if (!ref.current) {
+    ref.current = document.createElement("canvas");
+  }
+  return ref.current;
 }
 
 function asErrorMessage(err: unknown): string {
@@ -1547,10 +1555,11 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     const brushPreviewReplayKeyRef = useRef<string | null>(null);
     const touchBoardPointsRef = useRef<Map<number, TouchPoint>>(new Map());
     const boardViewportRef = useRef<HTMLDivElement>(null);
-    const boardCanvasRef = useRef<HTMLCanvasElement>(null);
-    const boardAnnotationCanvasRef = useRef<HTMLCanvasElement>(null);
-    const boardStaticOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
-    const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+    const presentedBoardCanvasRef = useRef<HTMLCanvasElement>(null);
+    const boardCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const boardAnnotationCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const boardStaticOverlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const boardBaseRenderSnapshotRef = useRef<BoardBaseRenderSnapshot>({
       level: null,
       renderKey: null,
@@ -1661,6 +1670,22 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         setBoardPan({ x: 0, y: 0 });
         setBoardViewInitialized(false);
       }
+    }
+
+    function presentBoardLayers(): void {
+      const canvas = presentedBoardCanvasRef.current;
+      if (!canvas) return;
+
+      const ctx = getBoardBaseCanvasContext(canvas);
+      if (!ctx) return;
+
+      ensureCanvasSize(canvas, boardSize, boardSize);
+      drawPresentedBoardLayers(ctx, boardSize, boardSize, [
+        boardCanvasRef.current,
+        boardAnnotationCanvasRef.current,
+        boardStaticOverlayCanvasRef.current,
+        overlayCanvasRef.current,
+      ]);
     }
 
     useImperativeHandle(
@@ -1840,18 +1865,14 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     }, [activeLevel]);
 
     useEffect(() => {
-      const canvas = boardCanvasRef.current;
-      if (!canvas || !previewLevel || !spriteSet || !canvasSpriteCache) return;
+      if (!previewLevel || !spriteSet || !canvasSpriteCache) return;
 
       try {
+        const canvas = getOrCreateInternalCanvas(boardCanvasRef);
         const ctx = getBoardBaseCanvasContext(canvas);
         if (!ctx) throw new Error("Canvas 2D context unavailable");
 
-        const sizeChanged = canvas.width !== boardSize || canvas.height !== boardSize;
-        if (sizeChanged) {
-          canvas.width = boardSize;
-          canvas.height = boardSize;
-        }
+        const sizeChanged = ensureCanvasSize(canvas, boardSize, boardSize);
 
         const renderLayerCanvas = (level: DatLevelJson, layerZ: number, layerCount: number) => {
           const displayLevel = createDat3dDisplayLevel(level, {
@@ -1959,14 +1980,11 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     ]);
 
     useEffect(() => {
-      const canvas = boardAnnotationCanvasRef.current;
-      if (!canvas || !previewLevel || !spriteSet) return;
+      if (!previewLevel || !spriteSet) return;
 
       try {
-        if (canvas.width !== boardSize || canvas.height !== boardSize) {
-          canvas.width = boardSize;
-          canvas.height = boardSize;
-        }
+        const canvas = getOrCreateInternalCanvas(boardAnnotationCanvasRef);
+        ensureCanvasSize(canvas, boardSize, boardSize);
 
         const ctx = getOverlayCanvasContext(canvas);
         if (!ctx) throw new Error("Canvas 2D context unavailable");
@@ -1998,15 +2016,12 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     ]);
 
     useEffect(() => {
-      const canvas = boardStaticOverlayCanvasRef.current;
-      if (!canvas || !spriteSet) return;
+      if (!spriteSet) return;
 
       try {
         const size = spriteSet.tileSize * 32;
-        if (canvas.width !== size || canvas.height !== size) {
-          canvas.width = size;
-          canvas.height = size;
-        }
+        const canvas = getOrCreateInternalCanvas(boardStaticOverlayCanvasRef);
+        ensureCanvasSize(canvas, size, size);
 
         const ctx = getOverlayCanvasContext(canvas);
         if (!ctx) throw new Error("Canvas 2D context unavailable");
@@ -2066,14 +2081,11 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     ]);
 
     useEffect(() => {
-      const canvas = overlayCanvasRef.current;
-      if (!canvas || !spriteSet) return;
+      if (!spriteSet) return;
 
       const size = spriteSet.tileSize * 32;
-      if (canvas.width !== size || canvas.height !== size) {
-        canvas.width = size;
-        canvas.height = size;
-      }
+      const canvas = getOrCreateInternalCanvas(overlayCanvasRef);
+      ensureCanvasSize(canvas, size, size);
 
       const ctx = getOverlayCanvasContext(canvas);
       if (!ctx) return;
@@ -2232,12 +2244,12 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     useEffect(() => {
       const brushState = dragState?.tool === "brush" ? dragState : null;
-      const canvas = overlayCanvasRef.current;
-      if (!brushState || !canvas || !spriteSet || !canvasSpriteCache || !activeLevel) {
+      if (!brushState || !spriteSet || !canvasSpriteCache || !activeLevel) {
         brushPreviewReplayKeyRef.current = null;
         return;
       }
 
+      const canvas = getOrCreateInternalCanvas(overlayCanvasRef);
       const ctx = getOverlayCanvasContext(canvas);
       if (!ctx) return;
 
@@ -2282,6 +2294,39 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       spriteSet,
       canvasSpriteCache,
       threeDLevelsEnabled,
+    ]);
+
+    useEffect(() => {
+      if (!spriteSet) return;
+
+      try {
+        presentBoardLayers();
+      } catch (error: unknown) {
+        onSetErrorMessage(asErrorMessage(error));
+      }
+    }, [
+      activeDisplayContext,
+      activeLevel,
+      boardPan,
+      boardSize,
+      boardZoom,
+      dragState,
+      hoverPoint,
+      invalidCellIndices,
+      liveSelection,
+      pastePreview,
+      pendingConnection,
+      previewLevel,
+      selectedLayerZ,
+      selectedLogicalLevel,
+      shouldDrawConnections,
+      shouldDrawMonsterOrder,
+      shouldDrawValidityWarnings,
+      showSecrets,
+      spriteSet,
+      canvasSpriteCache,
+      threeDLevelsEnabled,
+      onSetErrorMessage,
     ]);
 
     function beginBoardPanGesture(pointerId: number, clientX: number, clientY: number): void {
@@ -2472,9 +2517,8 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         };
         brushPreviewReplayKeyRef.current = null;
         brushDragStateRef.current = nextDragState;
-        const ctx = overlayCanvasRef.current
-          ? getOverlayCanvasContext(overlayCanvasRef.current)
-          : null;
+        const interactionCanvas = getOrCreateInternalCanvas(overlayCanvasRef);
+        const ctx = getOverlayCanvasContext(interactionCanvas);
         if (ctx && canvasSpriteCache) {
           drawBrushPreviewCellsToContext(
             ctx,
@@ -2485,6 +2529,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
             activeDisplayContext,
             showSecrets,
           );
+          presentBoardLayers();
         }
         setDragState(nextDragState);
       } else if (tool === "line") {
@@ -2778,11 +2823,8 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                   height: boardSize,
                 }}
               >
-                <canvas ref={boardCanvasRef} className="boardCanvas" />
-                <canvas ref={boardAnnotationCanvasRef} className="boardCanvas" />
-                <canvas ref={boardStaticOverlayCanvasRef} className="boardCanvas" />
                 <canvas
-                  ref={overlayCanvasRef}
+                  ref={presentedBoardCanvasRef}
                   className="boardCanvas overlayCanvas"
                   onPointerDown={handlePointerDown}
                   onPointerMove={handlePointerMove}
