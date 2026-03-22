@@ -894,8 +894,8 @@ function renderBoardTransformIcon(kind: DatTransformKind): ReactNode {
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          <polyline
-            points="10.6 2.4 15.6 2.9 13.1 7.2"
+          <path
+            d="M10 3.25h4.6M14.6 3.25l-1.9-1.9M14.6 3.25l-1.9 1.9"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.8"
@@ -915,8 +915,8 @@ function renderBoardTransformIcon(kind: DatTransformKind): ReactNode {
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          <polyline
-            points="9.4 2.4 4.4 2.9 6.9 7.2"
+          <path
+            d="M10 3.25H5.4M5.4 3.25l1.9-1.9M5.4 3.25l1.9 1.9"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.8"
