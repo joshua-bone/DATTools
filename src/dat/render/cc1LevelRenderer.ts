@@ -33,14 +33,14 @@ function shouldOverlayTopTile(topName: string, bottomName: string): boolean {
   return true;
 }
 
-export function renderCc1LevelToRgba(
-  level: DatLevelJson,
+function renderCc1CellToRgbaWithArrowCache(
+  topName: string,
+  bottomName: string,
   sprites: CC1SpriteSet,
   opts: RenderOptions,
+  arrowCache: Map<string, RgbaImage>,
 ): RgbaImage {
   const size = sprites.tileSize;
-  const out = createImage(32 * size, 32 * size, [0, 0, 0, 0]);
-  const arrowCache = new Map<string, RgbaImage>();
   const getArrow = (dir: "N" | "E" | "S" | "W"): RgbaImage => {
     const key = `${size}:${dir}`;
     const hit = arrowCache.get(key);
@@ -50,33 +50,61 @@ export function renderCc1LevelToRgba(
     return arrow;
   };
 
+  let tileImg = cloneImage(sprites.get(bottomName));
+
+  if (shouldOverlayTopTile(topName, bottomName)) {
+    const topImg = cloneImage(sprites.get(topName));
+
+    if (opts.showSecrets && BLOCKS.has(topName)) {
+      makeSemiTransparentInPlace(topImg);
+    }
+
+    if (opts.showSecrets && topName === "BLUE_WALL_FAKE") {
+      lightenImageInPlace(topImg, 40);
+    }
+
+    blit(tileImg, topImg, 0, 0);
+
+    if (opts.showSecrets && shouldShowDirectionArrowInPalette(topName)) {
+      const d = dirFromTileName(topName);
+      if (d) overlayArrowInPlace(tileImg, getArrow(d));
+    }
+  }
+
+  return tileImg;
+}
+
+export function renderCc1CellToRgba(
+  topName: string,
+  bottomName: string,
+  sprites: CC1SpriteSet,
+  opts: RenderOptions,
+): RgbaImage {
+  return renderCc1CellToRgbaWithArrowCache(topName, bottomName, sprites, opts, new Map());
+}
+
+export function renderCc1LevelToRgba(
+  level: DatLevelJson,
+  sprites: CC1SpriteSet,
+  opts: RenderOptions,
+): RgbaImage {
+  const size = sprites.tileSize;
+  const out = createImage(32 * size, 32 * size, [0, 0, 0, 0]);
+  const arrowCache = new Map<string, RgbaImage>();
+
   for (let j = 0; j < 32; j++) {
     for (let i = 0; i < 32; i++) {
       const p = j * 32 + i;
 
       const bottomName = level.map.bottom[p] ?? "FLOOR";
       const topName = level.map.top[p] ?? bottomName;
-
-      let tileImg = cloneImage(sprites.get(bottomName));
-
-      if (shouldOverlayTopTile(topName, bottomName)) {
-        const topImg = cloneImage(sprites.get(topName));
-
-        if (opts.showSecrets && BLOCKS.has(topName)) {
-          makeSemiTransparentInPlace(topImg);
-        }
-
-        if (opts.showSecrets && topName === "BLUE_WALL_FAKE") {
-          lightenImageInPlace(topImg, 40);
-        }
-
-        blit(tileImg, topImg, 0, 0);
-
-        if (opts.showSecrets && shouldShowDirectionArrowInPalette(topName)) {
-          const d = dirFromTileName(topName);
-          if (d) overlayArrowInPlace(tileImg, getArrow(d));
-        }
-      }
+      const tileImg = renderCc1CellToRgbaWithArrowCache(
+        topName,
+        bottomName,
+        sprites,
+        opts,
+        arrowCache,
+      );
 
       blit(out, tileImg, i * size, j * size);
     }

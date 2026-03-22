@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
-import { renderCc1LevelToRgba } from "@/src/dat/render/cc1LevelRenderer";
+import { renderCc1CellToRgba, renderCc1LevelToRgba } from "@/src/dat/render/cc1LevelRenderer";
 import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import { createImage } from "@/src/dat/render/rgbaImage";
 
@@ -87,6 +87,14 @@ describe("CC1 level renderer", () => {
     }
 
     expect(hasOpaqueRedPixel).toBe(true);
+  });
+
+  it("renders single-cell previews with the same sprite composition rules", () => {
+    const img = renderCc1CellToRgba("CHIP", "WALL", makeSpriteSet(), {
+      showSecrets: false,
+    });
+
+    expect(pixelAt0(img)).toEqual([30, 200, 80, 255]);
   });
 
   it("does not show secret arrows for visually clear directional tiles", () => {

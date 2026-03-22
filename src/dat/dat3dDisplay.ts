@@ -10,6 +10,11 @@ export type Dat3dDisplayContext = Readonly<{
   layerCount: number;
 }>;
 
+export type Dat3dDisplayCell = Readonly<{
+  top: string;
+  bottom: string;
+}>;
+
 export function getDat3dTileDisplayName(tile: string, context: Dat3dDisplayContext): string {
   if (context.threeDEnabled && tile === DAT_3D_AIR_TILE) return "AIR";
   if (context.threeDEnabled && tile === DAT_3D_ELEVATOR_TILE) {
@@ -36,6 +41,34 @@ function cellShouldRenderAsAir(
   return bottomTile === DAT_3D_AIR_TILE;
 }
 
+export function createDat3dDisplayCell(
+  topTile: string,
+  bottomTile: string,
+  context: Dat3dDisplayContext,
+): Dat3dDisplayCell {
+  if (!context.threeDEnabled) {
+    return {
+      top: topTile,
+      bottom: bottomTile,
+    };
+  }
+
+  if (cellShouldRenderAsAir(topTile, bottomTile, context)) {
+    return {
+      top: DAT_3D_AIR_SPRITE_NAME,
+      bottom: DAT_3D_AIR_SPRITE_NAME,
+    };
+  }
+
+  return {
+    top: getDat3dTileSpriteName(topTile, context),
+    bottom:
+      context.layerZ > 1 && topTile === DAT_3D_AIR_TILE && bottomTile === FLOOR_TILE
+        ? DAT_3D_AIR_SPRITE_NAME
+        : getDat3dTileSpriteName(bottomTile, context),
+  };
+}
+
 export function createDat3dDisplayLevel(
   level: DatLevelJson,
   context: Dat3dDisplayContext,
@@ -48,19 +81,9 @@ export function createDat3dDisplayLevel(
   for (let index = 0; index < nextTop.length; index++) {
     const topTile = nextTop[index] ?? FLOOR_TILE;
     const bottomTile = nextBottom[index] ?? FLOOR_TILE;
-
-    if (cellShouldRenderAsAir(topTile, bottomTile, context)) {
-      nextTop[index] = DAT_3D_AIR_SPRITE_NAME;
-      nextBottom[index] = DAT_3D_AIR_SPRITE_NAME;
-      continue;
-    }
-
-    nextTop[index] = getDat3dTileSpriteName(topTile, context);
-    nextBottom[index] = getDat3dTileSpriteName(bottomTile, context);
-
-    if (context.layerZ > 1 && topTile === DAT_3D_AIR_TILE && bottomTile === FLOOR_TILE) {
-      nextBottom[index] = DAT_3D_AIR_SPRITE_NAME;
-    }
+    const displayCell = createDat3dDisplayCell(topTile, bottomTile, context);
+    nextTop[index] = displayCell.top;
+    nextBottom[index] = displayCell.bottom;
   }
 
   return {

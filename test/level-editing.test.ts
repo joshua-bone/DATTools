@@ -11,12 +11,14 @@ import {
   createEmptyLevel,
   createRandomLevelPassword,
   createLevelsetEditorHistory,
+  extendPaintStroke,
   fillLevelArea,
   getInvalidCellIndices,
   isConnectionEndpointCell,
   paintLevelCells,
   paintLevelLine,
   pasteLevelRegion,
+  previewPaintLevelCells,
   redoLevelsetEvent,
   selectLevelInHistory,
   shiftLevelWrap,
@@ -114,6 +116,35 @@ describe("level editing helpers", () => {
     expect(level.map.top[33]).toBe("WATER");
     expect(level.map.top[34]).toBe("WATER");
     expect(level.map.top[1]).toBe("WATER");
+  });
+
+  it("extends paint strokes without re-adding existing cells", () => {
+    const first = extendPaintStroke([0], { x: 0, y: 0 }, { x: 0, y: 2 });
+    expect(first.cells).toEqual([0, 32, 64]);
+    expect(first.dirtyCells).toEqual([32, 64]);
+    expect(first.lastPoint).toEqual({ x: 0, y: 2 });
+
+    const second = extendPaintStroke(first.cells, first.lastPoint, { x: 0, y: 0 });
+    expect(second.cells).toEqual([0, 32, 64]);
+    expect(second.dirtyCells).toEqual([]);
+    expect(second.lastPoint).toEqual({ x: 0, y: 0 });
+  });
+
+  it("previews only changed painted cells without mutating the level", () => {
+    let level = createEmptyLevel(1);
+    level = paintLevelCells(level, [0], "WALL");
+
+    const preview = previewPaintLevelCells(level, [0, 1, 1], "ANT_N");
+
+    expect(preview).toEqual([
+      { index: 0, top: "ANT_N", bottom: "WALL" },
+      { index: 1, top: "ANT_N", bottom: "FLOOR" },
+    ]);
+    expect(level.map.top[0]).toBe("WALL");
+    expect(level.map.bottom[0]).toBe("FLOOR");
+
+    const unchangedPreview = previewPaintLevelCells(level, [0], "WALL");
+    expect(unchangedPreview).toEqual([]);
   });
 
   it("can deliberately bury a tile in the bottom layer when requested", () => {

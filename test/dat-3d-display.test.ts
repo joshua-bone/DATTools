@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { tileNameFromCode } from "@/src/dat/cc1Tiles";
 import {
+  createDat3dDisplayCell,
   createDat3dDisplayLevel,
   getAirAboveElevatorIndices,
   getDat3dTileDisplayName,
   getDat3dTileSpriteName,
 } from "@/src/dat/dat3dDisplay";
 import { DAT_3D_AIR_TILE, DAT_3D_ELEVATOR_TILE } from "@/src/dat/dat3dLevels";
-import { DAT_3D_ELEVATOR_SPRITE_NAME } from "@/src/dat/render/cc1SpriteSet";
+import { DAT_3D_AIR_SPRITE_NAME, DAT_3D_ELEVATOR_SPRITE_NAME } from "@/src/dat/render/cc1SpriteSet";
 import { createEmptyLevel } from "@/web/src/levelEditing";
 
 describe("3D display elevator rendering", () => {
@@ -72,5 +73,22 @@ describe("3D display elevator rendering", () => {
     lower.map.top[6] = "WALL";
 
     expect(getAirAboveElevatorIndices(upper, lower, context)).toEqual([5]);
+  });
+
+  it("converts individual cells to 3D display sprites", () => {
+    const context = {
+      threeDEnabled: true,
+      layerZ: 2,
+      layerCount: 2,
+    } as const;
+
+    expect(createDat3dDisplayCell(DAT_3D_AIR_TILE, "FLOOR", context)).toEqual({
+      top: DAT_3D_AIR_SPRITE_NAME,
+      bottom: DAT_3D_AIR_SPRITE_NAME,
+    });
+    expect(createDat3dDisplayCell(DAT_3D_ELEVATOR_TILE, "FLOOR", context)).toEqual({
+      top: DAT_3D_ELEVATOR_SPRITE_NAME,
+      bottom: "FLOOR",
+    });
   });
 });

@@ -22,6 +22,18 @@ export type GridRect = Readonly<{
   height: number;
 }>;
 
+export type PaintPreviewCell = Readonly<{
+  index: number;
+  top: string;
+  bottom: string;
+}>;
+
+export type ExtendedPaintStroke = Readonly<{
+  cells: ReadonlyArray<number>;
+  dirtyCells: ReadonlyArray<number>;
+  lastPoint: GridPoint;
+}>;
+
 export type LevelClipboard = Readonly<{
   width: number;
   height: number;
@@ -471,6 +483,38 @@ export function getLineIndices(start: GridPoint, end: GridPoint): number[] {
   return uniqueIndices(out);
 }
 
+export function extendPaintStroke(
+  cells: ReadonlyArray<number>,
+  lastPoint: GridPoint,
+  nextPoint: GridPoint,
+): ExtendedPaintStroke {
+  const clampedNextPoint = clampPoint(nextPoint);
+  if (lastPoint.x === clampedNextPoint.x && lastPoint.y === clampedNextPoint.y) {
+    return {
+      cells,
+      dirtyCells: [],
+      lastPoint: clampedNextPoint,
+    };
+  }
+
+  const nextCells = [...cells];
+  const dirtyCells: number[] = [];
+  const seen = new Set(cells);
+
+  for (const index of getLineIndices(lastPoint, clampedNextPoint)) {
+    if (seen.has(index)) continue;
+    seen.add(index);
+    nextCells.push(index);
+    dirtyCells.push(index);
+  }
+
+  return {
+    cells: dirtyCells.length === 0 ? cells : nextCells,
+    dirtyCells,
+    lastPoint: clampedNextPoint,
+  };
+}
+
 function getTerrainTile(top: string, bottom: string, options?: PaintLevelOptions): string {
   if (bottom !== FLOOR_TILE && !isActorTile(bottom, options)) return bottom;
   if (!isActorTile(top, options)) return top;
@@ -521,6 +565,32 @@ function applyTileToCell(
     top: tile,
     bottom: FLOOR_TILE,
   };
+}
+
+export function previewPaintLevelCells(
+  level: DatLevel,
+  indices: ReadonlyArray<number>,
+  tile: string,
+  options?: PaintLevelOptions,
+): PaintPreviewCell[] {
+  const targets = uniqueIndices(indices);
+  const previewCells: PaintPreviewCell[] = [];
+
+  for (const index of targets) {
+    const currentTop = level.map.top[index] ?? FLOOR_TILE;
+    const currentBottom = level.map.bottom[index] ?? FLOOR_TILE;
+    const nextCell = applyTileToCell(currentTop, currentBottom, tile, options);
+
+    if (currentTop === nextCell.top && currentBottom === nextCell.bottom) continue;
+
+    previewCells.push({
+      index,
+      top: nextCell.top,
+      bottom: nextCell.bottom,
+    });
+  }
+
+  return previewCells;
 }
 
 export function isLevelCellValid(

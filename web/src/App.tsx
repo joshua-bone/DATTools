@@ -35,6 +35,7 @@ import {
   type Logical3dLevel,
 } from "@/src/dat/dat3dLevels";
 import {
+  createDat3dDisplayCell,
   createDat3dDisplayLevel,
   getAirAboveElevatorIndices,
   getDat3dTileDisplayName,
@@ -46,9 +47,9 @@ import {
   type DatLevelJson,
   type DatLevelsetJsonV1,
 } from "@/src/dat/datLevelsetJsonV1";
-import { renderCc1LevelToRgba } from "@/src/dat/render/cc1LevelRenderer";
+import { renderCc1CellToRgba, renderCc1LevelToRgba } from "@/src/dat/render/cc1LevelRenderer";
 import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
-import { drawRgbaImageToCanvas } from "@/web/src/canvasDrawing";
+import { drawRgbaImageToCanvas, drawRgbaImageToContext } from "@/web/src/canvasDrawing";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
 import { buildTworldUrl } from "@/web/src/tworld";
@@ -62,14 +63,15 @@ import {
   copyLevelRegion,
   createEmptyLevel,
   createLevelsetEditorHistory,
+  extendPaintStroke,
   fillLevelArea,
   getInvalidCellIndices,
   isConnectionEndpointCell,
-  getLineIndices,
   normalizeRect,
   paintLevelCells,
   paintLevelLine,
   pasteLevelRegion,
+  previewPaintLevelCells,
   redoLevelsetEvent,
   selectLevelInHistory,
   shiftLevelWrap,
@@ -111,6 +113,7 @@ type BrushDragState = Readonly<{
   pointerId: number;
   lastPoint: GridPoint;
   cells: ReadonlyArray<number>;
+  dirtyCells: ReadonlyArray<number>;
   tile: string;
   buryOnBottom: boolean;
 }>;
@@ -336,27 +339,8 @@ function normalizeDatFileName(filename: string): string {
   return `${trimmed}.dat`;
 }
 
-function mergeIndices(base: ReadonlyArray<number>, extra: ReadonlyArray<number>): number[] {
-  const seen = new Set(base);
-  const out = [...base];
-  for (const index of extra) {
-    if (seen.has(index)) continue;
-    seen.add(index);
-    out.push(index);
-  }
-  return out;
-}
-
 function gridPointsEqual(a: GridPoint | null, b: GridPoint | null): boolean {
   return a?.x === b?.x && a?.y === b?.y;
-}
-
-function mergeBrushDragCells(
-  state: BrushDragState,
-  point: GridPoint | null,
-): ReadonlyArray<number> {
-  if (!point || gridPointsEqual(state.lastPoint, point)) return state.cells;
-  return mergeIndices(state.cells, getLineIndices(state.lastPoint, point));
 }
 
 function metadataDraftEquals(a: MetadataDraft, b: MetadataDraft): boolean {
@@ -952,6 +936,17 @@ function drawGridForVisibleCells(
   ctx.restore();
 }
 
+function drawGridCellOutline(ctx: CanvasRenderingContext2D, tileSize: number, index: number): void {
+  const x = (index % 32) * tileSize + 0.5;
+  const y = Math.floor(index / 32) * tileSize + 0.5;
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(48, 77, 68, 0.16)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, tileSize, tileSize);
+  ctx.restore();
+}
+
 function isTransparentAirCell(
   level: DatLevelJson,
   index: number,
@@ -1158,6 +1153,7 @@ export default function App() {
   const brushDragFrameRef = useRef<number | null>(null);
   const brushDragPendingPointRef = useRef<GridPoint | null>(null);
   const brushDragStateRef = useRef<BrushDragState | null>(null);
+  const brushPreviewReplayKeyRef = useRef<string | null>(null);
   const touchBoardPointsRef = useRef<Map<number, TouchPoint>>(new Map());
   const editorLayoutRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1268,23 +1264,32 @@ export default function App() {
       brushDragPendingPointRef.current = null;
       if (!nextPoint) return;
 
-      setDragState((current) => {
-        if (!current || current.tool !== "brush") return current;
+      const current = brushDragStateRef.current;
+      if (!current) return;
 
-        const nextCells = mergeBrushDragCells(current, nextPoint);
-        if (nextCells === current.cells) {
-          brushDragStateRef.current = current;
-          return current;
-        }
+      const nextStroke = extendPaintStroke(current.cells, current.lastPoint, nextPoint);
+      if (
+        nextStroke.dirtyCells.length === 0 &&
+        gridPointsEqual(current.lastPoint, nextStroke.lastPoint)
+      ) {
+        return;
+      }
 
-        const nextState: BrushDragState = {
-          ...current,
-          lastPoint: nextPoint,
-          cells: nextCells,
-        };
-        brushDragStateRef.current = nextState;
-        return nextState;
-      });
+      const nextState: BrushDragState = {
+        ...current,
+        cells: nextStroke.cells,
+        dirtyCells: nextStroke.dirtyCells,
+        lastPoint: nextStroke.lastPoint,
+      };
+      brushDragStateRef.current = nextState;
+
+      if (nextStroke.dirtyCells.length === 0) return;
+
+      setDragState((existing) =>
+        existing?.tool === "brush" && existing.pointerId === current.pointerId
+          ? nextState
+          : existing,
+      );
     });
   }
 
@@ -1407,14 +1412,6 @@ export default function App() {
 
   const previewLevel = useMemo(() => {
     if (!activeLevel || !dragState) return activeLevel;
-    if (dragState.tool === "brush") {
-      return paintLevelCells(
-        activeLevel,
-        dragState.cells,
-        dragState.tile,
-        makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
-      );
-    }
     if (dragState.tool === "line") {
       return paintLevelLine(
         activeLevel,
@@ -1505,6 +1502,7 @@ export default function App() {
   useEffect(() => {
     if (dragState?.tool === "brush") return;
     brushDragStateRef.current = null;
+    brushPreviewReplayKeyRef.current = null;
     cancelScheduledBrushDrag();
   }, [dragState]);
 
@@ -2389,7 +2387,7 @@ export default function App() {
       );
     }
 
-    if (hoverPoint) {
+    if (!isBrushDragging && hoverPoint) {
       drawRectOverlay(
         ctx,
         spriteSet.tileSize,
@@ -2428,10 +2426,77 @@ export default function App() {
     liveSelection,
     pastePreview,
     previewLevel,
+    isBrushDragging,
     selectedLayerZ,
     selectedLogicalLevel,
     showSecrets,
     shouldDrawValidityWarnings,
+    spriteSet,
+    threeDLevelsEnabled,
+  ]);
+
+  useEffect(() => {
+    const brushState = dragState?.tool === "brush" ? dragState : null;
+    const canvas = overlayCanvasRef.current;
+    if (!brushState || !canvas || !spriteSet || !activeLevel) {
+      brushPreviewReplayKeyRef.current = null;
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const replayKey = [
+      brushState.pointerId,
+      activeDisplayContext.threeDEnabled ? "3d" : "2d",
+      activeDisplayContext.layerZ,
+      activeDisplayContext.layerCount,
+      selectedLayerZ,
+      showSecrets ? "secrets" : "plain",
+      boardPan.x,
+      boardPan.y,
+      boardZoom,
+    ].join(":");
+    const shouldReplayFullStroke = brushPreviewReplayKeyRef.current !== replayKey;
+    const previewIndices =
+      shouldReplayFullStroke || brushState.dirtyCells.length === 0
+        ? brushState.cells
+        : brushState.dirtyCells;
+    if (previewIndices.length === 0) return;
+
+    const previewCells = previewPaintLevelCells(
+      activeLevel,
+      previewIndices,
+      brushState.tile,
+      makePaintOptions(threeDLevelsEnabled, selectedLayerZ, brushState.buryOnBottom),
+    );
+
+    for (const previewCell of previewCells) {
+      const displayCell = createDat3dDisplayCell(
+        previewCell.top,
+        previewCell.bottom,
+        activeDisplayContext,
+      );
+      const image = renderCc1CellToRgba(displayCell.top, displayCell.bottom, spriteSet, {
+        showSecrets,
+      });
+      const x = (previewCell.index % 32) * spriteSet.tileSize;
+      const y = Math.floor(previewCell.index / 32) * spriteSet.tileSize;
+
+      ctx.clearRect(x, y, spriteSet.tileSize, spriteSet.tileSize);
+      drawRgbaImageToContext(ctx, image, x, y);
+      drawGridCellOutline(ctx, spriteSet.tileSize, previewCell.index);
+    }
+
+    brushPreviewReplayKeyRef.current = replayKey;
+  }, [
+    activeDisplayContext,
+    activeLevel,
+    boardPan,
+    boardZoom,
+    dragState,
+    selectedLayerZ,
+    showSecrets,
     spriteSet,
     threeDLevelsEnabled,
   ]);
@@ -3205,6 +3270,7 @@ export default function App() {
         pointerId: event.pointerId,
         lastPoint: point,
         cells: [point.y * 32 + point.x],
+        dirtyCells: [point.y * 32 + point.x],
         tile: dragTile,
         buryOnBottom: event.shiftKey,
       };
@@ -3275,7 +3341,8 @@ export default function App() {
     if (!point || !dragState || dragState.pointerId !== event.pointerId) return;
 
     if (dragState.tool === "brush") {
-      if (gridPointsEqual(dragState.lastPoint, point)) return;
+      const currentBrushState = brushDragStateRef.current ?? dragState;
+      if (gridPointsEqual(currentBrushState.lastPoint, point)) return;
       scheduleBrushDrag(point);
       return;
     }
@@ -3319,10 +3386,10 @@ export default function App() {
     }
 
     const activeBrushDragState =
-      dragState?.tool === "brush" && dragState.pointerId === event.pointerId
-        ? dragState
-        : brushDragStateRef.current?.pointerId === event.pointerId
-          ? brushDragStateRef.current
+      brushDragStateRef.current?.pointerId === event.pointerId
+        ? brushDragStateRef.current
+        : dragState?.tool === "brush" && dragState.pointerId === event.pointerId
+          ? dragState
           : null;
     const activeDragState = activeBrushDragState ?? dragState;
 
@@ -3339,7 +3406,11 @@ export default function App() {
     if (activeDragState.tool === "brush") {
       const pendingBrushPoint = cancelScheduledBrushDrag();
       const finalPoint = point ?? pendingBrushPoint ?? activeDragState.lastPoint;
-      const finalCells = mergeBrushDragCells(activeDragState, finalPoint);
+      const finalCells = extendPaintStroke(
+        activeDragState.cells,
+        activeDragState.lastPoint,
+        finalPoint,
+      ).cells;
       commitSelectedLevelUpdate((level) =>
         paintLevelCells(
           level,
@@ -3349,6 +3420,7 @@ export default function App() {
         ),
       );
       brushDragStateRef.current = null;
+      brushPreviewReplayKeyRef.current = null;
       setHoverPointIfChanged(finalPoint);
     } else if (activeDragState.tool === "line") {
       commitSelectedLevelUpdate((level) =>
@@ -3379,6 +3451,7 @@ export default function App() {
         setTouchGestureState(null);
         cancelScheduledBrushDrag();
         brushDragStateRef.current = null;
+        brushPreviewReplayKeyRef.current = null;
         setHoverPointIfChanged(null);
         return;
       }
@@ -3398,10 +3471,10 @@ export default function App() {
     }
 
     const activeBrushDragState =
-      dragState?.tool === "brush" && dragState.pointerId === event.pointerId
-        ? dragState
-        : brushDragStateRef.current?.pointerId === event.pointerId
-          ? brushDragStateRef.current
+      brushDragStateRef.current?.pointerId === event.pointerId
+        ? brushDragStateRef.current
+        : dragState?.tool === "brush" && dragState.pointerId === event.pointerId
+          ? dragState
           : null;
     const activeDragState = activeBrushDragState ?? dragState;
 
@@ -3413,6 +3486,7 @@ export default function App() {
     }
     cancelScheduledBrushDrag();
     brushDragStateRef.current = null;
+    brushPreviewReplayKeyRef.current = null;
     setDragState(null);
     setHoverPointIfChanged(null);
   }
