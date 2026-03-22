@@ -60,6 +60,7 @@ import {
   buildHoverCellSummary,
   createBoardEditorStatusStore,
   resolveBrushPreviewDirtyCells,
+  resolveBrushPreviewRenderCells,
   type BoardDisplayContext,
   type BoardEditorStatusStore,
 } from "@/web/src/boardEditorStatus";
@@ -2063,7 +2064,22 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           pendingConnection.cursor,
         );
       }
+
+      const brushState = dragState?.tool === "brush" ? dragState : null;
+      if (brushState && activeLevel) {
+        drawBrushPreviewCellsToContext(
+          ctx,
+          spriteSet,
+          activeLevel,
+          resolveBrushPreviewRenderCells(brushState.cells, brushState.dirtyCells, true, true),
+          brushState,
+          activeDisplayContext,
+          showSecrets,
+        );
+      }
     }, [
+      activeDisplayContext,
+      activeLevel,
       boardPan,
       boardZoom,
       hoverPoint,
@@ -2103,11 +2119,12 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         boardPan.y,
         boardZoom,
       ].join(":");
-      const shouldReplayFullStroke = brushPreviewReplayKeyRef.current !== replayKey;
-      const previewIndices =
-        shouldReplayFullStroke || brushState.dirtyCells.length === 0
-          ? brushState.cells
-          : brushState.dirtyCells;
+      const previewIndices = resolveBrushPreviewRenderCells(
+        brushState.cells,
+        brushState.dirtyCells,
+        brushPreviewReplayKeyRef.current !== null,
+        brushPreviewReplayKeyRef.current !== replayKey,
+      );
       if (previewIndices.length === 0) return;
 
       drawBrushPreviewCellsToContext(

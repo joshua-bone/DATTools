@@ -6,6 +6,7 @@ import {
   buildHoverCellSummary,
   createBoardEditorStatusStore,
   resolveBrushPreviewDirtyCells,
+  resolveBrushPreviewRenderCells,
 } from "@/web/src/boardEditorStatus";
 
 describe("board editor status store", () => {
@@ -61,6 +62,11 @@ describe("resolveBrushPreviewDirtyCells", () => {
   it("keeps the full stroke dirty until the first preview frame has painted", () => {
     expect(resolveBrushPreviewDirtyCells([0, 1], [1], false)).toEqual([0, 1]);
     expect(resolveBrushPreviewDirtyCells([0, 1], [1], true)).toEqual([1]);
+  });
+
+  it("replays the full stroke after the overlay canvas was rebuilt", () => {
+    expect(resolveBrushPreviewRenderCells([0, 1], [1], true, true)).toEqual([0, 1]);
+    expect(resolveBrushPreviewRenderCells([0, 1], [1], true, false)).toEqual([1]);
   });
 });
 

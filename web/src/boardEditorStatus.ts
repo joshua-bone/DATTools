@@ -111,5 +111,14 @@ export function resolveBrushPreviewDirtyCells(
   dirtyCells: ReadonlyArray<number>,
   previewPainted: boolean,
 ): ReadonlyArray<number> {
-  return previewPainted ? dirtyCells : strokeCells;
+  return resolveBrushPreviewRenderCells(strokeCells, dirtyCells, previewPainted, false);
+}
+
+export function resolveBrushPreviewRenderCells(
+  strokeCells: ReadonlyArray<number>,
+  dirtyCells: ReadonlyArray<number>,
+  previewPainted: boolean,
+  forceFullReplay: boolean,
+): ReadonlyArray<number> {
+  return !previewPainted || forceFullReplay || dirtyCells.length === 0 ? strokeCells : dirtyCells;
 }
