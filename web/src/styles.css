@@ -1055,11 +1055,13 @@ button:disabled {
   width: 100%;
   height: 100%;
   display: block;
+  pointer-events: none;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
 
 .overlayCanvas {
+  pointer-events: auto;
   touch-action: none;
   cursor: crosshair;
 }

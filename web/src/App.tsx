@@ -318,6 +318,14 @@ type BoardBaseRenderSnapshot = Readonly<{
   boardSize: number;
 }>;
 
+function getBoardBaseCanvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
+  return canvas.getContext("2d", { alpha: false });
+}
+
+function getOverlayCanvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
+  return canvas.getContext("2d", { desynchronized: true });
+}
+
 function asErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
@@ -1541,6 +1549,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     const boardViewportRef = useRef<HTMLDivElement>(null);
     const boardCanvasRef = useRef<HTMLCanvasElement>(null);
     const boardAnnotationCanvasRef = useRef<HTMLCanvasElement>(null);
+    const boardStaticOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
     const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
     const boardBaseRenderSnapshotRef = useRef<BoardBaseRenderSnapshot>({
       level: null,
@@ -1835,7 +1844,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       if (!canvas || !previewLevel || !spriteSet || !canvasSpriteCache) return;
 
       try {
-        const ctx = canvas.getContext("2d");
+        const ctx = getBoardBaseCanvasContext(canvas);
         if (!ctx) throw new Error("Canvas 2D context unavailable");
 
         const sizeChanged = canvas.width !== boardSize || canvas.height !== boardSize;
@@ -1959,7 +1968,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           canvas.height = boardSize;
         }
 
-        const ctx = canvas.getContext("2d");
+        const ctx = getOverlayCanvasContext(canvas);
         if (!ctx) throw new Error("Canvas 2D context unavailable");
 
         ctx.clearRect(0, 0, boardSize, boardSize);
@@ -1989,55 +1998,87 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     ]);
 
     useEffect(() => {
+      const canvas = boardStaticOverlayCanvasRef.current;
+      if (!canvas || !spriteSet) return;
+
+      try {
+        const size = spriteSet.tileSize * 32;
+        if (canvas.width !== size || canvas.height !== size) {
+          canvas.width = size;
+          canvas.height = size;
+        }
+
+        const ctx = getOverlayCanvasContext(canvas);
+        if (!ctx) throw new Error("Canvas 2D context unavailable");
+
+        ctx.clearRect(0, 0, size, size);
+        if (previewLevel) {
+          const visibleGridIndices =
+            threeDLevelsEnabled && selectedLayerZ > 1
+              ? Array.from({ length: 32 * 32 }, (_, index) => index).filter(
+                  (index) =>
+                    !isTransparentAirCell(previewLevel, index, selectedLayerZ, threeDLevelsEnabled),
+                )
+              : null;
+
+          if (visibleGridIndices)
+            drawGridForVisibleCells(ctx, spriteSet.tileSize, visibleGridIndices);
+          else drawGrid(ctx, spriteSet.tileSize);
+        }
+
+        if (shouldDrawValidityWarnings) {
+          drawInvalidCells(ctx, spriteSet.tileSize, invalidCellIndices);
+        }
+
+        if (
+          showSecrets &&
+          previewLevel &&
+          threeDLevelsEnabled &&
+          selectedLogicalLevel &&
+          selectedLayerZ > 1
+        ) {
+          const lowerLayerLevel = selectedLogicalLevel.layers[selectedLayerZ - 2]?.level ?? null;
+          if (lowerLayerLevel) {
+            drawSecretAirElevatorCells(
+              ctx,
+              spriteSet.tileSize,
+              getAirAboveElevatorIndices(previewLevel, lowerLayerLevel, {
+                threeDEnabled: true,
+                layerZ: selectedLayerZ,
+                layerCount: selectedLogicalLevel.layers.length,
+              }),
+            );
+          }
+        }
+      } catch (error: unknown) {
+        onSetErrorMessage(asErrorMessage(error));
+      }
+    }, [
+      invalidCellIndices,
+      previewLevel,
+      selectedLayerZ,
+      selectedLogicalLevel,
+      shouldDrawValidityWarnings,
+      showSecrets,
+      spriteSet,
+      threeDLevelsEnabled,
+      onSetErrorMessage,
+    ]);
+
+    useEffect(() => {
       const canvas = overlayCanvasRef.current;
       if (!canvas || !spriteSet) return;
 
       const size = spriteSet.tileSize * 32;
-      canvas.width = size;
-      canvas.height = size;
+      if (canvas.width !== size || canvas.height !== size) {
+        canvas.width = size;
+        canvas.height = size;
+      }
 
-      const ctx = canvas.getContext("2d");
+      const ctx = getOverlayCanvasContext(canvas);
       if (!ctx) return;
 
       ctx.clearRect(0, 0, size, size);
-      if (previewLevel) {
-        const visibleGridIndices =
-          threeDLevelsEnabled && selectedLayerZ > 1
-            ? Array.from({ length: 32 * 32 }, (_, index) => index).filter(
-                (index) =>
-                  !isTransparentAirCell(previewLevel, index, selectedLayerZ, threeDLevelsEnabled),
-              )
-            : null;
-
-        if (visibleGridIndices)
-          drawGridForVisibleCells(ctx, spriteSet.tileSize, visibleGridIndices);
-        else drawGrid(ctx, spriteSet.tileSize);
-      }
-
-      if (shouldDrawValidityWarnings) {
-        drawInvalidCells(ctx, spriteSet.tileSize, invalidCellIndices);
-      }
-
-      if (
-        showSecrets &&
-        previewLevel &&
-        threeDLevelsEnabled &&
-        selectedLogicalLevel &&
-        selectedLayerZ > 1
-      ) {
-        const lowerLayerLevel = selectedLogicalLevel.layers[selectedLayerZ - 2]?.level ?? null;
-        if (lowerLayerLevel) {
-          drawSecretAirElevatorCells(
-            ctx,
-            spriteSet.tileSize,
-            getAirAboveElevatorIndices(previewLevel, lowerLayerLevel, {
-              threeDEnabled: true,
-              layerZ: selectedLayerZ,
-              layerCount: selectedLogicalLevel.layers.length,
-            }),
-          );
-        }
-      }
 
       if (threeDLevelsEnabled && hoverPoint && selectedLogicalLevel && selectedLayerZ > 1) {
         const viewport = boardViewportRef.current;
@@ -2176,7 +2217,6 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       boardPan,
       boardZoom,
       hoverPoint,
-      invalidCellIndices,
       isBrushDragging,
       liveSelection,
       pastePreview,
@@ -2184,7 +2224,6 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       previewLevel,
       selectedLayerZ,
       selectedLogicalLevel,
-      shouldDrawValidityWarnings,
       showSecrets,
       spriteSet,
       canvasSpriteCache,
@@ -2199,7 +2238,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         return;
       }
 
-      const ctx = canvas.getContext("2d");
+      const ctx = getOverlayCanvasContext(canvas);
       if (!ctx) return;
 
       const replayKey = [
@@ -2433,7 +2472,9 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         };
         brushPreviewReplayKeyRef.current = null;
         brushDragStateRef.current = nextDragState;
-        const ctx = overlayCanvasRef.current?.getContext("2d");
+        const ctx = overlayCanvasRef.current
+          ? getOverlayCanvasContext(overlayCanvasRef.current)
+          : null;
         if (ctx && canvasSpriteCache) {
           drawBrushPreviewCellsToContext(
             ctx,
@@ -2739,6 +2780,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
               >
                 <canvas ref={boardCanvasRef} className="boardCanvas" />
                 <canvas ref={boardAnnotationCanvasRef} className="boardCanvas" />
+                <canvas ref={boardStaticOverlayCanvasRef} className="boardCanvas" />
                 <canvas
                   ref={overlayCanvasRef}
                   className="boardCanvas overlayCanvas"

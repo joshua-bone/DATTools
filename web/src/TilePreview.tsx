@@ -45,9 +45,9 @@ export function TilePreview({
         : null;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(canvasSpriteCache.getSprite(spriteName), 0, 0);
+    canvasSpriteCache.drawSource(ctx, canvasSpriteCache.getSprite(spriteName), 0, 0);
     if (overlayDir) {
-      ctx.drawImage(canvasSpriteCache.getArrow(overlayDir), 0, 0);
+      canvasSpriteCache.drawSource(ctx, canvasSpriteCache.getArrow(overlayDir), 0, 0);
     }
   }, [canvasSpriteCache, displayContext, showPaletteDirectionArrow, tile]);
 

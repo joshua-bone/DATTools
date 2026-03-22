@@ -1,6 +1,6 @@
 import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
-import { buildCc1CellRenderSteps, type RenderOptions } from "@/src/dat/render/cc1CellRenderPlan";
 import type { CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
+import type { RenderOptions } from "@/src/dat/render/cc1CellRenderPlan";
 
 export function drawCc1CellToContext(
   ctx: CanvasRenderingContext2D,
@@ -11,14 +11,7 @@ export function drawCc1CellToContext(
   dx = 0,
   dy = 0,
 ): void {
-  const steps = buildCc1CellRenderSteps(topName, bottomName, opts);
-  for (const step of steps) {
-    if (step.kind === "sprite") {
-      ctx.drawImage(spriteCache.getSprite(step.spriteName, step.effect), dx, dy);
-      continue;
-    }
-    ctx.drawImage(spriteCache.getArrow(step.dir), dx, dy);
-  }
+  spriteCache.drawSource(ctx, spriteCache.getComposedCell(topName, bottomName, opts), dx, dy);
 }
 
 export function drawCc1LevelToContext(
