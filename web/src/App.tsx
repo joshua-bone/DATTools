@@ -886,6 +886,27 @@ function renderBoardTransformIcon(kind: DatTransformKind): ReactNode {
     case "ROTATE_90":
       return (
         <svg viewBox="0 0 20 20" aria-hidden="true">
+          <defs>
+            <marker
+              id="rotate-90-head"
+              viewBox="0 0 6 6"
+              refX="5.05"
+              refY="3"
+              markerWidth="6"
+              markerHeight="6"
+              markerUnits="userSpaceOnUse"
+              orient="auto-start-reverse"
+            >
+              <path
+                d="M0.9 1 5.1 3 0.9 5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </marker>
+          </defs>
           <path
             d="M10 3.25a6.75 6.75 0 1 1-5.74 10.3"
             fill="none"
@@ -893,20 +914,34 @@ function renderBoardTransformIcon(kind: DatTransformKind): ReactNode {
             strokeWidth="1.8"
             strokeLinecap="round"
             strokeLinejoin="round"
-          />
-          <path
-            d="M10 3.25h4.6M14.6 3.25l-1.9-1.9M14.6 3.25l-1.9 1.9"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            markerStart="url(#rotate-90-head)"
           />
         </svg>
       );
     case "ROTATE_270":
       return (
         <svg viewBox="0 0 20 20" aria-hidden="true">
+          <defs>
+            <marker
+              id="rotate-270-head"
+              viewBox="0 0 6 6"
+              refX="5.05"
+              refY="3"
+              markerWidth="6"
+              markerHeight="6"
+              markerUnits="userSpaceOnUse"
+              orient="auto-start-reverse"
+            >
+              <path
+                d="M0.9 1 5.1 3 0.9 5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </marker>
+          </defs>
           <path
             d="M10 3.25a6.75 6.75 0 1 0 5.74 10.3"
             fill="none"
@@ -914,14 +949,7 @@ function renderBoardTransformIcon(kind: DatTransformKind): ReactNode {
             strokeWidth="1.8"
             strokeLinecap="round"
             strokeLinejoin="round"
-          />
-          <path
-            d="M10 3.25H5.4M5.4 3.25l1.9-1.9M5.4 3.25l1.9 1.9"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            markerStart="url(#rotate-270-head)"
           />
         </svg>
       );
