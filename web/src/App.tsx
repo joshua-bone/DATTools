@@ -1,9 +1,13 @@
 import {
+  forwardRef,
+  memo,
   useDeferredValue,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type ReactNode,
 } from "react";
@@ -52,6 +56,13 @@ import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import { drawRgbaImageToCanvas, drawRgbaImageToContext } from "@/web/src/canvasDrawing";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
+import {
+  buildHoverCellSummary,
+  createBoardEditorStatusStore,
+  resolveBrushPreviewDirtyCells,
+  type BoardDisplayContext,
+  type BoardEditorStatusStore,
+} from "@/web/src/boardEditorStatus";
 import { buildTworldUrl } from "@/web/src/tworld";
 import {
   clearLevel,
@@ -191,6 +202,70 @@ type PendingConnectionState = Readonly<{
   startIndex: number;
   cursor: BoardCursorPoint;
 }> | null;
+
+type BoardEditorHandle = Readonly<{
+  resetInteractionState: (options?: { resetView?: boolean }) => void;
+  resetBoardView: (nextZoom?: number) => void;
+}>;
+
+type BoardControlsSectionProps = Readonly<{
+  statusStore: BoardEditorStatusStore;
+  canUndo: boolean;
+  canRedo: boolean;
+  activeLevel: DatLevelJson | null;
+  selection: GridRect | null;
+  clipboard: LevelClipboard | null;
+  tool: ToolMode;
+  setTool: (tool: ToolMode) => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onCopySelection: () => void;
+  onPasteClipboard: () => void;
+  onEraseSelection: () => void;
+  onClearLevel: () => void;
+  onResetBoardView: () => void;
+  isTabletLayout: boolean;
+  threeDLevelsEnabled: boolean;
+  selectedLogicalLevel: Logical3dLevel | null;
+  selectedLayerZ: number;
+  onSelectLayerUp: () => void;
+  onSelectLayerDown: () => void;
+  onAddTopLayer: () => void;
+  onAddBottomLayer: () => void;
+  onRemoveTopLayer: () => void;
+  onRemoveBottomLayer: () => void;
+  onOpenThreeDHelp: () => void;
+}>;
+
+type BoardEditorSurfaceProps = Readonly<{
+  statusStore: BoardEditorStatusStore;
+  interactionResetToken: number;
+  viewResetToken: number;
+  activeLevel: DatLevelJson | null;
+  activeDisplayContext: BoardDisplayContext;
+  selectedLogicalLevel: Logical3dLevel | null;
+  selectedLayerZ: number;
+  spriteSet: CC1SpriteSet | null;
+  boardSize: number;
+  showSecrets: boolean;
+  showConnections: boolean;
+  showMonsterOrder: boolean;
+  showValidityWarnings: boolean;
+  threeDLevelsEnabled: boolean;
+  tool: ToolMode;
+  primaryTile: string;
+  secondaryTile: string;
+  selection: GridRect | null;
+  clipboard: LevelClipboard | null;
+  pastePreviewActive: boolean;
+  onSelectionChange: (selection: GridRect | null) => void;
+  onClearMetadataError: () => void;
+  onSetErrorMessage: (message: string | null) => void;
+  onCommitSelectedLevelUpdate: (updater: (level: DatLevelJson) => DatLevelJson) => void;
+  onApplySelectedLevelTransform: (kind: DatTransformKind) => void;
+  onShiftVisibleLevel: (dx: number, dy: number) => void;
+  isTabletLayout: boolean;
+}>;
 
 const CC1_TILESET_URL = `${import.meta.env.BASE_URL}cc1/spritesheet.bmp`;
 const TOOL_LABELS: Array<{ id: ToolMode; label: string; shortcut: string }> = [
@@ -1145,22 +1220,1413 @@ function drawLayerAlignedHoverCell(
   ctx.restore();
 }
 
+function useBoardEditorStatus(statusStore: BoardEditorStatusStore) {
+  return useSyncExternalStore(
+    statusStore.subscribe,
+    statusStore.getSnapshot,
+    statusStore.getSnapshot,
+  );
+}
+
+const BoardControlsSection = memo(function BoardControlsSection({
+  statusStore,
+  canUndo,
+  canRedo,
+  activeLevel,
+  selection,
+  clipboard,
+  tool,
+  setTool,
+  onUndo,
+  onRedo,
+  onCopySelection,
+  onPasteClipboard,
+  onEraseSelection,
+  onClearLevel,
+  onResetBoardView,
+  isTabletLayout,
+  threeDLevelsEnabled,
+  selectedLogicalLevel,
+  selectedLayerZ,
+  onSelectLayerUp,
+  onSelectLayerDown,
+  onAddTopLayer,
+  onAddBottomLayer,
+  onRemoveTopLayer,
+  onRemoveBottomLayer,
+  onOpenThreeDHelp,
+}: BoardControlsSectionProps) {
+  const { boardZoom, hoverPoint, hoverCellSummary } = useBoardEditorStatus(statusStore);
+
+  return (
+    <section className="panelSection leftPanelTabBody controlsPanelSection">
+      <div className="sectionHeader">
+        <div>
+          <div className="sectionEyebrow">Board</div>
+          <h2 className="sectionTitle">Controls</h2>
+        </div>
+      </div>
+
+      <div className="boardControlRow boardCommandRow">
+        <button type="button" className="actionButton" disabled={!canUndo} onClick={onUndo}>
+          Undo
+        </button>
+        <button type="button" className="actionButton" disabled={!canRedo} onClick={onRedo}>
+          Redo
+        </button>
+        <button
+          type="button"
+          className="secondaryButton"
+          disabled={!selection || !activeLevel}
+          onClick={onCopySelection}
+        >
+          Copy
+        </button>
+        <button
+          type="button"
+          className="secondaryButton"
+          disabled={!clipboard || !activeLevel}
+          onClick={onPasteClipboard}
+        >
+          Paste
+        </button>
+        <button
+          type="button"
+          className="secondaryButton"
+          disabled={!selection || !activeLevel}
+          onClick={onEraseSelection}
+        >
+          Erase
+        </button>
+        <button
+          type="button"
+          className="secondaryButton"
+          disabled={!activeLevel}
+          onClick={onClearLevel}
+        >
+          Clear
+        </button>
+      </div>
+
+      <div className="toggleGroup boardToolRow">
+        {TOOL_LABELS.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            className={`toolButton ${tool === entry.id ? "active" : ""}`}
+            onClick={() => setTool(entry.id)}
+          >
+            {entry.label}
+            <span className="toolShortcut">{entry.shortcut}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="boardMeta">
+        <span className="statusBadge">{`zoom ${Math.round(boardZoom * 100)}%`}</span>
+        <button
+          type="button"
+          className="statusBadge statusBadgeButton"
+          disabled={!activeLevel}
+          onClick={onResetBoardView}
+        >
+          Reset
+        </button>
+        {clipboard ? (
+          <span className="statusBadge">{`clipboard ${clipboard.width}x${clipboard.height}`}</span>
+        ) : null}
+        {selection ? (
+          <span className="statusBadge">{`selection ${selection.width}x${selection.height}`}</span>
+        ) : null}
+        {hoverPoint ? (
+          <span className="statusBadge">{`cell ${hoverPoint.x},${hoverPoint.y}`}</span>
+        ) : null}
+      </div>
+
+      {hoverCellSummary ? (
+        <div className="hoverSummary">
+          <span>{`index ${hoverCellSummary.index}`}</span>
+          <span>{`top ${hoverCellSummary.top}`}</span>
+          <span>{`bottom ${hoverCellSummary.bottom}`}</span>
+        </div>
+      ) : (
+        <div className="hoverSummary">
+          {isTabletLayout
+            ? "Tap a cell to inspect a cell stack."
+            : "Hover the map to inspect a cell stack."}
+        </div>
+      )}
+
+      {threeDLevelsEnabled && selectedLogicalLevel ? (
+        <section className="leftPanelSubsection">
+          <div className="sectionHeader leftPanelSubsectionHeader">
+            <div>
+              <div className="sectionEyebrow">3D Levels</div>
+              <h3 className="sectionTitle">Layers</h3>
+            </div>
+            <div className="sectionActions">
+              <button
+                type="button"
+                className="boardIconButton"
+                aria-label="Explain DAT 3D levels"
+                title="Explain DAT 3D levels"
+                onClick={onOpenThreeDHelp}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <circle cx="8" cy="8" r="6.25" fill="none" />
+                  <path
+                    d="M6.7 6.1a1.55 1.55 0 1 1 2.5 1.2c-.72.56-1.15.95-1.15 1.7v.35"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="8" cy="11.95" r="0.75" stroke="none" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div className="boardMeta">
+            <span className="statusBadge">{`z ${selectedLayerZ}/${selectedLogicalLevel.layers.length}`}</span>
+            <span className="statusBadge">{`${selectedLogicalLevel.layers.length} layers`}</span>
+          </div>
+
+          <div className="board3dButtonGrid">
+            <button
+              type="button"
+              className="secondaryButton shortcutButton"
+              disabled={selectedLayerZ >= selectedLogicalLevel.layers.length}
+              onClick={onSelectLayerUp}
+            >
+              Layer Up
+              <span className="toolShortcut">Q</span>
+            </button>
+            <button type="button" className="secondaryButton" onClick={onAddTopLayer}>
+              + Top
+            </button>
+            <button
+              type="button"
+              className="secondaryButton"
+              disabled={selectedLogicalLevel.layers.length <= 1}
+              onClick={onRemoveTopLayer}
+            >
+              - Top
+            </button>
+            <button
+              type="button"
+              className="secondaryButton shortcutButton"
+              disabled={selectedLayerZ <= 1}
+              onClick={onSelectLayerDown}
+            >
+              Layer Down
+              <span className="toolShortcut">Z</span>
+            </button>
+            <button type="button" className="secondaryButton" onClick={onAddBottomLayer}>
+              + Bottom
+            </button>
+            <button
+              type="button"
+              className="secondaryButton"
+              disabled={selectedLogicalLevel.layers.length <= 1}
+              onClick={onRemoveBottomLayer}
+            >
+              - Bottom
+            </button>
+          </div>
+
+          <div className="boardHelpText">Use Q to move up a z-layer and Z to move down.</div>
+        </section>
+      ) : null}
+    </section>
+  );
+});
+
+const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps>(
+  function BoardEditorSurface(
+    {
+      statusStore,
+      interactionResetToken,
+      viewResetToken,
+      activeLevel,
+      activeDisplayContext,
+      selectedLogicalLevel,
+      selectedLayerZ,
+      spriteSet,
+      boardSize,
+      showSecrets,
+      showConnections,
+      showMonsterOrder,
+      showValidityWarnings,
+      threeDLevelsEnabled,
+      tool,
+      primaryTile,
+      secondaryTile,
+      selection,
+      clipboard,
+      pastePreviewActive,
+      onSelectionChange,
+      onClearMetadataError,
+      onSetErrorMessage,
+      onCommitSelectedLevelUpdate,
+      onApplySelectedLevelTransform,
+      onShiftVisibleLevel,
+      isTabletLayout,
+    },
+    ref,
+  ) {
+    const keyboardPanKeysRef = useRef<Set<string>>(new Set());
+    const keyboardPanFrameRef = useRef<number | null>(null);
+    const keyboardPanLastTimeRef = useRef<number | null>(null);
+    const brushDragFrameRef = useRef<number | null>(null);
+    const brushDragPendingPointRef = useRef<GridPoint | null>(null);
+    const brushDragStateRef = useRef<BrushDragState | null>(null);
+    const brushPreviewReplayKeyRef = useRef<string | null>(null);
+    const touchBoardPointsRef = useRef<Map<number, TouchPoint>>(new Map());
+    const boardViewportRef = useRef<HTMLDivElement>(null);
+    const boardCanvasRef = useRef<HTMLCanvasElement>(null);
+    const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+
+    const [pendingConnection, setPendingConnection] = useState<PendingConnectionState>(null);
+    const [hoverPoint, setHoverPoint] = useState<GridPoint | null>(null);
+    const [dragState, setDragState] = useState<DragState | null>(null);
+    const [boardPanState, setBoardPanState] = useState<BoardPanState | null>(null);
+    const [boardZoom, setBoardZoom] = useState(1);
+    const [boardPan, setBoardPan] = useState({ x: 0, y: 0 });
+    const [boardViewInitialized, setBoardViewInitialized] = useState(false);
+    const [touchGestureState, setTouchGestureState] = useState<TouchGestureState>(null);
+
+    function setHoverPointIfChanged(nextPoint: GridPoint | null): void {
+      setHoverPoint((current) => (gridPointsEqual(current, nextPoint) ? current : nextPoint));
+    }
+
+    function cancelScheduledBrushDrag(): GridPoint | null {
+      const pendingPoint = brushDragPendingPointRef.current;
+      brushDragPendingPointRef.current = null;
+      if (brushDragFrameRef.current !== null) {
+        cancelAnimationFrame(brushDragFrameRef.current);
+        brushDragFrameRef.current = null;
+      }
+      return pendingPoint;
+    }
+
+    function scheduleBrushDrag(point: GridPoint): void {
+      brushDragPendingPointRef.current = point;
+      if (brushDragFrameRef.current !== null) return;
+
+      brushDragFrameRef.current = requestAnimationFrame(() => {
+        brushDragFrameRef.current = null;
+        const nextPoint = brushDragPendingPointRef.current;
+        brushDragPendingPointRef.current = null;
+        if (!nextPoint) return;
+
+        const current = brushDragStateRef.current;
+        if (!current) return;
+
+        const nextStroke = extendPaintStroke(current.cells, current.lastPoint, nextPoint);
+        if (
+          nextStroke.dirtyCells.length === 0 &&
+          gridPointsEqual(current.lastPoint, nextStroke.lastPoint)
+        ) {
+          return;
+        }
+
+        const nextState: BrushDragState = {
+          ...current,
+          cells: nextStroke.cells,
+          dirtyCells: resolveBrushPreviewDirtyCells(
+            nextStroke.cells,
+            nextStroke.dirtyCells,
+            brushPreviewReplayKeyRef.current !== null,
+          ),
+          lastPoint: nextStroke.lastPoint,
+        };
+        brushDragStateRef.current = nextState;
+
+        if (nextStroke.dirtyCells.length === 0) return;
+
+        setDragState((existing) =>
+          existing?.tool === "brush" && existing.pointerId === current.pointerId
+            ? nextState
+            : existing,
+        );
+      });
+    }
+
+    function clearKeyboardPan(): void {
+      keyboardPanKeysRef.current.clear();
+      if (keyboardPanFrameRef.current !== null) {
+        cancelAnimationFrame(keyboardPanFrameRef.current);
+        keyboardPanFrameRef.current = null;
+      }
+      keyboardPanLastTimeRef.current = null;
+    }
+
+    function resetBoardView(nextZoom = 1): void {
+      const viewport = boardViewportRef.current;
+      if (!viewport || boardSize <= 0) return;
+
+      setBoardZoom(nextZoom);
+      setBoardPan({
+        x: Math.round((viewport.clientWidth - boardSize * nextZoom) / 2),
+        y: Math.round((viewport.clientHeight - boardSize * nextZoom) / 2),
+      });
+    }
+
+    function resetInteractionState(options?: { resetView?: boolean }): void {
+      clearKeyboardPan();
+      cancelScheduledBrushDrag();
+      brushDragStateRef.current = null;
+      brushPreviewReplayKeyRef.current = null;
+      touchBoardPointsRef.current.clear();
+      setPendingConnection(null);
+      setHoverPointIfChanged(null);
+      setDragState(null);
+      setBoardPanState(null);
+      setTouchGestureState(null);
+      if (options?.resetView) {
+        setBoardZoom(1);
+        setBoardPan({ x: 0, y: 0 });
+        setBoardViewInitialized(false);
+      }
+    }
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        resetInteractionState,
+        resetBoardView,
+      }),
+      [boardSize],
+    );
+
+    const boardPanActive = !!boardPanState || !!touchGestureState;
+    const isBrushDragging = dragState?.tool === "brush";
+    const shouldDrawConnections = showConnections && !isBrushDragging;
+    const shouldDrawMonsterOrder = showMonsterOrder && !isBrushDragging;
+    const shouldDrawValidityWarnings = showValidityWarnings && !isBrushDragging;
+
+    const previewLevel = useMemo(() => {
+      if (!activeLevel || !dragState) return activeLevel;
+      if (dragState.tool === "line") {
+        return paintLevelLine(
+          activeLevel,
+          dragState.start,
+          dragState.current,
+          dragState.tile,
+          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
+        );
+      }
+      return activeLevel;
+    }, [activeLevel, dragState, selectedLayerZ, threeDLevelsEnabled]);
+
+    const invalidCellIndices = useMemo(
+      () =>
+        previewLevel && !isBrushDragging
+          ? getInvalidCellIndices(
+              previewLevel,
+              makePaintOptions(threeDLevelsEnabled, selectedLayerZ),
+            )
+          : [],
+      [isBrushDragging, previewLevel, selectedLayerZ, threeDLevelsEnabled],
+    );
+
+    const hoverCellSummary = useMemo(
+      () =>
+        isBrushDragging
+          ? null
+          : buildHoverCellSummary(previewLevel, hoverPoint, activeDisplayContext),
+      [activeDisplayContext, hoverPoint, isBrushDragging, previewLevel],
+    );
+
+    const liveSelection = useMemo(() => {
+      if (dragState?.tool !== "select") return selection;
+      return normalizeRect(dragState.start, dragState.current);
+    }, [dragState, selection]);
+
+    const pastePreview = useMemo(() => {
+      if (!pastePreviewActive || tool !== "select" || !clipboard || dragState) return null;
+      const anchor = hoverPoint ?? (selection ? { x: selection.x, y: selection.y } : null);
+      if (!anchor) return null;
+
+      return {
+        x: anchor.x,
+        y: anchor.y,
+        width: Math.min(clipboard.width, 32 - anchor.x),
+        height: Math.min(clipboard.height, 32 - anchor.y),
+      };
+    }, [clipboard, dragState, hoverPoint, pastePreviewActive, selection, tool]);
+
+    useEffect(() => {
+      statusStore.update({
+        boardZoom,
+        hoverPoint,
+        hoverCellSummary,
+        hasPendingConnection: !!pendingConnection,
+        isBrushDragging,
+      });
+    }, [boardZoom, hoverCellSummary, hoverPoint, isBrushDragging, pendingConnection, statusStore]);
+
+    useEffect(() => () => statusStore.reset(), [statusStore]);
+
+    useEffect(() => {
+      if (dragState?.tool === "brush") return;
+      brushDragStateRef.current = null;
+      brushPreviewReplayKeyRef.current = null;
+      cancelScheduledBrushDrag();
+    }, [dragState]);
+
+    useEffect(() => {
+      return () => {
+        cancelScheduledBrushDrag();
+      };
+    }, []);
+
+    useEffect(() => {
+      if (!activeLevel) {
+        clearKeyboardPan();
+      }
+    }, [activeLevel]);
+
+    useEffect(() => {
+      if (!activeLevel || !spriteSet || boardViewInitialized) return;
+      resetBoardView(1);
+      setBoardViewInitialized(true);
+    }, [activeLevel, boardSize, boardViewInitialized, spriteSet]);
+
+    useEffect(() => {
+      resetInteractionState();
+    }, [interactionResetToken]);
+
+    useEffect(() => {
+      resetInteractionState({ resetView: true });
+    }, [viewResetToken]);
+
+    useEffect(() => {
+      if (tool === "connect" && activeLevel) return;
+      setPendingConnection(null);
+    }, [activeLevel, tool]);
+
+    useEffect(() => {
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (isEditableTarget(event.target) || !activeLevel) return;
+        const key = event.key.toLowerCase();
+        if (!isKeyboardPanKey(key)) return;
+
+        event.preventDefault();
+        keyboardPanKeysRef.current.add(key);
+        if (keyboardPanFrameRef.current !== null) return;
+
+        keyboardPanLastTimeRef.current = null;
+        keyboardPanFrameRef.current = requestAnimationFrame(function tick(timestamp) {
+          const pressedKeys = keyboardPanKeysRef.current;
+          if (pressedKeys.size === 0) {
+            keyboardPanFrameRef.current = null;
+            keyboardPanLastTimeRef.current = null;
+            return;
+          }
+
+          const lastTimestamp = keyboardPanLastTimeRef.current ?? timestamp;
+          const deltaSeconds = Math.max(0, (timestamp - lastTimestamp) / 1000);
+          keyboardPanLastTimeRef.current = timestamp;
+
+          let velocityX = 0;
+          let velocityY = 0;
+
+          if (pressedKeys.has("a") || pressedKeys.has("arrowleft")) velocityX += 1;
+          if (pressedKeys.has("d") || pressedKeys.has("arrowright")) velocityX -= 1;
+          if (pressedKeys.has("w") || pressedKeys.has("arrowup")) velocityY += 1;
+          if (pressedKeys.has("s") || pressedKeys.has("arrowdown")) velocityY -= 1;
+
+          const magnitude = Math.hypot(velocityX, velocityY);
+          if (magnitude > 0) {
+            const distance = KEYBOARD_PAN_SPEED * deltaSeconds;
+            const stepX = (velocityX / magnitude) * distance;
+            const stepY = (velocityY / magnitude) * distance;
+            setBoardPan((current) => ({
+              x: current.x + stepX,
+              y: current.y + stepY,
+            }));
+          }
+
+          keyboardPanFrameRef.current = requestAnimationFrame(tick);
+        });
+      };
+
+      const onKeyUp = (event: KeyboardEvent) => {
+        keyboardPanKeysRef.current.delete(event.key.toLowerCase());
+      };
+
+      window.addEventListener("blur", clearKeyboardPan);
+      document.addEventListener("keydown", onKeyDown);
+      document.addEventListener("keyup", onKeyUp);
+      return () => {
+        window.removeEventListener("blur", clearKeyboardPan);
+        document.removeEventListener("keydown", onKeyDown);
+        document.removeEventListener("keyup", onKeyUp);
+      };
+    }, [activeLevel]);
+
+    useEffect(() => {
+      const canvas = boardCanvasRef.current;
+      if (!canvas || !previewLevel || !spriteSet) return;
+
+      try {
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D context unavailable");
+
+        const renderLayerCanvas = (level: DatLevelJson, layerZ: number, layerCount: number) => {
+          const displayLevel = createDat3dDisplayLevel(level, {
+            threeDEnabled: threeDLevelsEnabled,
+            layerZ,
+            layerCount,
+          });
+          const image = renderCc1LevelToRgba(displayLevel, spriteSet, { showSecrets });
+          const tempCanvas = document.createElement("canvas");
+          drawRgbaImageToCanvas(tempCanvas, image);
+          return tempCanvas;
+        };
+
+        canvas.width = boardSize;
+        canvas.height = boardSize;
+        ctx.clearRect(0, 0, boardSize, boardSize);
+
+        if (threeDLevelsEnabled && selectedLogicalLevel) {
+          const layerCount = selectedLogicalLevel.layers.length;
+          const activeCanvas = renderLayerCanvas(previewLevel, selectedLayerZ, layerCount);
+          const viewport = boardViewportRef.current;
+
+          for (let depth = Math.min(THREE_D_STACK_DEPTH, selectedLayerZ - 1); depth >= 1; depth--) {
+            const lowerLayer = selectedLogicalLevel.layers[selectedLayerZ - 1 - depth];
+            if (!lowerLayer) continue;
+
+            const layerCanvas = renderLayerCanvas(lowerLayer.level, lowerLayer.z, layerCount);
+            const metrics = getThreeDLayerDrawMetrics(
+              depth,
+              boardSize,
+              boardPan,
+              boardZoom,
+              viewport,
+            );
+
+            ctx.save();
+            ctx.filter = `blur(${depth}px) brightness(${Math.max(0.25, 1 - depth * 0.25)})`;
+            ctx.drawImage(
+              layerCanvas,
+              metrics.offsetX,
+              metrics.offsetY,
+              metrics.width,
+              metrics.height,
+            );
+            ctx.restore();
+          }
+
+          ctx.drawImage(activeCanvas, 0, 0);
+        } else {
+          const displayLevel = createDat3dDisplayLevel(previewLevel, activeDisplayContext);
+          const image = renderCc1LevelToRgba(displayLevel, spriteSet, { showSecrets });
+          drawRgbaImageToCanvas(canvas, image);
+        }
+
+        const overlayContext = canvas.getContext("2d");
+        if (!overlayContext) throw new Error("Canvas 2D context unavailable");
+
+        if (shouldDrawConnections) {
+          drawConnections(
+            overlayContext,
+            spriteSet.tileSize,
+            previewLevel.trapControls,
+            previewLevel.cloneControls,
+          );
+        }
+
+        if (shouldDrawMonsterOrder) {
+          drawMonsterOrder(overlayContext, spriteSet.tileSize, previewLevel.movement);
+        }
+      } catch (error: unknown) {
+        onSetErrorMessage(asErrorMessage(error));
+      }
+    }, [
+      activeDisplayContext,
+      boardPan,
+      boardSize,
+      boardZoom,
+      previewLevel,
+      selectedLayerZ,
+      selectedLogicalLevel,
+      shouldDrawConnections,
+      shouldDrawMonsterOrder,
+      showSecrets,
+      spriteSet,
+      threeDLevelsEnabled,
+      onSetErrorMessage,
+    ]);
+
+    useEffect(() => {
+      const canvas = overlayCanvasRef.current;
+      if (!canvas || !spriteSet) return;
+
+      const size = spriteSet.tileSize * 32;
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.clearRect(0, 0, size, size);
+      if (previewLevel) {
+        const visibleGridIndices =
+          threeDLevelsEnabled && selectedLayerZ > 1
+            ? Array.from({ length: 32 * 32 }, (_, index) => index).filter(
+                (index) =>
+                  !isTransparentAirCell(previewLevel, index, selectedLayerZ, threeDLevelsEnabled),
+              )
+            : null;
+
+        if (visibleGridIndices)
+          drawGridForVisibleCells(ctx, spriteSet.tileSize, visibleGridIndices);
+        else drawGrid(ctx, spriteSet.tileSize);
+      }
+
+      if (shouldDrawValidityWarnings) {
+        drawInvalidCells(ctx, spriteSet.tileSize, invalidCellIndices);
+      }
+
+      if (
+        showSecrets &&
+        previewLevel &&
+        threeDLevelsEnabled &&
+        selectedLogicalLevel &&
+        selectedLayerZ > 1
+      ) {
+        const lowerLayerLevel = selectedLogicalLevel.layers[selectedLayerZ - 2]?.level ?? null;
+        if (lowerLayerLevel) {
+          drawSecretAirElevatorCells(
+            ctx,
+            spriteSet.tileSize,
+            getAirAboveElevatorIndices(previewLevel, lowerLayerLevel, {
+              threeDEnabled: true,
+              layerZ: selectedLayerZ,
+              layerCount: selectedLogicalLevel.layers.length,
+            }),
+          );
+        }
+      }
+
+      if (threeDLevelsEnabled && hoverPoint && selectedLogicalLevel && selectedLayerZ > 1) {
+        const viewport = boardViewportRef.current;
+        const activeLayerMetrics: ThreeDLayerDrawMetrics = {
+          offsetX: 0,
+          offsetY: 0,
+          width: size,
+          height: size,
+          scaleX: 1,
+          scaleY: 1,
+        };
+
+        for (let depth = Math.min(THREE_D_STACK_DEPTH, selectedLayerZ - 1); depth >= 1; depth--) {
+          const lowerLayer = selectedLogicalLevel.layers[selectedLayerZ - 1 - depth];
+          if (!lowerLayer) continue;
+          const metrics = getThreeDLayerDrawMetrics(depth, size, boardPan, boardZoom, viewport);
+          const clipRegions: ThreeDLayerClipRegion[] = [];
+          let isVisibleThroughAir = true;
+
+          for (let layerZ = selectedLayerZ; layerZ > lowerLayer.z; layerZ--) {
+            const layerLevel =
+              layerZ === selectedLayerZ
+                ? previewLevel
+                : (selectedLogicalLevel.layers[layerZ - 1]?.level ?? null);
+            if (!layerLevel) {
+              isVisibleThroughAir = false;
+              break;
+            }
+
+            const airIndices = Array.from({ length: 32 * 32 }, (_, index) => index).filter(
+              (index) => isTransparentAirCell(layerLevel, index, layerZ, threeDLevelsEnabled),
+            );
+            if (airIndices.length === 0) {
+              isVisibleThroughAir = false;
+              break;
+            }
+
+            clipRegions.push({
+              metrics:
+                layerZ === selectedLayerZ
+                  ? activeLayerMetrics
+                  : getThreeDLayerDrawMetrics(
+                      selectedLayerZ - layerZ,
+                      size,
+                      boardPan,
+                      boardZoom,
+                      viewport,
+                    ),
+              airIndices,
+            });
+          }
+
+          if (!isVisibleThroughAir) continue;
+          const alpha = Math.max(0.12, 0.34 - depth * 0.07);
+          const tint = Math.min(255, 13 + depth * 40);
+          const fillTint = Math.min(255, 149 + depth * 18);
+          drawLayerAlignedHoverCell(
+            ctx,
+            spriteSet.tileSize,
+            hoverPoint,
+            metrics,
+            `rgba(${tint}, ${Math.min(255, 140 + depth * 12)}, ${fillTint}, ${alpha * 0.18})`,
+            `rgba(${Math.min(255, 170 + depth * 20)}, ${Math.min(255, 220 + depth * 10)}, 255, ${alpha})`,
+            clipRegions,
+          );
+        }
+      }
+
+      if (liveSelection) {
+        drawRectOverlay(
+          ctx,
+          spriteSet.tileSize,
+          liveSelection,
+          "rgba(12, 121, 156, 0.18)",
+          "rgba(12, 121, 156, 0.96)",
+        );
+      }
+
+      if (pastePreview && pastePreview.width > 0 && pastePreview.height > 0) {
+        drawRectOverlay(
+          ctx,
+          spriteSet.tileSize,
+          pastePreview,
+          "rgba(197, 151, 44, 0.08)",
+          "rgba(197, 151, 44, 0.92)",
+          true,
+        );
+      }
+
+      if (!isBrushDragging && hoverPoint) {
+        drawRectOverlay(
+          ctx,
+          spriteSet.tileSize,
+          { x: hoverPoint.x, y: hoverPoint.y, width: 1, height: 1 },
+          "rgba(0, 0, 0, 0)",
+          "rgba(24, 34, 30, 0.82)",
+        );
+      }
+
+      if (pendingConnection) {
+        drawRectOverlay(
+          ctx,
+          spriteSet.tileSize,
+          {
+            x: pendingConnection.startIndex % 32,
+            y: Math.floor(pendingConnection.startIndex / 32),
+            width: 1,
+            height: 1,
+          },
+          "rgba(196, 55, 55, 0.12)",
+          "rgba(196, 55, 55, 0.96)",
+        );
+        drawPendingConnection(
+          ctx,
+          spriteSet.tileSize,
+          pendingConnection.startIndex,
+          pendingConnection.cursor,
+        );
+      }
+    }, [
+      boardPan,
+      boardZoom,
+      hoverPoint,
+      invalidCellIndices,
+      isBrushDragging,
+      liveSelection,
+      pastePreview,
+      pendingConnection,
+      previewLevel,
+      selectedLayerZ,
+      selectedLogicalLevel,
+      shouldDrawValidityWarnings,
+      showSecrets,
+      spriteSet,
+      threeDLevelsEnabled,
+    ]);
+
+    useEffect(() => {
+      const brushState = dragState?.tool === "brush" ? dragState : null;
+      const canvas = overlayCanvasRef.current;
+      if (!brushState || !canvas || !spriteSet || !activeLevel) {
+        brushPreviewReplayKeyRef.current = null;
+        return;
+      }
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const replayKey = [
+        brushState.pointerId,
+        activeDisplayContext.threeDEnabled ? "3d" : "2d",
+        activeDisplayContext.layerZ,
+        activeDisplayContext.layerCount,
+        selectedLayerZ,
+        showSecrets ? "secrets" : "plain",
+        boardPan.x,
+        boardPan.y,
+        boardZoom,
+      ].join(":");
+      const shouldReplayFullStroke = brushPreviewReplayKeyRef.current !== replayKey;
+      const previewIndices =
+        shouldReplayFullStroke || brushState.dirtyCells.length === 0
+          ? brushState.cells
+          : brushState.dirtyCells;
+      if (previewIndices.length === 0) return;
+
+      const previewCells = previewPaintLevelCells(
+        activeLevel,
+        previewIndices,
+        brushState.tile,
+        makePaintOptions(threeDLevelsEnabled, selectedLayerZ, brushState.buryOnBottom),
+      );
+
+      for (const previewCell of previewCells) {
+        const displayCell = createDat3dDisplayCell(
+          previewCell.top,
+          previewCell.bottom,
+          activeDisplayContext,
+        );
+        const image = renderCc1CellToRgba(displayCell.top, displayCell.bottom, spriteSet, {
+          showSecrets,
+        });
+        const x = (previewCell.index % 32) * spriteSet.tileSize;
+        const y = Math.floor(previewCell.index / 32) * spriteSet.tileSize;
+
+        ctx.clearRect(x, y, spriteSet.tileSize, spriteSet.tileSize);
+        drawRgbaImageToContext(ctx, image, x, y);
+        drawGridCellOutline(ctx, spriteSet.tileSize, previewCell.index);
+      }
+
+      brushPreviewReplayKeyRef.current = replayKey;
+    }, [
+      activeDisplayContext,
+      activeLevel,
+      boardPan,
+      boardZoom,
+      dragState,
+      selectedLayerZ,
+      showSecrets,
+      spriteSet,
+      threeDLevelsEnabled,
+    ]);
+
+    function beginBoardPanGesture(pointerId: number, clientX: number, clientY: number): void {
+      setBoardPanState({
+        pointerId,
+        startClientX: clientX,
+        startClientY: clientY,
+        startPanX: boardPan.x,
+        startPanY: boardPan.y,
+      });
+      setHoverPointIfChanged(null);
+    }
+
+    function beginTouchBoardGesture(): void {
+      const entries = Array.from(touchBoardPointsRef.current.entries());
+      if (entries.length < 2) return;
+
+      const [firstPointer, secondPointer] = entries;
+      if (!firstPointer || !secondPointer) return;
+      const [firstPointerId, firstPoint] = firstPointer;
+      const [secondPointerId, secondPoint] = secondPointer;
+      const startCenter = getTouchCenter(firstPoint, secondPoint);
+
+      setTouchGestureState({
+        pointerIds: [firstPointerId, secondPointerId],
+        startPanX: boardPan.x,
+        startPanY: boardPan.y,
+        startZoom: boardZoom,
+        startCenterX: startCenter.clientX,
+        startCenterY: startCenter.clientY,
+        startDistance: Math.max(1, getTouchDistance(firstPoint, secondPoint)),
+      });
+      setDragState(null);
+      setPendingConnection(null);
+      setBoardPanState(null);
+      setHoverPointIfChanged(null);
+    }
+
+    function updateTouchBoardGesture(): void {
+      if (!touchGestureState) return;
+
+      const [firstPointerId, secondPointerId] = touchGestureState.pointerIds;
+      const firstPoint = touchBoardPointsRef.current.get(firstPointerId);
+      const secondPoint = touchBoardPointsRef.current.get(secondPointerId);
+      if (!firstPoint || !secondPoint) {
+        setTouchGestureState(null);
+        return;
+      }
+
+      const currentCenter = getTouchCenter(firstPoint, secondPoint);
+      const currentDistance = Math.max(1, getTouchDistance(firstPoint, secondPoint));
+      const nextZoom = clampNumber(
+        touchGestureState.startZoom * (currentDistance / touchGestureState.startDistance),
+        0.25,
+        6,
+      );
+      const worldX =
+        (touchGestureState.startCenterX - touchGestureState.startPanX) /
+        touchGestureState.startZoom;
+      const worldY =
+        (touchGestureState.startCenterY - touchGestureState.startPanY) /
+        touchGestureState.startZoom;
+
+      setBoardZoom(nextZoom);
+      setBoardPan({
+        x: currentCenter.clientX - worldX * nextZoom,
+        y: currentCenter.clientY - worldY * nextZoom,
+      });
+    }
+
+    function updateBoardPanGesture(clientX: number, clientY: number): void {
+      if (!boardPanState) return;
+      setBoardPan({
+        x: boardPanState.startPanX + (clientX - boardPanState.startClientX),
+        y: boardPanState.startPanY + (clientY - boardPanState.startClientY),
+      });
+    }
+
+    function handleViewportPointerDown(event: React.PointerEvent<HTMLDivElement>): void {
+      if (!activeLevel || event.target !== event.currentTarget) return;
+      if (event.button !== 0 && !isBoardPanGesture(event.nativeEvent)) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      beginBoardPanGesture(event.pointerId, event.clientX, event.clientY);
+    }
+
+    function handleViewportPointerMove(event: React.PointerEvent<HTMLDivElement>): void {
+      if (!boardPanState || boardPanState.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      updateBoardPanGesture(event.clientX, event.clientY);
+    }
+
+    function handleViewportPointerUp(event: React.PointerEvent<HTMLDivElement>): void {
+      if (!boardPanState || boardPanState.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      setBoardPanState(null);
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    function handleViewportPointerCancel(event: React.PointerEvent<HTMLDivElement>): void {
+      if (!boardPanState || boardPanState.pointerId !== event.pointerId) return;
+      setBoardPanState(null);
+    }
+
+    function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>): void {
+      if (!activeLevel) return;
+
+      const isTabletTouchPointer = isTabletLayout && isTouchPointer(event.nativeEvent);
+      if (isTabletTouchPointer) {
+        event.currentTarget.setPointerCapture(event.pointerId);
+        touchBoardPointsRef.current.set(event.pointerId, {
+          clientX: event.clientX,
+          clientY: event.clientY,
+        });
+        if (touchBoardPointsRef.current.size >= 2) {
+          event.preventDefault();
+          beginTouchBoardGesture();
+          return;
+        }
+      }
+
+      event.preventDefault();
+
+      if (isBoardPanGesture(event.nativeEvent)) {
+        event.currentTarget.setPointerCapture(event.pointerId);
+        beginBoardPanGesture(event.pointerId, event.clientX, event.clientY);
+        return;
+      }
+
+      const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
+      const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent);
+      setHoverPointIfChanged(point);
+      onClearMetadataError();
+
+      if (tool === "connect") {
+        if (event.button !== 0 || !point || !boardPoint) return;
+
+        const index = point.y * 32 + point.x;
+        if (!isConnectionEndpointCell(activeLevel, index)) {
+          setPendingConnection(null);
+          return;
+        }
+
+        if (!pendingConnection) {
+          setPendingConnection({
+            startIndex: index,
+            cursor: boardPoint,
+          });
+          return;
+        }
+
+        if (pendingConnection.startIndex !== index) {
+          onCommitSelectedLevelUpdate((level) =>
+            connectLevelButtons(level, pendingConnection.startIndex, index),
+          );
+        }
+
+        setPendingConnection(null);
+        return;
+      }
+
+      if (!isSupportedCanvasPointerButton(event.button) || !point) return;
+
+      if (tool === "fill") {
+        onCommitSelectedLevelUpdate((level) =>
+          fillLevelArea(
+            level,
+            point,
+            getPaintTileForButton(event.button, primaryTile, secondaryTile),
+            makePaintOptions(threeDLevelsEnabled, selectedLayerZ, event.shiftKey),
+          ),
+        );
+        return;
+      }
+
+      event.currentTarget.setPointerCapture(event.pointerId);
+      const dragTile = getPaintTileForButton(event.button, primaryTile, secondaryTile);
+
+      if (tool === "brush") {
+        const nextDragState: BrushDragState = {
+          tool: "brush",
+          pointerId: event.pointerId,
+          lastPoint: point,
+          cells: [point.y * 32 + point.x],
+          dirtyCells: [point.y * 32 + point.x],
+          tile: dragTile,
+          buryOnBottom: event.shiftKey,
+        };
+        brushPreviewReplayKeyRef.current = null;
+        brushDragStateRef.current = nextDragState;
+        setDragState(nextDragState);
+      } else if (tool === "line") {
+        brushDragStateRef.current = null;
+        setDragState({
+          tool: "line",
+          pointerId: event.pointerId,
+          start: point,
+          current: point,
+          tile: dragTile,
+          buryOnBottom: event.shiftKey,
+        });
+      } else {
+        brushDragStateRef.current = null;
+        setDragState({
+          tool: "select",
+          pointerId: event.pointerId,
+          start: point,
+          current: point,
+        });
+      }
+    }
+
+    function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>): void {
+      const isTrackedTabletTouch =
+        isTabletLayout &&
+        isTouchPointer(event.nativeEvent) &&
+        touchBoardPointsRef.current.has(event.pointerId);
+      if (isTrackedTabletTouch) {
+        touchBoardPointsRef.current.set(event.pointerId, {
+          clientX: event.clientX,
+          clientY: event.clientY,
+        });
+        if (touchGestureState) {
+          event.preventDefault();
+          setHoverPointIfChanged(null);
+          updateTouchBoardGesture();
+          return;
+        }
+      }
+
+      if (boardPanState && boardPanState.pointerId === event.pointerId) {
+        event.preventDefault();
+        setHoverPointIfChanged(null);
+        updateBoardPanGesture(event.clientX, event.clientY);
+        return;
+      }
+
+      const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
+      const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent);
+      if (dragState?.tool === "brush") setHoverPointIfChanged(null);
+      else setHoverPointIfChanged(point);
+
+      if (tool === "connect" && pendingConnection && boardPoint) {
+        setPendingConnection((current) =>
+          current
+            ? {
+                ...current,
+                cursor: boardPoint,
+              }
+            : current,
+        );
+      }
+
+      if (!point || !dragState || dragState.pointerId !== event.pointerId) return;
+
+      if (dragState.tool === "brush") {
+        const currentBrushState = brushDragStateRef.current ?? dragState;
+        if (gridPointsEqual(currentBrushState.lastPoint, point)) return;
+        scheduleBrushDrag(point);
+        return;
+      }
+
+      if (gridPointsEqual(dragState.current, point)) return;
+      setDragState({
+        ...dragState,
+        current: point,
+      });
+    }
+
+    function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>): void {
+      const isTrackedTabletTouch =
+        isTabletLayout &&
+        isTouchPointer(event.nativeEvent) &&
+        touchBoardPointsRef.current.has(event.pointerId);
+      if (touchGestureState && isTrackedTabletTouch) {
+        event.preventDefault();
+        touchBoardPointsRef.current.delete(event.pointerId);
+        setTouchGestureState(null);
+        setHoverPointIfChanged(null);
+        event.currentTarget.releasePointerCapture(event.pointerId);
+        return;
+      }
+      if (isTrackedTabletTouch) {
+        touchBoardPointsRef.current.delete(event.pointerId);
+      }
+
+      if (boardPanState && boardPanState.pointerId === event.pointerId) {
+        event.preventDefault();
+        setBoardPanState(null);
+        event.currentTarget.releasePointerCapture(event.pointerId);
+        return;
+      }
+
+      if (tool === "connect") {
+        if (isTrackedTabletTouch) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        return;
+      }
+
+      const activeBrushDragState =
+        brushDragStateRef.current?.pointerId === event.pointerId
+          ? brushDragStateRef.current
+          : dragState?.tool === "brush" && dragState.pointerId === event.pointerId
+            ? dragState
+            : null;
+      const activeDragState = activeBrushDragState ?? dragState;
+
+      if (!activeDragState || activeDragState.pointerId !== event.pointerId) {
+        if (isTrackedTabletTouch) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        return;
+      }
+      event.preventDefault();
+
+      const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
+
+      if (activeDragState.tool === "brush") {
+        const pendingBrushPoint = cancelScheduledBrushDrag();
+        const finalPoint = point ?? pendingBrushPoint ?? activeDragState.lastPoint;
+        const finalCells = extendPaintStroke(
+          activeDragState.cells,
+          activeDragState.lastPoint,
+          finalPoint,
+        ).cells;
+        onCommitSelectedLevelUpdate((level) =>
+          paintLevelCells(
+            level,
+            finalCells,
+            activeDragState.tile,
+            makePaintOptions(threeDLevelsEnabled, selectedLayerZ, activeDragState.buryOnBottom),
+          ),
+        );
+        brushDragStateRef.current = null;
+        brushPreviewReplayKeyRef.current = null;
+        setHoverPointIfChanged(finalPoint);
+      } else if (activeDragState.tool === "line") {
+        onCommitSelectedLevelUpdate((level) =>
+          paintLevelLine(
+            level,
+            activeDragState.start,
+            point ?? activeDragState.current,
+            activeDragState.tile,
+            makePaintOptions(threeDLevelsEnabled, selectedLayerZ, activeDragState.buryOnBottom),
+          ),
+        );
+      } else {
+        onSelectionChange(normalizeRect(activeDragState.start, point ?? activeDragState.current));
+      }
+
+      setDragState(null);
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    function handlePointerCancel(event: React.PointerEvent<HTMLCanvasElement>): void {
+      const isTrackedTabletTouch =
+        isTabletLayout &&
+        isTouchPointer(event.nativeEvent) &&
+        touchBoardPointsRef.current.has(event.pointerId);
+      if (isTrackedTabletTouch) {
+        touchBoardPointsRef.current.delete(event.pointerId);
+        if (touchGestureState) {
+          setTouchGestureState(null);
+          cancelScheduledBrushDrag();
+          brushDragStateRef.current = null;
+          brushPreviewReplayKeyRef.current = null;
+          setHoverPointIfChanged(null);
+          return;
+        }
+      }
+
+      if (boardPanState && boardPanState.pointerId === event.pointerId) {
+        setBoardPanState(null);
+        setHoverPointIfChanged(null);
+        return;
+      }
+
+      if (tool === "connect") {
+        if (isTrackedTabletTouch) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        return;
+      }
+
+      const activeBrushDragState =
+        brushDragStateRef.current?.pointerId === event.pointerId
+          ? brushDragStateRef.current
+          : dragState?.tool === "brush" && dragState.pointerId === event.pointerId
+            ? dragState
+            : null;
+      const activeDragState = activeBrushDragState ?? dragState;
+
+      if (!activeDragState || activeDragState.pointerId !== event.pointerId) {
+        if (isTrackedTabletTouch) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        return;
+      }
+      cancelScheduledBrushDrag();
+      brushDragStateRef.current = null;
+      brushPreviewReplayKeyRef.current = null;
+      setDragState(null);
+      setHoverPointIfChanged(null);
+    }
+
+    function handleBoardWheel(event: React.WheelEvent<HTMLDivElement>): void {
+      if (!activeLevel || boardSize <= 0) return;
+      event.preventDefault();
+
+      const viewport = boardViewportRef.current;
+      if (!viewport) return;
+
+      const rect = viewport.getBoundingClientRect();
+      const nextZoom = clampNumber(boardZoom * Math.exp(-event.deltaY * 0.0015), 0.25, 6);
+      if (Math.abs(nextZoom - boardZoom) < 0.001) return;
+
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+      const worldX = (pointerX - boardPan.x) / boardZoom;
+      const worldY = (pointerY - boardPan.y) / boardZoom;
+
+      setBoardZoom(nextZoom);
+      setBoardPan({
+        x: pointerX - worldX * nextZoom,
+        y: pointerY - worldY * nextZoom,
+      });
+    }
+
+    return (
+      <section className="panel boardPanel">
+        <div
+          className={`boardViewport ${boardPanActive ? "panning" : ""}`}
+          ref={boardViewportRef}
+          onWheel={handleBoardWheel}
+          onPointerDown={handleViewportPointerDown}
+          onPointerMove={handleViewportPointerMove}
+          onPointerUp={handleViewportPointerUp}
+          onPointerCancel={handleViewportPointerCancel}
+        >
+          {activeLevel && spriteSet ? (
+            <div
+              className={`boardStageTransform ${boardPanActive ? "panning" : ""}`}
+              style={{
+                width: boardSize,
+                height: boardSize,
+                transform: `translate(${boardPan.x}px, ${boardPan.y}px) scale(${boardZoom})`,
+              }}
+            >
+              {BOARD_TRANSFORM_BUTTONS.map((button) => (
+                <button
+                  key={button.kind}
+                  type="button"
+                  className={`boardTransformButton ${button.position}`}
+                  aria-label={button.label}
+                  title={button.label}
+                  onClick={() => onApplySelectedLevelTransform(button.kind)}
+                >
+                  {renderBoardTransformIcon(button.kind)}
+                </button>
+              ))}
+              {LEVEL_SHIFT_ARROWS.map((arrow) => (
+                <button
+                  key={arrow.direction}
+                  type="button"
+                  className={`boardShiftArrow ${arrow.direction}`}
+                  aria-label={arrow.label}
+                  title={arrow.label}
+                  onClick={() => onShiftVisibleLevel(arrow.dx, arrow.dy)}
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <polygon points="8,3 13,12 3,12" />
+                  </svg>
+                </button>
+              ))}
+              <div
+                className="boardStage"
+                style={{
+                  width: boardSize,
+                  height: boardSize,
+                }}
+              >
+                <canvas ref={boardCanvasRef} className="boardCanvas" />
+                <canvas
+                  ref={overlayCanvasRef}
+                  className="boardCanvas overlayCanvas"
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerCancel}
+                  onContextMenu={(event) => event.preventDefault()}
+                  onPointerLeave={() => {
+                    if (!dragState && !boardPanActive) setHoverPointIfChanged(null);
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="emptyState largeEmptyState">
+              Select a level and load the sprite set to edit.
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  },
+);
+
 export default function App() {
   const previousThreeDEnabledRef = useRef(false);
-  const keyboardPanKeysRef = useRef<Set<string>>(new Set());
-  const keyboardPanFrameRef = useRef<number | null>(null);
-  const keyboardPanLastTimeRef = useRef<number | null>(null);
-  const brushDragFrameRef = useRef<number | null>(null);
-  const brushDragPendingPointRef = useRef<GridPoint | null>(null);
-  const brushDragStateRef = useRef<BrushDragState | null>(null);
-  const brushPreviewReplayKeyRef = useRef<string | null>(null);
-  const touchBoardPointsRef = useRef<Map<number, TouchPoint>>(new Map());
+  const boardEditorRef = useRef<BoardEditorHandle>(null);
   const editorLayoutRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const boardViewportRef = useRef<HTMLDivElement>(null);
   const paletteGridRef = useRef<HTMLDivElement>(null);
-  const boardCanvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [boardStatusStore] = useState(() => createBoardEditorStatusStore());
 
   const [editor, setEditor] = useState<LevelsetEditorHistory | null>(() =>
     createLevelsetEditorHistory(createDefaultLevelsetDocument()),
@@ -1186,17 +2652,10 @@ export default function App() {
   const [selection, setSelection] = useState<GridRect | null>(null);
   const [clipboard, setClipboard] = useState<LevelClipboard | null>(null);
   const [pastePreviewActive, setPastePreviewActive] = useState(false);
-  const [pendingConnection, setPendingConnection] = useState<PendingConnectionState>(null);
-  const [hoverPoint, setHoverPoint] = useState<GridPoint | null>(null);
-  const [dragState, setDragState] = useState<DragState | null>(null);
-  const [boardPanState, setBoardPanState] = useState<BoardPanState | null>(null);
   const [layoutResizeState, setLayoutResizeState] = useState<LayoutResizeState | null>(null);
   const [draggedLevelIndex, setDraggedLevelIndex] = useState<number | null>(null);
   const [levelDropState, setLevelDropState] = useState<LevelDropState>(null);
   const [levelContextMenu, setLevelContextMenu] = useState<LevelContextMenuState>(null);
-  const [boardZoom, setBoardZoom] = useState(1);
-  const [boardPan, setBoardPan] = useState({ x: 0, y: 0 });
-  const [boardViewInitialized, setBoardViewInitialized] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(236);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
   const [boardMenuOpen, setBoardMenuOpen] = useState<
@@ -1231,7 +2690,8 @@ export default function App() {
   const [tabletDrawerSide, setTabletDrawerSide] = useState<TabletDrawerSide>(null);
   const [paletteAssignmentTarget, setPaletteAssignmentTarget] =
     useState<PaletteAssignmentTarget>("primary");
-  const [touchGestureState, setTouchGestureState] = useState<TouchGestureState>(null);
+  const [boardInteractionResetToken, setBoardInteractionResetToken] = useState(0);
+  const [boardViewResetToken, setBoardViewResetToken] = useState(0);
 
   const [showSecrets, setShowSecrets] = useState(true);
   const [showConnections, setShowConnections] = useState(true);
@@ -1239,59 +2699,6 @@ export default function App() {
   const [showValidityWarnings, setShowValidityWarnings] = useState(true);
 
   const [metadataDraft, setMetadataDraft] = useState<MetadataDraft | null>(null);
-
-  function setHoverPointIfChanged(nextPoint: GridPoint | null): void {
-    setHoverPoint((current) => (gridPointsEqual(current, nextPoint) ? current : nextPoint));
-  }
-
-  function cancelScheduledBrushDrag(): GridPoint | null {
-    const pendingPoint = brushDragPendingPointRef.current;
-    brushDragPendingPointRef.current = null;
-    if (brushDragFrameRef.current !== null) {
-      cancelAnimationFrame(brushDragFrameRef.current);
-      brushDragFrameRef.current = null;
-    }
-    return pendingPoint;
-  }
-
-  function scheduleBrushDrag(point: GridPoint): void {
-    brushDragPendingPointRef.current = point;
-    if (brushDragFrameRef.current !== null) return;
-
-    brushDragFrameRef.current = requestAnimationFrame(() => {
-      brushDragFrameRef.current = null;
-      const nextPoint = brushDragPendingPointRef.current;
-      brushDragPendingPointRef.current = null;
-      if (!nextPoint) return;
-
-      const current = brushDragStateRef.current;
-      if (!current) return;
-
-      const nextStroke = extendPaintStroke(current.cells, current.lastPoint, nextPoint);
-      if (
-        nextStroke.dirtyCells.length === 0 &&
-        gridPointsEqual(current.lastPoint, nextStroke.lastPoint)
-      ) {
-        return;
-      }
-
-      const nextState: BrushDragState = {
-        ...current,
-        cells: nextStroke.cells,
-        dirtyCells: nextStroke.dirtyCells,
-        lastPoint: nextStroke.lastPoint,
-      };
-      brushDragStateRef.current = nextState;
-
-      if (nextStroke.dirtyCells.length === 0) return;
-
-      setDragState((existing) =>
-        existing?.tool === "brush" && existing.pointerId === current.pointerId
-          ? nextState
-          : existing,
-      );
-    });
-  }
 
   const shortestViewportSide = Math.min(viewportSize.width, viewportSize.height);
   const longestViewportSide = Math.max(viewportSize.width, viewportSize.height);
@@ -1307,11 +2714,6 @@ export default function App() {
         ? false
         : autoTabletLayout;
   const isTabletPortrait = isTabletLayout && viewportSize.width < viewportSize.height;
-  const boardPanActive = !!boardPanState || !!touchGestureState;
-  const isBrushDragging = dragState?.tool === "brush";
-  const shouldDrawConnections = showConnections && !isBrushDragging;
-  const shouldDrawMonsterOrder = showMonsterOrder && !isBrushDragging;
-  const shouldDrawValidityWarnings = showValidityWarnings && !isBrushDragging;
 
   const doc = editor?.doc ?? null;
   const selectedIndex = editor?.selectedIndex ?? 0;
@@ -1410,67 +2812,6 @@ export default function App() {
     );
   }, [deferredPaletteQuery, paletteDisplayContext, paletteTab, threeDLevelsEnabled]);
 
-  const previewLevel = useMemo(() => {
-    if (!activeLevel || !dragState) return activeLevel;
-    if (dragState.tool === "line") {
-      return paintLevelLine(
-        activeLevel,
-        dragState.start,
-        dragState.current,
-        dragState.tile,
-        makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
-      );
-    }
-    return activeLevel;
-  }, [activeLevel, dragState, selectedLayerZ, threeDLevelsEnabled]);
-  const invalidCellIndices = useMemo(
-    () =>
-      previewLevel && !isBrushDragging
-        ? getInvalidCellIndices(previewLevel, makePaintOptions(threeDLevelsEnabled, selectedLayerZ))
-        : [],
-    [isBrushDragging, previewLevel, selectedLayerZ, threeDLevelsEnabled],
-  );
-
-  const hoverCellSummary = useMemo(() => {
-    if (isBrushDragging || !hoverPoint || !previewLevel) return null;
-    const index = hoverPoint.y * 32 + hoverPoint.x;
-    const top = previewLevel.map.top[index] ?? "FLOOR";
-    const bottom = previewLevel.map.bottom[index] ?? "FLOOR";
-    return {
-      index,
-      top: getDat3dTileDisplayName(top, activeDisplayContext),
-      bottom:
-        threeDLevelsEnabled && selectedLayerZ > 1 && top === DAT_3D_AIR_TILE
-          ? "AIR"
-          : getDat3dTileDisplayName(bottom, activeDisplayContext),
-    };
-  }, [
-    activeDisplayContext,
-    hoverPoint,
-    isBrushDragging,
-    previewLevel,
-    selectedLayerZ,
-    threeDLevelsEnabled,
-  ]);
-
-  const liveSelection = useMemo(() => {
-    if (dragState?.tool !== "select") return selection;
-    return normalizeRect(dragState.start, dragState.current);
-  }, [dragState, selection]);
-
-  const pastePreview = useMemo(() => {
-    if (!pastePreviewActive || tool !== "select" || !clipboard || dragState) return null;
-    const anchor = hoverPoint ?? (selection ? { x: selection.x, y: selection.y } : null);
-    if (!anchor) return null;
-
-    return {
-      x: anchor.x,
-      y: anchor.y,
-      width: Math.min(clipboard.width, 32 - anchor.x),
-      height: Math.min(clipboard.height, 32 - anchor.y),
-    };
-  }, [clipboard, dragState, hoverPoint, pastePreviewActive, selection, tool]);
-
   const editorLayoutStyle = useMemo(
     () =>
       ({
@@ -1498,19 +2839,6 @@ export default function App() {
       }) as CSSProperties,
     [paletteCellSize, paletteColumnCount],
   );
-
-  useEffect(() => {
-    if (dragState?.tool === "brush") return;
-    brushDragStateRef.current = null;
-    brushPreviewReplayKeyRef.current = null;
-    cancelScheduledBrushDrag();
-  }, [dragState]);
-
-  useEffect(() => {
-    return () => {
-      cancelScheduledBrushDrag();
-    };
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1551,8 +2879,6 @@ export default function App() {
     if (isTabletLayout) return;
     setTabletDrawerSide(null);
     setPaletteAssignmentTarget("primary");
-    setTouchGestureState(null);
-    touchBoardPointsRef.current.clear();
   }, [isTabletLayout]);
 
   useEffect(() => {
@@ -1575,18 +2901,13 @@ export default function App() {
     setEditor(createLevelsetEditorHistory(nextDoc));
     setFileName(nextFileName ?? fileName);
     setSelection(null);
-    setPendingConnection(null);
-    setHoverPointIfChanged(null);
-    setDragState(null);
-    setBoardPanState(null);
     setLayoutResizeState(null);
     setDraggedLevelIndex(null);
     setLevelDropState(null);
     setLevelContextMenu(null);
     setBoardMenuOpen(null);
-    setBoardZoom(1);
-    setBoardPan({ x: 0, y: 0 });
-    setBoardViewInitialized(false);
+    setBoardInteractionResetToken((current) => current + 1);
+    setBoardViewResetToken((current) => current + 1);
     setMetadataDraft(null);
     setErrorMessage(null);
     setMetadataError(null);
@@ -1695,8 +3016,7 @@ export default function App() {
   function chooseRawLevel(index: number): void {
     setEditor((current) => (current ? selectLevelInHistory(current, index) : current));
     setSelection(null);
-    setHoverPointIfChanged(null);
-    setDragState(null);
+    setBoardInteractionResetToken((current) => current + 1);
     setLevelContextMenu(null);
     setMetadataError(null);
   }
@@ -1983,7 +3303,7 @@ export default function App() {
 
   function pasteClipboard(): void {
     if (!activeLevel || !clipboard) return;
-    const anchor = getPasteAnchor(selection, hoverPoint);
+    const anchor = getPasteAnchor(selection, boardStatusStore.getSnapshot().hoverPoint);
     setPastePreviewActive(true);
     commitSelectedLevelUpdate((level) => pasteLevelRegion(level, anchor, clipboard));
     setSelection({
@@ -2003,17 +3323,6 @@ export default function App() {
       }
     }
     commitSelectedLevelUpdate((level) => paintLevelCells(level, indices, "FLOOR"));
-  }
-
-  function resetBoardView(nextZoom = 1): void {
-    const viewport = boardViewportRef.current;
-    if (!viewport || boardSize <= 0) return;
-
-    setBoardZoom(nextZoom);
-    setBoardPan({
-      x: Math.round((viewport.clientWidth - boardSize * nextZoom) / 2),
-      y: Math.round((viewport.clientHeight - boardSize * nextZoom) / 2),
-    });
   }
 
   useEffect(() => {
@@ -2082,12 +3391,6 @@ export default function App() {
   }, [tool]);
 
   useEffect(() => {
-    if (!activeLevel || !spriteSet || boardViewInitialized) return;
-    resetBoardView(1);
-    setBoardViewInitialized(true);
-  }, [activeLevel, boardSize, boardViewInitialized, spriteSet]);
-
-  useEffect(() => {
     const paletteGrid = paletteGridRef.current;
     if (!paletteGrid) return;
 
@@ -2103,11 +3406,6 @@ export default function App() {
       resizeObserver.disconnect();
     };
   }, [inspectorTab, paletteTab]);
-
-  useEffect(() => {
-    if (tool === "connect" && activeLevel) return;
-    setPendingConnection(null);
-  }, [activeLevel, tool]);
 
   useEffect(() => {
     if (!layoutResizeState) return;
@@ -2156,352 +3454,6 @@ export default function App() {
   }, [layoutResizeState, leftPanelWidth, rightPanelWidth]);
 
   useEffect(() => {
-    const canvas = boardCanvasRef.current;
-    if (!canvas || !previewLevel || !spriteSet) return;
-
-    try {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas 2D context unavailable");
-
-      const renderLayerCanvas = (level: DatLevelJson, layerZ: number, layerCount: number) => {
-        const displayLevel = createDat3dDisplayLevel(level, {
-          threeDEnabled: threeDLevelsEnabled,
-          layerZ,
-          layerCount,
-        });
-        const image = renderCc1LevelToRgba(displayLevel, spriteSet, { showSecrets });
-        const tempCanvas = document.createElement("canvas");
-        drawRgbaImageToCanvas(tempCanvas, image);
-        return tempCanvas;
-      };
-
-      canvas.width = boardSize;
-      canvas.height = boardSize;
-      ctx.clearRect(0, 0, boardSize, boardSize);
-
-      if (threeDLevelsEnabled && selectedLogicalLevel) {
-        const layerCount = selectedLogicalLevel.layers.length;
-        const activeCanvas = renderLayerCanvas(previewLevel, selectedLayerZ, layerCount);
-        const viewport = boardViewportRef.current;
-
-        for (let depth = Math.min(THREE_D_STACK_DEPTH, selectedLayerZ - 1); depth >= 1; depth--) {
-          const lowerLayer = selectedLogicalLevel.layers[selectedLayerZ - 1 - depth];
-          if (!lowerLayer) continue;
-
-          const layerCanvas = renderLayerCanvas(lowerLayer.level, lowerLayer.z, layerCount);
-          const metrics = getThreeDLayerDrawMetrics(
-            depth,
-            boardSize,
-            boardPan,
-            boardZoom,
-            viewport,
-          );
-
-          ctx.save();
-          ctx.filter = `blur(${depth}px) brightness(${Math.max(0.25, 1 - depth * 0.25)})`;
-          ctx.drawImage(
-            layerCanvas,
-            metrics.offsetX,
-            metrics.offsetY,
-            metrics.width,
-            metrics.height,
-          );
-          ctx.restore();
-        }
-
-        ctx.drawImage(activeCanvas, 0, 0);
-      } else {
-        const displayLevel = createDat3dDisplayLevel(previewLevel, activeDisplayContext);
-        const image = renderCc1LevelToRgba(displayLevel, spriteSet, { showSecrets });
-        drawRgbaImageToCanvas(canvas, image);
-      }
-
-      const overlayContext = canvas.getContext("2d");
-      if (!overlayContext) throw new Error("Canvas 2D context unavailable");
-
-      if (shouldDrawConnections) {
-        drawConnections(
-          overlayContext,
-          spriteSet.tileSize,
-          previewLevel.trapControls,
-          previewLevel.cloneControls,
-        );
-      }
-
-      if (shouldDrawMonsterOrder) {
-        drawMonsterOrder(overlayContext, spriteSet.tileSize, previewLevel.movement);
-      }
-    } catch (error: unknown) {
-      setErrorMessage(asErrorMessage(error));
-    }
-  }, [
-    activeDisplayContext,
-    boardSize,
-    boardPan,
-    boardZoom,
-    previewLevel,
-    selectedLayerZ,
-    selectedLogicalLevel,
-    shouldDrawConnections,
-    shouldDrawMonsterOrder,
-    showSecrets,
-    spriteSet,
-    threeDLevelsEnabled,
-  ]);
-
-  useEffect(() => {
-    const canvas = overlayCanvasRef.current;
-    if (!canvas || !spriteSet) return;
-
-    const size = spriteSet.tileSize * 32;
-    canvas.width = size;
-    canvas.height = size;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, size, size);
-    if (previewLevel) {
-      const visibleGridIndices =
-        threeDLevelsEnabled && selectedLayerZ > 1
-          ? Array.from({ length: 32 * 32 }, (_, index) => index).filter(
-              (index) =>
-                !isTransparentAirCell(previewLevel, index, selectedLayerZ, threeDLevelsEnabled),
-            )
-          : null;
-
-      if (visibleGridIndices) drawGridForVisibleCells(ctx, spriteSet.tileSize, visibleGridIndices);
-      else drawGrid(ctx, spriteSet.tileSize);
-    }
-
-    if (shouldDrawValidityWarnings) {
-      drawInvalidCells(ctx, spriteSet.tileSize, invalidCellIndices);
-    }
-
-    if (
-      showSecrets &&
-      previewLevel &&
-      threeDLevelsEnabled &&
-      selectedLogicalLevel &&
-      selectedLayerZ > 1
-    ) {
-      const lowerLayerLevel = selectedLogicalLevel.layers[selectedLayerZ - 2]?.level ?? null;
-      if (lowerLayerLevel) {
-        drawSecretAirElevatorCells(
-          ctx,
-          spriteSet.tileSize,
-          getAirAboveElevatorIndices(previewLevel, lowerLayerLevel, {
-            threeDEnabled: true,
-            layerZ: selectedLayerZ,
-            layerCount: selectedLogicalLevel.layers.length,
-          }),
-        );
-      }
-    }
-
-    if (threeDLevelsEnabled && hoverPoint && selectedLogicalLevel && selectedLayerZ > 1) {
-      const viewport = boardViewportRef.current;
-      const activeLayerMetrics: ThreeDLayerDrawMetrics = {
-        offsetX: 0,
-        offsetY: 0,
-        width: size,
-        height: size,
-        scaleX: 1,
-        scaleY: 1,
-      };
-
-      for (let depth = Math.min(THREE_D_STACK_DEPTH, selectedLayerZ - 1); depth >= 1; depth--) {
-        const lowerLayer = selectedLogicalLevel.layers[selectedLayerZ - 1 - depth];
-        if (!lowerLayer) continue;
-        const metrics = getThreeDLayerDrawMetrics(depth, size, boardPan, boardZoom, viewport);
-        const clipRegions: ThreeDLayerClipRegion[] = [];
-        let isVisibleThroughAir = true;
-
-        for (let layerZ = selectedLayerZ; layerZ > lowerLayer.z; layerZ--) {
-          const layerLevel =
-            layerZ === selectedLayerZ
-              ? previewLevel
-              : (selectedLogicalLevel.layers[layerZ - 1]?.level ?? null);
-          if (!layerLevel) {
-            isVisibleThroughAir = false;
-            break;
-          }
-
-          const airIndices = Array.from({ length: 32 * 32 }, (_, index) => index).filter((index) =>
-            isTransparentAirCell(layerLevel, index, layerZ, threeDLevelsEnabled),
-          );
-          if (airIndices.length === 0) {
-            isVisibleThroughAir = false;
-            break;
-          }
-
-          clipRegions.push({
-            metrics:
-              layerZ === selectedLayerZ
-                ? activeLayerMetrics
-                : getThreeDLayerDrawMetrics(
-                    selectedLayerZ - layerZ,
-                    size,
-                    boardPan,
-                    boardZoom,
-                    viewport,
-                  ),
-            airIndices,
-          });
-        }
-
-        if (!isVisibleThroughAir) continue;
-        const alpha = Math.max(0.12, 0.34 - depth * 0.07);
-        const tint = Math.min(255, 13 + depth * 40);
-        const fillTint = Math.min(255, 149 + depth * 18);
-        drawLayerAlignedHoverCell(
-          ctx,
-          spriteSet.tileSize,
-          hoverPoint,
-          metrics,
-          `rgba(${tint}, ${Math.min(255, 140 + depth * 12)}, ${fillTint}, ${alpha * 0.18})`,
-          `rgba(${Math.min(255, 170 + depth * 20)}, ${Math.min(255, 220 + depth * 10)}, 255, ${alpha})`,
-          clipRegions,
-        );
-      }
-    }
-
-    if (liveSelection) {
-      drawRectOverlay(
-        ctx,
-        spriteSet.tileSize,
-        liveSelection,
-        "rgba(12, 121, 156, 0.18)",
-        "rgba(12, 121, 156, 0.96)",
-      );
-    }
-
-    if (pastePreview && pastePreview.width > 0 && pastePreview.height > 0) {
-      drawRectOverlay(
-        ctx,
-        spriteSet.tileSize,
-        pastePreview,
-        "rgba(197, 151, 44, 0.08)",
-        "rgba(197, 151, 44, 0.92)",
-        true,
-      );
-    }
-
-    if (!isBrushDragging && hoverPoint) {
-      drawRectOverlay(
-        ctx,
-        spriteSet.tileSize,
-        { x: hoverPoint.x, y: hoverPoint.y, width: 1, height: 1 },
-        "rgba(0, 0, 0, 0)",
-        "rgba(24, 34, 30, 0.82)",
-      );
-    }
-
-    if (pendingConnection) {
-      drawRectOverlay(
-        ctx,
-        spriteSet.tileSize,
-        {
-          x: pendingConnection.startIndex % 32,
-          y: Math.floor(pendingConnection.startIndex / 32),
-          width: 1,
-          height: 1,
-        },
-        "rgba(196, 55, 55, 0.12)",
-        "rgba(196, 55, 55, 0.96)",
-      );
-      drawPendingConnection(
-        ctx,
-        spriteSet.tileSize,
-        pendingConnection.startIndex,
-        pendingConnection.cursor,
-      );
-    }
-  }, [
-    boardPan,
-    boardZoom,
-    hoverPoint,
-    invalidCellIndices,
-    pendingConnection,
-    liveSelection,
-    pastePreview,
-    previewLevel,
-    isBrushDragging,
-    selectedLayerZ,
-    selectedLogicalLevel,
-    showSecrets,
-    shouldDrawValidityWarnings,
-    spriteSet,
-    threeDLevelsEnabled,
-  ]);
-
-  useEffect(() => {
-    const brushState = dragState?.tool === "brush" ? dragState : null;
-    const canvas = overlayCanvasRef.current;
-    if (!brushState || !canvas || !spriteSet || !activeLevel) {
-      brushPreviewReplayKeyRef.current = null;
-      return;
-    }
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const replayKey = [
-      brushState.pointerId,
-      activeDisplayContext.threeDEnabled ? "3d" : "2d",
-      activeDisplayContext.layerZ,
-      activeDisplayContext.layerCount,
-      selectedLayerZ,
-      showSecrets ? "secrets" : "plain",
-      boardPan.x,
-      boardPan.y,
-      boardZoom,
-    ].join(":");
-    const shouldReplayFullStroke = brushPreviewReplayKeyRef.current !== replayKey;
-    const previewIndices =
-      shouldReplayFullStroke || brushState.dirtyCells.length === 0
-        ? brushState.cells
-        : brushState.dirtyCells;
-    if (previewIndices.length === 0) return;
-
-    const previewCells = previewPaintLevelCells(
-      activeLevel,
-      previewIndices,
-      brushState.tile,
-      makePaintOptions(threeDLevelsEnabled, selectedLayerZ, brushState.buryOnBottom),
-    );
-
-    for (const previewCell of previewCells) {
-      const displayCell = createDat3dDisplayCell(
-        previewCell.top,
-        previewCell.bottom,
-        activeDisplayContext,
-      );
-      const image = renderCc1CellToRgba(displayCell.top, displayCell.bottom, spriteSet, {
-        showSecrets,
-      });
-      const x = (previewCell.index % 32) * spriteSet.tileSize;
-      const y = Math.floor(previewCell.index / 32) * spriteSet.tileSize;
-
-      ctx.clearRect(x, y, spriteSet.tileSize, spriteSet.tileSize);
-      drawRgbaImageToContext(ctx, image, x, y);
-      drawGridCellOutline(ctx, spriteSet.tileSize, previewCell.index);
-    }
-
-    brushPreviewReplayKeyRef.current = replayKey;
-  }, [
-    activeDisplayContext,
-    activeLevel,
-    boardPan,
-    boardZoom,
-    dragState,
-    selectedLayerZ,
-    showSecrets,
-    spriteSet,
-    threeDLevelsEnabled,
-  ]);
-
-  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
 
@@ -2535,25 +3487,19 @@ export default function App() {
 
         if (key === "5") {
           event.preventDefault();
-          if (doc) {
-            openSelectedLevelInTworld("MS");
-          }
+          if (doc) openSelectedLevelInTworld("MS");
           return;
         }
 
         if (key === "6") {
           event.preventDefault();
-          if (doc) {
-            openSelectedLevelInTworld("Lynx");
-          }
+          if (doc) openSelectedLevelInTworld("Lynx");
           return;
         }
 
         if (key === "7") {
           event.preventDefault();
-          if (canTestSelectedLevelInLexysLabyrinth) {
-            openSelectedLevelInLexysLabyrinth();
-          }
+          if (canTestSelectedLevelInLexysLabyrinth) openSelectedLevelInLexysLabyrinth();
           return;
         }
 
@@ -2564,25 +3510,19 @@ export default function App() {
 
       if (key === "f5") {
         event.preventDefault();
-        if (doc) {
-          openSelectedLevelInTworld("MS");
-        }
+        if (doc) openSelectedLevelInTworld("MS");
         return;
       }
 
       if (key === "f6") {
         event.preventDefault();
-        if (doc) {
-          openSelectedLevelInTworld("Lynx");
-        }
+        if (doc) openSelectedLevelInTworld("Lynx");
         return;
       }
 
       if (key === "f7") {
         event.preventDefault();
-        if (canTestSelectedLevelInLexysLabyrinth) {
-          openSelectedLevelInLexysLabyrinth();
-        }
+        if (canTestSelectedLevelInLexysLabyrinth) openSelectedLevelInLexysLabyrinth();
         return;
       }
 
@@ -2610,59 +3550,17 @@ export default function App() {
         return;
       }
 
-      if (key === "escape" && pendingConnection) {
+      if (key === "escape" && boardStatusStore.getSnapshot().hasPendingConnection) {
         event.preventDefault();
-        setPendingConnection(null);
+        setBoardInteractionResetToken((current) => current + 1);
         return;
       }
 
       if (key === "escape" && tool === "select") {
         event.preventDefault();
-        setDragState(null);
+        setBoardInteractionResetToken((current) => current + 1);
         setSelection(null);
         setPastePreviewActive(false);
-        return;
-      }
-
-      if (isKeyboardPanKey(key) && activeLevel) {
-        event.preventDefault();
-        keyboardPanKeysRef.current.add(key);
-        if (keyboardPanFrameRef.current === null) {
-          keyboardPanLastTimeRef.current = null;
-          keyboardPanFrameRef.current = requestAnimationFrame(function tick(timestamp) {
-            const pressedKeys = keyboardPanKeysRef.current;
-            if (pressedKeys.size === 0) {
-              keyboardPanFrameRef.current = null;
-              keyboardPanLastTimeRef.current = null;
-              return;
-            }
-
-            const lastTimestamp = keyboardPanLastTimeRef.current ?? timestamp;
-            const deltaSeconds = Math.max(0, (timestamp - lastTimestamp) / 1000);
-            keyboardPanLastTimeRef.current = timestamp;
-
-            let velocityX = 0;
-            let velocityY = 0;
-
-            if (pressedKeys.has("a") || pressedKeys.has("arrowleft")) velocityX += 1;
-            if (pressedKeys.has("d") || pressedKeys.has("arrowright")) velocityX -= 1;
-            if (pressedKeys.has("w") || pressedKeys.has("arrowup")) velocityY += 1;
-            if (pressedKeys.has("s") || pressedKeys.has("arrowdown")) velocityY -= 1;
-
-            const magnitude = Math.hypot(velocityX, velocityY);
-            if (magnitude > 0) {
-              const distance = KEYBOARD_PAN_SPEED * deltaSeconds;
-              const stepX = (velocityX / magnitude) * distance;
-              const stepY = (velocityY / magnitude) * distance;
-              setBoardPan((current) => ({
-                x: current.x + stepX,
-                y: current.y + stepY,
-              }));
-            }
-
-            keyboardPanFrameRef.current = requestAnimationFrame(tick);
-          });
-        }
         return;
       }
 
@@ -2683,47 +3581,26 @@ export default function App() {
       }
     };
 
-    const onKeyUp = (event: KeyboardEvent) => {
-      keyboardPanKeysRef.current.delete(event.key.toLowerCase());
-    };
-
-    const clearKeyboardPan = () => {
-      keyboardPanKeysRef.current.clear();
-      if (keyboardPanFrameRef.current !== null) {
-        cancelAnimationFrame(keyboardPanFrameRef.current);
-        keyboardPanFrameRef.current = null;
-      }
-      keyboardPanLastTimeRef.current = null;
-    };
-
     document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", clearKeyboardPan);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", clearKeyboardPan);
     };
   }, [
-    activeLevel,
+    boardStatusStore,
     clipboard,
     canTestSelectedLevelInLexysLabyrinth,
     doc,
     displayedExternalTestLevelNumber,
     fileName,
-    logicalLevelset,
-    lastPaletteAssignmentTarget,
-    selectedIndex,
     isTabletLayout,
+    lastPaletteAssignmentTarget,
     paletteAssignmentTarget,
     primaryTile,
-    selectedLayerZ,
-    selectedLogicalIndex,
-    selectedLogicalLevel,
     secondaryTile,
     selection,
+    selectedLogicalLevel,
     threeDLevelsEnabled,
-    pendingConnection,
+    tool,
   ]);
 
   useEffect(() => {
@@ -2776,17 +3653,6 @@ export default function App() {
     };
   }, [openDialog]);
 
-  useEffect(() => {
-    if (!activeLevel) {
-      keyboardPanKeysRef.current.clear();
-      if (keyboardPanFrameRef.current !== null) {
-        cancelAnimationFrame(keyboardPanFrameRef.current);
-        keyboardPanFrameRef.current = null;
-      }
-      keyboardPanLastTimeRef.current = null;
-    }
-  }, [activeLevel]);
-
   function beginLayoutResize(
     event: React.PointerEvent<HTMLDivElement>,
     side: "left" | "right",
@@ -2833,8 +3699,7 @@ export default function App() {
     }
 
     setSelection(null);
-    setHoverPointIfChanged(null);
-    setDragState(null);
+    setBoardInteractionResetToken((current) => current + 1);
     setBoardMenuOpen(null);
     setErrorMessage(null);
   }
@@ -3088,430 +3953,6 @@ export default function App() {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setErrorMessage(asErrorMessage(error));
     }
-  }
-
-  function beginBoardPanGesture(pointerId: number, clientX: number, clientY: number): void {
-    setBoardPanState({
-      pointerId,
-      startClientX: clientX,
-      startClientY: clientY,
-      startPanX: boardPan.x,
-      startPanY: boardPan.y,
-    });
-    setHoverPointIfChanged(null);
-  }
-
-  function beginTouchBoardGesture(): void {
-    const entries = Array.from(touchBoardPointsRef.current.entries());
-    if (entries.length < 2) return;
-
-    const [firstPointer, secondPointer] = entries;
-    if (!firstPointer || !secondPointer) return;
-    const [firstPointerId, firstPoint] = firstPointer;
-    const [secondPointerId, secondPoint] = secondPointer;
-    const startCenter = getTouchCenter(firstPoint, secondPoint);
-
-    setTouchGestureState({
-      pointerIds: [firstPointerId, secondPointerId],
-      startPanX: boardPan.x,
-      startPanY: boardPan.y,
-      startZoom: boardZoom,
-      startCenterX: startCenter.clientX,
-      startCenterY: startCenter.clientY,
-      startDistance: Math.max(1, getTouchDistance(firstPoint, secondPoint)),
-    });
-    setDragState(null);
-    setPendingConnection(null);
-    setBoardPanState(null);
-    setHoverPointIfChanged(null);
-  }
-
-  function updateTouchBoardGesture(): void {
-    if (!touchGestureState) return;
-
-    const [firstPointerId, secondPointerId] = touchGestureState.pointerIds;
-    const firstPoint = touchBoardPointsRef.current.get(firstPointerId);
-    const secondPoint = touchBoardPointsRef.current.get(secondPointerId);
-    if (!firstPoint || !secondPoint) {
-      setTouchGestureState(null);
-      return;
-    }
-
-    const currentCenter = getTouchCenter(firstPoint, secondPoint);
-    const currentDistance = Math.max(1, getTouchDistance(firstPoint, secondPoint));
-    const nextZoom = clampNumber(
-      touchGestureState.startZoom * (currentDistance / touchGestureState.startDistance),
-      0.25,
-      6,
-    );
-    const worldX =
-      (touchGestureState.startCenterX - touchGestureState.startPanX) / touchGestureState.startZoom;
-    const worldY =
-      (touchGestureState.startCenterY - touchGestureState.startPanY) / touchGestureState.startZoom;
-
-    setBoardZoom(nextZoom);
-    setBoardPan({
-      x: currentCenter.clientX - worldX * nextZoom,
-      y: currentCenter.clientY - worldY * nextZoom,
-    });
-  }
-
-  function updateBoardPanGesture(clientX: number, clientY: number): void {
-    if (!boardPanState) return;
-    setBoardPan({
-      x: boardPanState.startPanX + (clientX - boardPanState.startClientX),
-      y: boardPanState.startPanY + (clientY - boardPanState.startClientY),
-    });
-  }
-
-  function handleViewportPointerDown(event: React.PointerEvent<HTMLDivElement>): void {
-    if (!activeLevel || event.target !== event.currentTarget) return;
-    if (event.button !== 0 && !isBoardPanGesture(event.nativeEvent)) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    beginBoardPanGesture(event.pointerId, event.clientX, event.clientY);
-  }
-
-  function handleViewportPointerMove(event: React.PointerEvent<HTMLDivElement>): void {
-    if (!boardPanState || boardPanState.pointerId !== event.pointerId) return;
-    event.preventDefault();
-    updateBoardPanGesture(event.clientX, event.clientY);
-  }
-
-  function handleViewportPointerUp(event: React.PointerEvent<HTMLDivElement>): void {
-    if (!boardPanState || boardPanState.pointerId !== event.pointerId) return;
-    event.preventDefault();
-    setBoardPanState(null);
-    event.currentTarget.releasePointerCapture(event.pointerId);
-  }
-
-  function handleViewportPointerCancel(event: React.PointerEvent<HTMLDivElement>): void {
-    if (!boardPanState || boardPanState.pointerId !== event.pointerId) return;
-    setBoardPanState(null);
-  }
-
-  function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>): void {
-    if (!activeLevel) return;
-
-    const isTabletTouchPointer = isTabletLayout && isTouchPointer(event.nativeEvent);
-    if (isTabletTouchPointer) {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      touchBoardPointsRef.current.set(event.pointerId, {
-        clientX: event.clientX,
-        clientY: event.clientY,
-      });
-      if (touchBoardPointsRef.current.size >= 2) {
-        event.preventDefault();
-        beginTouchBoardGesture();
-        return;
-      }
-    }
-
-    event.preventDefault();
-
-    if (isBoardPanGesture(event.nativeEvent)) {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      beginBoardPanGesture(event.pointerId, event.clientX, event.clientY);
-      return;
-    }
-
-    const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
-    const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent);
-    setHoverPointIfChanged(point);
-    setMetadataError(null);
-
-    if (tool === "connect") {
-      if (event.button !== 0 || !point || !boardPoint) return;
-
-      const index = point.y * 32 + point.x;
-      if (!isConnectionEndpointCell(activeLevel, index)) {
-        setPendingConnection(null);
-        return;
-      }
-
-      if (!pendingConnection) {
-        setPendingConnection({
-          startIndex: index,
-          cursor: boardPoint,
-        });
-        return;
-      }
-
-      if (pendingConnection.startIndex !== index) {
-        commitSelectedLevelUpdate((level) =>
-          connectLevelButtons(level, pendingConnection.startIndex, index),
-        );
-      }
-
-      setPendingConnection(null);
-      return;
-    }
-
-    if (!isSupportedCanvasPointerButton(event.button) || !point) return;
-
-    if (tool === "fill") {
-      commitSelectedLevelUpdate((level) =>
-        fillLevelArea(
-          level,
-          point,
-          getPaintTileForButton(event.button, primaryTile, secondaryTile),
-          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, event.shiftKey),
-        ),
-      );
-      return;
-    }
-
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const dragTile = getPaintTileForButton(event.button, primaryTile, secondaryTile);
-
-    if (tool === "brush") {
-      const nextDragState: BrushDragState = {
-        tool: "brush",
-        pointerId: event.pointerId,
-        lastPoint: point,
-        cells: [point.y * 32 + point.x],
-        dirtyCells: [point.y * 32 + point.x],
-        tile: dragTile,
-        buryOnBottom: event.shiftKey,
-      };
-      brushDragStateRef.current = nextDragState;
-      setDragState(nextDragState);
-    } else if (tool === "line") {
-      brushDragStateRef.current = null;
-      setDragState({
-        tool: "line",
-        pointerId: event.pointerId,
-        start: point,
-        current: point,
-        tile: dragTile,
-        buryOnBottom: event.shiftKey,
-      });
-    } else {
-      brushDragStateRef.current = null;
-      setDragState({
-        tool: "select",
-        pointerId: event.pointerId,
-        start: point,
-        current: point,
-      });
-    }
-  }
-
-  function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>): void {
-    const isTrackedTabletTouch =
-      isTabletLayout &&
-      isTouchPointer(event.nativeEvent) &&
-      touchBoardPointsRef.current.has(event.pointerId);
-    if (isTrackedTabletTouch) {
-      touchBoardPointsRef.current.set(event.pointerId, {
-        clientX: event.clientX,
-        clientY: event.clientY,
-      });
-      if (touchGestureState) {
-        event.preventDefault();
-        setHoverPointIfChanged(null);
-        updateTouchBoardGesture();
-        return;
-      }
-    }
-
-    if (boardPanState && boardPanState.pointerId === event.pointerId) {
-      event.preventDefault();
-      setHoverPointIfChanged(null);
-      updateBoardPanGesture(event.clientX, event.clientY);
-      return;
-    }
-
-    const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
-    const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent);
-    if (dragState?.tool === "brush") setHoverPointIfChanged(null);
-    else setHoverPointIfChanged(point);
-
-    if (tool === "connect" && pendingConnection && boardPoint) {
-      setPendingConnection((current) =>
-        current
-          ? {
-              ...current,
-              cursor: boardPoint,
-            }
-          : current,
-      );
-    }
-
-    if (!point || !dragState || dragState.pointerId !== event.pointerId) return;
-
-    if (dragState.tool === "brush") {
-      const currentBrushState = brushDragStateRef.current ?? dragState;
-      if (gridPointsEqual(currentBrushState.lastPoint, point)) return;
-      scheduleBrushDrag(point);
-      return;
-    }
-
-    if (gridPointsEqual(dragState.current, point)) return;
-    setDragState({
-      ...dragState,
-      current: point,
-    });
-  }
-
-  function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>): void {
-    const isTrackedTabletTouch =
-      isTabletLayout &&
-      isTouchPointer(event.nativeEvent) &&
-      touchBoardPointsRef.current.has(event.pointerId);
-    if (touchGestureState && isTrackedTabletTouch) {
-      event.preventDefault();
-      touchBoardPointsRef.current.delete(event.pointerId);
-      setTouchGestureState(null);
-      setHoverPointIfChanged(null);
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      return;
-    }
-    if (isTrackedTabletTouch) {
-      touchBoardPointsRef.current.delete(event.pointerId);
-    }
-
-    if (boardPanState && boardPanState.pointerId === event.pointerId) {
-      event.preventDefault();
-      setBoardPanState(null);
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      return;
-    }
-
-    if (tool === "connect") {
-      if (isTrackedTabletTouch) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-      return;
-    }
-
-    const activeBrushDragState =
-      brushDragStateRef.current?.pointerId === event.pointerId
-        ? brushDragStateRef.current
-        : dragState?.tool === "brush" && dragState.pointerId === event.pointerId
-          ? dragState
-          : null;
-    const activeDragState = activeBrushDragState ?? dragState;
-
-    if (!activeDragState || activeDragState.pointerId !== event.pointerId) {
-      if (isTrackedTabletTouch) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-      return;
-    }
-    event.preventDefault();
-
-    const point = canvasPointToCell(event.currentTarget, event.nativeEvent);
-
-    if (activeDragState.tool === "brush") {
-      const pendingBrushPoint = cancelScheduledBrushDrag();
-      const finalPoint = point ?? pendingBrushPoint ?? activeDragState.lastPoint;
-      const finalCells = extendPaintStroke(
-        activeDragState.cells,
-        activeDragState.lastPoint,
-        finalPoint,
-      ).cells;
-      commitSelectedLevelUpdate((level) =>
-        paintLevelCells(
-          level,
-          finalCells,
-          activeDragState.tile,
-          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, activeDragState.buryOnBottom),
-        ),
-      );
-      brushDragStateRef.current = null;
-      brushPreviewReplayKeyRef.current = null;
-      setHoverPointIfChanged(finalPoint);
-    } else if (activeDragState.tool === "line") {
-      commitSelectedLevelUpdate((level) =>
-        paintLevelLine(
-          level,
-          activeDragState.start,
-          point ?? activeDragState.current,
-          activeDragState.tile,
-          makePaintOptions(threeDLevelsEnabled, selectedLayerZ, activeDragState.buryOnBottom),
-        ),
-      );
-    } else {
-      setSelection(normalizeRect(activeDragState.start, point ?? activeDragState.current));
-    }
-
-    setDragState(null);
-    event.currentTarget.releasePointerCapture(event.pointerId);
-  }
-
-  function handlePointerCancel(event: React.PointerEvent<HTMLCanvasElement>): void {
-    const isTrackedTabletTouch =
-      isTabletLayout &&
-      isTouchPointer(event.nativeEvent) &&
-      touchBoardPointsRef.current.has(event.pointerId);
-    if (isTrackedTabletTouch) {
-      touchBoardPointsRef.current.delete(event.pointerId);
-      if (touchGestureState) {
-        setTouchGestureState(null);
-        cancelScheduledBrushDrag();
-        brushDragStateRef.current = null;
-        brushPreviewReplayKeyRef.current = null;
-        setHoverPointIfChanged(null);
-        return;
-      }
-    }
-
-    if (boardPanState && boardPanState.pointerId === event.pointerId) {
-      setBoardPanState(null);
-      setHoverPointIfChanged(null);
-      return;
-    }
-
-    if (tool === "connect") {
-      if (isTrackedTabletTouch) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-      return;
-    }
-
-    const activeBrushDragState =
-      brushDragStateRef.current?.pointerId === event.pointerId
-        ? brushDragStateRef.current
-        : dragState?.tool === "brush" && dragState.pointerId === event.pointerId
-          ? dragState
-          : null;
-    const activeDragState = activeBrushDragState ?? dragState;
-
-    if (!activeDragState || activeDragState.pointerId !== event.pointerId) {
-      if (isTrackedTabletTouch) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-      return;
-    }
-    cancelScheduledBrushDrag();
-    brushDragStateRef.current = null;
-    brushPreviewReplayKeyRef.current = null;
-    setDragState(null);
-    setHoverPointIfChanged(null);
-  }
-
-  function handleBoardWheel(event: React.WheelEvent<HTMLDivElement>): void {
-    if (!activeLevel || boardSize <= 0) return;
-    event.preventDefault();
-
-    const viewport = boardViewportRef.current;
-    if (!viewport) return;
-
-    const rect = viewport.getBoundingClientRect();
-    const nextZoom = clampNumber(boardZoom * Math.exp(-event.deltaY * 0.0015), 0.25, 6);
-    if (Math.abs(nextZoom - boardZoom) < 0.001) return;
-
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
-    const worldX = (pointerX - boardPan.x) / boardZoom;
-    const worldY = (pointerY - boardPan.y) / boardZoom;
-
-    setBoardZoom(nextZoom);
-    setBoardPan({
-      x: pointerX - worldX * nextZoom,
-      y: pointerY - worldY * nextZoom,
-    });
   }
 
   function handlePaletteWheel(event: React.WheelEvent<HTMLDivElement>): void {
@@ -4051,201 +4492,38 @@ export default function App() {
           ) : null}
 
           {leftPanelTab === "controls" ? (
-            <section className="panelSection leftPanelTabBody controlsPanelSection">
-              <div className="sectionHeader">
-                <div>
-                  <div className="sectionEyebrow">Board</div>
-                  <h2 className="sectionTitle">Controls</h2>
-                </div>
-              </div>
-
-              <div className="boardControlRow boardCommandRow">
-                <button
-                  type="button"
-                  className="actionButton"
-                  disabled={!canUndo}
-                  onClick={() =>
-                    setEditor((current) => (current ? undoLevelsetEvent(current) : current))
-                  }
-                >
-                  Undo
-                </button>
-                <button
-                  type="button"
-                  className="actionButton"
-                  disabled={!canRedo}
-                  onClick={() =>
-                    setEditor((current) => (current ? redoLevelsetEvent(current) : current))
-                  }
-                >
-                  Redo
-                </button>
-                <button
-                  type="button"
-                  className="secondaryButton"
-                  disabled={!selection || !activeLevel}
-                  onClick={copySelection}
-                >
-                  Copy
-                </button>
-                <button
-                  type="button"
-                  className="secondaryButton"
-                  disabled={!clipboard || !activeLevel}
-                  onClick={pasteClipboard}
-                >
-                  Paste
-                </button>
-                <button
-                  type="button"
-                  className="secondaryButton"
-                  disabled={!selection || !activeLevel}
-                  onClick={eraseSelection}
-                >
-                  Erase
-                </button>
-                <button
-                  type="button"
-                  className="secondaryButton"
-                  disabled={!activeLevel}
-                  onClick={() => commitSelectedLevelUpdate(clearLevel)}
-                >
-                  Clear
-                </button>
-              </div>
-
-              <div className="toggleGroup boardToolRow">
-                {TOOL_LABELS.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    className={`toolButton ${tool === entry.id ? "active" : ""}`}
-                    onClick={() => setTool(entry.id)}
-                  >
-                    {entry.label}
-                    <span className="toolShortcut">{entry.shortcut}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="boardMeta">
-                <span className="statusBadge">{`zoom ${Math.round(boardZoom * 100)}%`}</span>
-                <button
-                  type="button"
-                  className="statusBadge statusBadgeButton"
-                  disabled={!activeLevel || !spriteSet}
-                  onClick={() => resetBoardView(1)}
-                >
-                  Reset
-                </button>
-                {clipboard ? (
-                  <span className="statusBadge">{`clipboard ${clipboard.width}x${clipboard.height}`}</span>
-                ) : null}
-                {selection ? (
-                  <span className="statusBadge">{`selection ${selection.width}x${selection.height}`}</span>
-                ) : null}
-                {hoverPoint ? (
-                  <span className="statusBadge">{`cell ${hoverPoint.x},${hoverPoint.y}`}</span>
-                ) : null}
-              </div>
-
-              {hoverCellSummary ? (
-                <div className="hoverSummary">
-                  <span>{`index ${hoverCellSummary.index}`}</span>
-                  <span>{`top ${hoverCellSummary.top}`}</span>
-                  <span>{`bottom ${hoverCellSummary.bottom}`}</span>
-                </div>
-              ) : (
-                <div className="hoverSummary">
-                  {isTabletLayout
-                    ? "Tap a cell to inspect a cell stack."
-                    : "Hover the map to inspect a cell stack."}
-                </div>
-              )}
-
-              {threeDLevelsEnabled && selectedLogicalLevel ? (
-                <section className="leftPanelSubsection">
-                  <div className="sectionHeader leftPanelSubsectionHeader">
-                    <div>
-                      <div className="sectionEyebrow">3D Levels</div>
-                      <h3 className="sectionTitle">Layers</h3>
-                    </div>
-                    <div className="sectionActions">
-                      <button
-                        type="button"
-                        className="boardIconButton"
-                        aria-label="Explain DAT 3D levels"
-                        title="Explain DAT 3D levels"
-                        onClick={() => setOpenDialog("threeDHelp")}
-                      >
-                        <svg viewBox="0 0 16 16" aria-hidden="true">
-                          <circle cx="8" cy="8" r="6.25" fill="none" />
-                          <path
-                            d="M6.7 6.1a1.55 1.55 0 1 1 2.5 1.2c-.72.56-1.15.95-1.15 1.7v.35"
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <circle cx="8" cy="11.95" r="0.75" stroke="none" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="boardMeta">
-                    <span className="statusBadge">{`z ${selectedLayerZ}/${selectedLogicalLevel.layers.length}`}</span>
-                    <span className="statusBadge">{`${selectedLogicalLevel.layers.length} layers`}</span>
-                  </div>
-
-                  <div className="board3dButtonGrid">
-                    <button
-                      type="button"
-                      className="secondaryButton shortcutButton"
-                      disabled={selectedLayerZ >= selectedLogicalLevel.layers.length}
-                      onClick={selectLayerUp}
-                    >
-                      Layer Up
-                      <span className="toolShortcut">Q</span>
-                    </button>
-                    <button type="button" className="secondaryButton" onClick={addTopLayer}>
-                      + Top
-                    </button>
-                    <button
-                      type="button"
-                      className="secondaryButton"
-                      disabled={selectedLogicalLevel.layers.length <= 1}
-                      onClick={removeTopLayer}
-                    >
-                      - Top
-                    </button>
-                    <button
-                      type="button"
-                      className="secondaryButton shortcutButton"
-                      disabled={selectedLayerZ <= 1}
-                      onClick={selectLayerDown}
-                    >
-                      Layer Down
-                      <span className="toolShortcut">Z</span>
-                    </button>
-                    <button type="button" className="secondaryButton" onClick={addBottomLayer}>
-                      + Bottom
-                    </button>
-                    <button
-                      type="button"
-                      className="secondaryButton"
-                      disabled={selectedLogicalLevel.layers.length <= 1}
-                      onClick={removeBottomLayer}
-                    >
-                      - Bottom
-                    </button>
-                  </div>
-
-                  <div className="boardHelpText">
-                    Use Q to move up a z-layer and Z to move down.
-                  </div>
-                </section>
-              ) : null}
-            </section>
+            <BoardControlsSection
+              statusStore={boardStatusStore}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              activeLevel={activeLevel}
+              selection={selection}
+              clipboard={clipboard}
+              tool={tool}
+              setTool={setTool}
+              onUndo={() =>
+                setEditor((current) => (current ? undoLevelsetEvent(current) : current))
+              }
+              onRedo={() =>
+                setEditor((current) => (current ? redoLevelsetEvent(current) : current))
+              }
+              onCopySelection={copySelection}
+              onPasteClipboard={pasteClipboard}
+              onEraseSelection={eraseSelection}
+              onClearLevel={() => commitSelectedLevelUpdate(clearLevel)}
+              onResetBoardView={() => boardEditorRef.current?.resetBoardView(1)}
+              isTabletLayout={isTabletLayout}
+              threeDLevelsEnabled={threeDLevelsEnabled}
+              selectedLogicalLevel={selectedLogicalLevel}
+              selectedLayerZ={selectedLayerZ}
+              onSelectLayerUp={selectLayerUp}
+              onSelectLayerDown={selectLayerDown}
+              onAddTopLayer={addTopLayer}
+              onAddBottomLayer={addBottomLayer}
+              onRemoveTopLayer={removeTopLayer}
+              onRemoveBottomLayer={removeBottomLayer}
+              onOpenThreeDHelp={() => setOpenDialog("threeDHelp")}
+            />
           ) : null}
         </aside>
 
@@ -4257,80 +4535,36 @@ export default function App() {
           aria-label="Resize level manager"
         />
 
-        <section className="panel boardPanel">
-          <div
-            className={`boardViewport ${boardPanActive ? "panning" : ""}`}
-            ref={boardViewportRef}
-            onWheel={handleBoardWheel}
-            onPointerDown={handleViewportPointerDown}
-            onPointerMove={handleViewportPointerMove}
-            onPointerUp={handleViewportPointerUp}
-            onPointerCancel={handleViewportPointerCancel}
-          >
-            {activeLevel && spriteSet ? (
-              <div
-                className={`boardStageTransform ${boardPanActive ? "panning" : ""}`}
-                style={{
-                  width: boardSize,
-                  height: boardSize,
-                  transform: `translate(${boardPan.x}px, ${boardPan.y}px) scale(${boardZoom})`,
-                }}
-              >
-                {BOARD_TRANSFORM_BUTTONS.map((button) => (
-                  <button
-                    key={button.kind}
-                    type="button"
-                    className={`boardTransformButton ${button.position}`}
-                    aria-label={button.label}
-                    title={button.label}
-                    onClick={() => applySelectedLevelTransform(button.kind)}
-                  >
-                    {renderBoardTransformIcon(button.kind)}
-                  </button>
-                ))}
-                {LEVEL_SHIFT_ARROWS.map((arrow) => (
-                  <button
-                    key={arrow.direction}
-                    type="button"
-                    className={`boardShiftArrow ${arrow.direction}`}
-                    aria-label={arrow.label}
-                    title={arrow.label}
-                    onClick={() => shiftVisibleLevel(arrow.dx, arrow.dy)}
-                  >
-                    <svg viewBox="0 0 16 16" aria-hidden="true">
-                      <polygon points="8,3 13,12 3,12" />
-                    </svg>
-                  </button>
-                ))}
-                <div
-                  className="boardStage"
-                  style={{
-                    width: boardSize,
-                    height: boardSize,
-                  }}
-                >
-                  <canvas ref={boardCanvasRef} className="boardCanvas" />
-                  <canvas
-                    ref={overlayCanvasRef}
-                    className="boardCanvas overlayCanvas"
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerUp}
-                    onPointerCancel={handlePointerCancel}
-                    onContextMenu={(event) => event.preventDefault()}
-                    onPointerLeave={() => {
-                      if (!dragState && !boardPanActive) setHoverPointIfChanged(null);
-                    }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="emptyState largeEmptyState">
-                Select a level and load the sprite set to edit.
-              </div>
-            )}
-          </div>
-        </section>
+        <BoardEditorSurface
+          ref={boardEditorRef}
+          statusStore={boardStatusStore}
+          interactionResetToken={boardInteractionResetToken}
+          viewResetToken={boardViewResetToken}
+          activeLevel={activeLevel}
+          activeDisplayContext={activeDisplayContext}
+          selectedLogicalLevel={selectedLogicalLevel}
+          selectedLayerZ={selectedLayerZ}
+          spriteSet={spriteSet}
+          boardSize={boardSize}
+          showSecrets={showSecrets}
+          showConnections={showConnections}
+          showMonsterOrder={showMonsterOrder}
+          showValidityWarnings={showValidityWarnings}
+          threeDLevelsEnabled={threeDLevelsEnabled}
+          tool={tool}
+          primaryTile={primaryTile}
+          secondaryTile={secondaryTile}
+          selection={selection}
+          clipboard={clipboard}
+          pastePreviewActive={pastePreviewActive}
+          onSelectionChange={setSelection}
+          onClearMetadataError={() => setMetadataError(null)}
+          onSetErrorMessage={setErrorMessage}
+          onCommitSelectedLevelUpdate={commitSelectedLevelUpdate}
+          onApplySelectedLevelTransform={applySelectedLevelTransform}
+          onShiftVisibleLevel={shiftVisibleLevel}
+          isTabletLayout={isTabletLayout}
+        />
 
         <div
           className={`panelSplitter ${layoutResizeState?.side === "right" ? "active" : ""}`}
