@@ -27,20 +27,38 @@ export function drawCc1LevelToContext(
   spriteCache: CanvasSpriteCache,
   opts: RenderOptions,
 ): void {
+  drawCc1CellsToContext(
+    ctx,
+    level,
+    Array.from({ length: 32 * 32 }, (_, index) => index),
+    spriteCache,
+    opts,
+  );
+}
+
+export function drawCc1CellsToContext(
+  ctx: CanvasRenderingContext2D,
+  level: DatLevelJson,
+  indices: ReadonlyArray<number>,
+  spriteCache: CanvasSpriteCache,
+  opts: RenderOptions,
+): void {
   const size = spriteCache.tileSize;
-  for (let row = 0; row < 32; row++) {
-    for (let column = 0; column < 32; column++) {
-      const index = row * 32 + column;
-      drawCc1CellToContext(
-        ctx,
-        level.map.top[index] ?? level.map.bottom[index] ?? "FLOOR",
-        level.map.bottom[index] ?? "FLOOR",
-        spriteCache,
-        opts,
-        column * size,
-        row * size,
-      );
-    }
+  for (const index of indices) {
+    const column = index % 32;
+    const row = Math.floor(index / 32);
+    const dx = column * size;
+    const dy = row * size;
+    ctx.clearRect(dx, dy, size, size);
+    drawCc1CellToContext(
+      ctx,
+      level.map.top[index] ?? level.map.bottom[index] ?? "FLOOR",
+      level.map.bottom[index] ?? "FLOOR",
+      spriteCache,
+      opts,
+      dx,
+      dy,
+    );
   }
 }
 

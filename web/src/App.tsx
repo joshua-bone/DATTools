@@ -54,10 +54,12 @@ import {
 import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import {
   drawCc1CellToContext,
+  drawCc1CellsToContext,
   drawCc1LevelToCanvas,
   drawCc1LevelToContext,
 } from "@/web/src/canvasLevelRenderer";
 import { createCanvasSpriteCache, type CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
+import { resolveBoardTileRedrawPlan } from "@/web/src/boardRenderInvalidation";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
 import {
@@ -297,6 +299,7 @@ const LAYOUT_MODE_PREFERENCE_STORAGE_KEY = "dattools-layout-mode";
 const DAT_3D_VALID_TERRAIN_TILES = new Set<string>([DAT_3D_AIR_TILE, "CHIP_EXIT"]);
 const DEFAULT_LEVELSET_FILENAME = "NEW_LEVELSET.DAT";
 const DEFAULT_MAGIC_NUMBER = 174764;
+const BOARD_PARTIAL_REDRAW_THRESHOLD = 128;
 const TRANSFORM_MENU_ITEMS: ReadonlyArray<Readonly<{ kind: DatTransformKind; label: string }>> = [
   { kind: "ROTATE_90", label: "Rotate 90°" },
   { kind: "ROTATE_180", label: "Rotate 180°" },
@@ -306,6 +309,14 @@ const TRANSFORM_MENU_ITEMS: ReadonlyArray<Readonly<{ kind: DatTransformKind; lab
   { kind: "FLIP_DIAG_NWSE", label: "Flip Diagonal NW-SE" },
   { kind: "FLIP_DIAG_NESW", label: "Flip Diagonal NE-SW" },
 ];
+
+type BoardBaseRenderSnapshot = Readonly<{
+  level: DatLevelJson | null;
+  renderKey: string | null;
+  mode: "committed" | "transient";
+  canvasSpriteCache: CanvasSpriteCache | null;
+  boardSize: number;
+}>;
 
 function asErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -1529,7 +1540,15 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     const touchBoardPointsRef = useRef<Map<number, TouchPoint>>(new Map());
     const boardViewportRef = useRef<HTMLDivElement>(null);
     const boardCanvasRef = useRef<HTMLCanvasElement>(null);
+    const boardAnnotationCanvasRef = useRef<HTMLCanvasElement>(null);
     const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+    const boardBaseRenderSnapshotRef = useRef<BoardBaseRenderSnapshot>({
+      level: null,
+      renderKey: null,
+      mode: "transient",
+      canvasSpriteCache: null,
+      boardSize: 0,
+    });
 
     const [pendingConnection, setPendingConnection] = useState<PendingConnectionState>(null);
     const [hoverPoint, setHoverPoint] = useState<GridPoint | null>(null);
@@ -1819,6 +1838,12 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("Canvas 2D context unavailable");
 
+        const sizeChanged = canvas.width !== boardSize || canvas.height !== boardSize;
+        if (sizeChanged) {
+          canvas.width = boardSize;
+          canvas.height = boardSize;
+        }
+
         const renderLayerCanvas = (level: DatLevelJson, layerZ: number, layerCount: number) => {
           const displayLevel = createDat3dDisplayLevel(level, {
             threeDEnabled: threeDLevelsEnabled,
@@ -1830,11 +1855,17 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           return tempCanvas;
         };
 
-        canvas.width = boardSize;
-        canvas.height = boardSize;
-        ctx.clearRect(0, 0, boardSize, boardSize);
+        const isTransientBoardRender = threeDLevelsEnabled || previewLevel !== activeLevel;
+        const renderKey = [
+          activeDisplayContext.threeDEnabled ? "3d" : "2d",
+          activeDisplayContext.layerZ,
+          activeDisplayContext.layerCount,
+          showSecrets ? "secrets" : "plain",
+        ].join(":");
 
         if (threeDLevelsEnabled && selectedLogicalLevel) {
+          ctx.clearRect(0, 0, boardSize, boardSize);
+
           const layerCount = selectedLogicalLevel.layers.length;
           const activeCanvas = renderLayerCanvas(previewLevel, selectedLayerZ, layerCount);
           const viewport = boardViewportRef.current;
@@ -1865,17 +1896,77 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           }
 
           ctx.drawImage(activeCanvas, 0, 0);
-        } else {
-          const displayLevel = createDat3dDisplayLevel(previewLevel, activeDisplayContext);
-          drawCc1LevelToContext(ctx, displayLevel, canvasSpriteCache, { showSecrets });
+        } else if (activeLevel) {
+          const previousSnapshot = boardBaseRenderSnapshotRef.current;
+          const redrawPlan = resolveBoardTileRedrawPlan(previousSnapshot.level, activeLevel, {
+            canReuseCanvas:
+              !sizeChanged &&
+              !isTransientBoardRender &&
+              previousSnapshot.mode === "committed" &&
+              previousSnapshot.renderKey === renderKey &&
+              previousSnapshot.canvasSpriteCache === canvasSpriteCache &&
+              previousSnapshot.boardSize === boardSize,
+            partialThreshold: BOARD_PARTIAL_REDRAW_THRESHOLD,
+          });
+          const displayLevel = createDat3dDisplayLevel(
+            isTransientBoardRender ? previewLevel : activeLevel,
+            activeDisplayContext,
+          );
+
+          if (redrawPlan.kind === "full") {
+            ctx.clearRect(0, 0, boardSize, boardSize);
+            drawCc1LevelToContext(ctx, displayLevel, canvasSpriteCache, { showSecrets });
+          } else if (redrawPlan.indices.length > 0) {
+            drawCc1CellsToContext(ctx, displayLevel, redrawPlan.indices, canvasSpriteCache, {
+              showSecrets,
+            });
+          }
         }
 
-        const overlayContext = canvas.getContext("2d");
-        if (!overlayContext) throw new Error("Canvas 2D context unavailable");
+        boardBaseRenderSnapshotRef.current = {
+          level: activeLevel,
+          renderKey,
+          mode: isTransientBoardRender ? "transient" : "committed",
+          canvasSpriteCache,
+          boardSize,
+        };
+      } catch (error: unknown) {
+        onSetErrorMessage(asErrorMessage(error));
+      }
+    }, [
+      activeDisplayContext,
+      activeLevel,
+      boardPan,
+      boardSize,
+      boardZoom,
+      previewLevel,
+      selectedLayerZ,
+      selectedLogicalLevel,
+      showSecrets,
+      spriteSet,
+      canvasSpriteCache,
+      threeDLevelsEnabled,
+      onSetErrorMessage,
+    ]);
+
+    useEffect(() => {
+      const canvas = boardAnnotationCanvasRef.current;
+      if (!canvas || !previewLevel || !spriteSet) return;
+
+      try {
+        if (canvas.width !== boardSize || canvas.height !== boardSize) {
+          canvas.width = boardSize;
+          canvas.height = boardSize;
+        }
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D context unavailable");
+
+        ctx.clearRect(0, 0, boardSize, boardSize);
 
         if (shouldDrawConnections) {
           drawConnections(
-            overlayContext,
+            ctx,
             spriteSet.tileSize,
             previewLevel.trapControls,
             previewLevel.cloneControls,
@@ -1883,25 +1974,17 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         }
 
         if (shouldDrawMonsterOrder) {
-          drawMonsterOrder(overlayContext, spriteSet.tileSize, previewLevel.movement);
+          drawMonsterOrder(ctx, spriteSet.tileSize, previewLevel.movement);
         }
       } catch (error: unknown) {
         onSetErrorMessage(asErrorMessage(error));
       }
     }, [
-      activeDisplayContext,
-      boardPan,
       boardSize,
-      boardZoom,
       previewLevel,
-      selectedLayerZ,
-      selectedLogicalLevel,
       shouldDrawConnections,
       shouldDrawMonsterOrder,
-      showSecrets,
       spriteSet,
-      canvasSpriteCache,
-      threeDLevelsEnabled,
       onSetErrorMessage,
     ]);
 
@@ -2655,6 +2738,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                 }}
               >
                 <canvas ref={boardCanvasRef} className="boardCanvas" />
+                <canvas ref={boardAnnotationCanvasRef} className="boardCanvas" />
                 <canvas
                   ref={overlayCanvasRef}
                   className="boardCanvas overlayCanvas"
