@@ -64,6 +64,15 @@ import { resolveBoardTileRedrawPlan } from "@/web/src/boardRenderInvalidation";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
 import {
+  APP_PREFERENCES_STORAGE_KEY,
+  EDITOR_SESSION_STORAGE_KEY,
+  parsePersistedAppPreferences,
+  parsePersistedEditorSession,
+  serializePersistedAppPreferences,
+  serializePersistedEditorSession,
+  type PersistedAppPreferences,
+} from "@/web/src/persistedAppState";
+import {
   buildHoverCellSummary,
   createBoardEditorStatusStore,
   resolveBrushPreviewDirtyCells,
@@ -297,6 +306,7 @@ const KEYBOARD_PAN_SPEED = 520;
 const TABLET_LAYOUT_MIN_VIEWPORT = 700;
 const TABLET_LAYOUT_MAX_VIEWPORT = 1400;
 const LAYOUT_MODE_PREFERENCE_STORAGE_KEY = "dattools-layout-mode";
+const DOCUMENT_PERSIST_DEBOUNCE_MS = 300;
 const DAT_3D_VALID_TERRAIN_TILES = new Set<string>([DAT_3D_AIR_TILE, "CHIP_EXIT"]);
 const DEFAULT_LEVELSET_FILENAME = "NEW_LEVELSET.DAT";
 const DEFAULT_MAGIC_NUMBER = 174764;
@@ -332,6 +342,25 @@ function getOrCreateInternalCanvas(ref: { current: HTMLCanvasElement | null }): 
     ref.current = document.createElement("canvas");
   }
   return ref.current;
+}
+
+function readLocalStorage(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalStorage(key: string, value: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function asErrorMessage(err: unknown): string {
@@ -438,6 +467,38 @@ function createDefaultLevelsetDocument(): DatLevelsetJsonV1 {
     magicNumber: DEFAULT_MAGIC_NUMBER,
     levels: [createEmptyLevel(1, { title: "Level 1" })],
   });
+}
+
+type InitialAppState = Readonly<{
+  editor: LevelsetEditorHistory;
+  fileName: string;
+  preferences: PersistedAppPreferences;
+}>;
+
+function createInitialAppState(): InitialAppState {
+  const fallbackDoc = createDefaultLevelsetDocument();
+  if (typeof window === "undefined") {
+    return {
+      editor: createLevelsetEditorHistory(fallbackDoc),
+      fileName: DEFAULT_LEVELSET_FILENAME,
+      preferences: parsePersistedAppPreferences(null),
+    };
+  }
+
+  const session = parsePersistedEditorSession(
+    readLocalStorage(EDITOR_SESSION_STORAGE_KEY),
+    DEFAULT_LEVELSET_FILENAME,
+  );
+  const preferences = parsePersistedAppPreferences(readLocalStorage(APP_PREFERENCES_STORAGE_KEY));
+  const editor = session
+    ? selectLevelInHistory(createLevelsetEditorHistory(session.doc), session.selectedIndex)
+    : createLevelsetEditorHistory(fallbackDoc);
+
+  return {
+    editor,
+    fileName: session?.fileName ?? DEFAULT_LEVELSET_FILENAME,
+    preferences,
+  };
 }
 
 function normalizeDatFileName(filename: string): string {
@@ -2850,16 +2911,21 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
 export default function App() {
   const previousThreeDEnabledRef = useRef(false);
+  const sessionPersistTimeoutRef = useRef<number | null>(null);
+  const latestSessionSnapshotRef = useRef<{
+    doc: DatLevelsetJsonV1;
+    fileName: string;
+    selectedIndex: number;
+  } | null>(null);
   const boardEditorRef = useRef<BoardEditorHandle>(null);
   const editorLayoutRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const paletteGridRef = useRef<HTMLDivElement>(null);
   const [boardStatusStore] = useState(() => createBoardEditorStatusStore());
+  const [initialAppState] = useState(() => createInitialAppState());
 
-  const [editor, setEditor] = useState<LevelsetEditorHistory | null>(() =>
-    createLevelsetEditorHistory(createDefaultLevelsetDocument()),
-  );
-  const [fileName, setFileName] = useState<string>(DEFAULT_LEVELSET_FILENAME);
+  const [editor, setEditor] = useState<LevelsetEditorHistory | null>(initialAppState.editor);
+  const [fileName, setFileName] = useState<string>(initialAppState.fileName);
 
   const [spriteSet, setSpriteSet] = useState<CC1SpriteSet | null>(null);
   const [spriteError, setSpriteError] = useState<string | null>(null);
@@ -2890,12 +2956,14 @@ export default function App() {
     "file" | "view" | "options" | "transform" | null
   >(null);
   const [openDialog, setOpenDialog] = useState<"brandingHelp" | "threeDHelp" | null>(null);
-  const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(false);
+  const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(
+    initialAppState.preferences.threeDLevelsEnabled,
+  );
   const [paletteViewportWidth, setPaletteViewportWidth] = useState(0);
   const [paletteTileSizeTarget, setPaletteTileSizeTarget] = useState(MIN_PALETTE_TILE_SIZE);
   const [layoutModePreference, setLayoutModePreference] = useState<LayoutModePreference>(() => {
     if (typeof window === "undefined") return "auto";
-    const storedPreference = window.localStorage.getItem(LAYOUT_MODE_PREFERENCE_STORAGE_KEY);
+    const storedPreference = readLocalStorage(LAYOUT_MODE_PREFERENCE_STORAGE_KEY);
     return isLayoutModePreference(storedPreference) ? storedPreference : "auto";
   });
   const [viewportSize, setViewportSize] = useState<ViewportSize>(() => ({
@@ -2921,10 +2989,16 @@ export default function App() {
   const [boardInteractionResetToken, setBoardInteractionResetToken] = useState(0);
   const [boardViewResetToken, setBoardViewResetToken] = useState(0);
 
-  const [showSecrets, setShowSecrets] = useState(true);
-  const [showConnections, setShowConnections] = useState(true);
-  const [showMonsterOrder, setShowMonsterOrder] = useState(true);
-  const [showValidityWarnings, setShowValidityWarnings] = useState(true);
+  const [showSecrets, setShowSecrets] = useState(initialAppState.preferences.showSecrets);
+  const [showConnections, setShowConnections] = useState(
+    initialAppState.preferences.showConnections,
+  );
+  const [showMonsterOrder, setShowMonsterOrder] = useState(
+    initialAppState.preferences.showMonsterOrder,
+  );
+  const [showValidityWarnings, setShowValidityWarnings] = useState(
+    initialAppState.preferences.showValidityWarnings,
+  );
 
   const [metadataDraft, setMetadataDraft] = useState<MetadataDraft | null>(null);
 
@@ -3104,8 +3178,87 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(LAYOUT_MODE_PREFERENCE_STORAGE_KEY, layoutModePreference);
+    writeLocalStorage(LAYOUT_MODE_PREFERENCE_STORAGE_KEY, layoutModePreference);
   }, [layoutModePreference]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    writeLocalStorage(
+      APP_PREFERENCES_STORAGE_KEY,
+      serializePersistedAppPreferences({
+        showSecrets,
+        showConnections,
+        showMonsterOrder,
+        showValidityWarnings,
+        threeDLevelsEnabled,
+      }),
+    );
+  }, [showConnections, showMonsterOrder, showSecrets, showValidityWarnings, threeDLevelsEnabled]);
+
+  useEffect(() => {
+    latestSessionSnapshotRef.current = doc
+      ? {
+          doc,
+          fileName,
+          selectedIndex,
+        }
+      : null;
+  }, [doc, fileName, selectedIndex]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const flushPersistedSession = () => {
+      const session = latestSessionSnapshotRef.current;
+      if (!session) return;
+
+      if (
+        !writeLocalStorage(EDITOR_SESSION_STORAGE_KEY, serializePersistedEditorSession(session))
+      ) {
+        setErrorMessage("Couldn't save the current levelset locally.");
+      }
+    };
+
+    window.addEventListener("pagehide", flushPersistedSession);
+    return () => {
+      window.removeEventListener("pagehide", flushPersistedSession);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !doc) return;
+
+    if (sessionPersistTimeoutRef.current !== null) {
+      window.clearTimeout(sessionPersistTimeoutRef.current);
+    }
+
+    const persistSession = () => {
+      if (
+        !writeLocalStorage(
+          EDITOR_SESSION_STORAGE_KEY,
+          serializePersistedEditorSession({
+            doc,
+            fileName,
+            selectedIndex,
+          }),
+        )
+      ) {
+        setErrorMessage("Couldn't save the current levelset locally.");
+      }
+      sessionPersistTimeoutRef.current = null;
+    };
+
+    sessionPersistTimeoutRef.current = window.setTimeout(
+      persistSession,
+      DOCUMENT_PERSIST_DEBOUNCE_MS,
+    );
+
+    return () => {
+      if (sessionPersistTimeoutRef.current !== null) {
+        window.clearTimeout(sessionPersistTimeoutRef.current);
+      }
+    };
+  }, [doc, fileName, selectedIndex]);
 
   useEffect(() => {
     if (isTabletLayout) return;
