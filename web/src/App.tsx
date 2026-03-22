@@ -881,78 +881,53 @@ const BOARD_TRANSFORM_BUTTONS: ReadonlyArray<
   { kind: "FLIP_DIAG_NWSE", position: "corner-se", label: "Flip along the NW-SE diagonal" },
 ];
 
+function renderRotateTransformIcon(mirrored: boolean): ReactNode {
+  const markerId = mirrored ? "rotate-transform-head-mirrored" : "rotate-transform-head";
+
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <defs>
+        <marker
+          id={markerId}
+          viewBox="0 0 6 6"
+          refX="5.05"
+          refY="3"
+          markerWidth="6"
+          markerHeight="6"
+          markerUnits="userSpaceOnUse"
+          orient="auto-start-reverse"
+        >
+          <path
+            d="M0.9 1 5.1 3 2.9 5.95"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </marker>
+      </defs>
+      <g transform={mirrored ? "translate(20 0) scale(-1 1)" : undefined}>
+        <path
+          d="M10 3.25a6.75 6.75 0 1 0 5.74 10.3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          markerStart={`url(#${markerId})`}
+        />
+      </g>
+    </svg>
+  );
+}
+
 function renderBoardTransformIcon(kind: DatTransformKind): ReactNode {
   switch (kind) {
     case "ROTATE_90":
-      return (
-        <svg viewBox="0 0 20 20" aria-hidden="true">
-          <defs>
-            <marker
-              id="rotate-90-head"
-              viewBox="0 0 6 6"
-              refX="5.05"
-              refY="3"
-              markerWidth="6"
-              markerHeight="6"
-              markerUnits="userSpaceOnUse"
-              orient="auto-start-reverse"
-            >
-              <path
-                d="M5.1 1 0.9 3 3.1 5.95"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </marker>
-          </defs>
-          <path
-            d="M10 3.25a6.75 6.75 0 1 1-5.74 10.3"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            markerStart="url(#rotate-90-head)"
-          />
-        </svg>
-      );
+      return renderRotateTransformIcon(true);
     case "ROTATE_270":
-      return (
-        <svg viewBox="0 0 20 20" aria-hidden="true">
-          <defs>
-            <marker
-              id="rotate-270-head"
-              viewBox="0 0 6 6"
-              refX="5.05"
-              refY="3"
-              markerWidth="6"
-              markerHeight="6"
-              markerUnits="userSpaceOnUse"
-              orient="auto-start-reverse"
-            >
-              <path
-                d="M0.9 1 5.1 3 2.9 5.95"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </marker>
-          </defs>
-          <path
-            d="M10 3.25a6.75 6.75 0 1 0 5.74 10.3"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            markerStart="url(#rotate-270-head)"
-          />
-        </svg>
-      );
+      return renderRotateTransformIcon(false);
     case "FLIP_H":
       return (
         <svg viewBox="0 0 20 20" aria-hidden="true">
