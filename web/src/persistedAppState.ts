@@ -16,7 +16,7 @@ export type PersistedAppPreferences = Readonly<{
   showMonsterOrder: boolean;
   showValidityWarnings: boolean;
   threeDLevelsEnabled: boolean;
-  experimentalViewportRenderer: boolean;
+  lowDetailRendering: boolean;
 }>;
 
 export type PersistedEditorSession = Readonly<{
@@ -31,18 +31,14 @@ export const DEFAULT_PERSISTED_APP_PREFERENCES: PersistedAppPreferences = {
   showMonsterOrder: true,
   showValidityWarnings: true,
   threeDLevelsEnabled: false,
-  experimentalViewportRenderer: false,
+  lowDetailRendering: false,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function readBoolean(
-  record: Record<string, unknown>,
-  key: keyof PersistedAppPreferences,
-  fallback: boolean,
-): boolean {
+function readBoolean(record: Record<string, unknown>, key: string, fallback: boolean): boolean {
   const value = record[key];
   return typeof value === "boolean" ? value : fallback;
 }
@@ -87,11 +83,14 @@ export function parsePersistedAppPreferences(value: string | null): PersistedApp
         "threeDLevelsEnabled",
         DEFAULT_PERSISTED_APP_PREFERENCES.threeDLevelsEnabled,
       ),
-      experimentalViewportRenderer: readBoolean(
-        parsed,
-        "experimentalViewportRenderer",
-        DEFAULT_PERSISTED_APP_PREFERENCES.experimentalViewportRenderer,
-      ),
+      lowDetailRendering:
+        typeof parsed.lowDetailRendering === "boolean"
+          ? parsed.lowDetailRendering
+          : readBoolean(
+              parsed,
+              "experimentalViewportRenderer",
+              DEFAULT_PERSISTED_APP_PREFERENCES.lowDetailRendering,
+            ),
     };
   } catch {
     return DEFAULT_PERSISTED_APP_PREFERENCES;

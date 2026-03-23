@@ -62,8 +62,11 @@ import {
   boardPointToCell,
   drawPresentedBoardLayers,
   drawViewportPresentedBoardLayers,
+  enumerateVisibleBoardCellWindow,
   ensureCanvasSize,
+  isIndexVisibleInBoardCellWindow,
   resolveBoardScreenRect,
+  resolveVisibleBoardCellWindow,
   viewportClientPointToBoardPoint,
 } from "@/web/src/boardCanvasPresentation";
 import { createCanvasSpriteCache, type CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
@@ -277,7 +280,7 @@ type BoardEditorSurfaceProps = Readonly<{
   showMonsterOrder: boolean;
   showValidityWarnings: boolean;
   threeDLevelsEnabled: boolean;
-  experimentalViewportRenderer: boolean;
+  lowDetailRendering: boolean;
   tool: ToolMode;
   primaryTile: string;
   secondaryTile: string;
@@ -707,7 +710,7 @@ function canvasPointToCell(
     boardSize: number;
     boardPan: Readonly<{ x: number; y: number }>;
     boardZoom: number;
-    experimentalViewportRenderer: boolean;
+    lowDetailRendering: boolean;
   }>,
 ): GridPoint | null {
   const boardPoint = canvasPointToBoard(canvas, event, options);
@@ -722,13 +725,13 @@ function canvasPointToBoard(
     boardSize: number;
     boardPan: Readonly<{ x: number; y: number }>;
     boardZoom: number;
-    experimentalViewportRenderer: boolean;
+    lowDetailRendering: boolean;
   }>,
 ): BoardCursorPoint | null {
   const rect = canvas.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
 
-  if (options.experimentalViewportRenderer) {
+  if (options.lowDetailRendering) {
     return viewportClientPointToBoardPoint(
       rect,
       event,
@@ -1356,6 +1359,7 @@ function drawBrushPreviewCellsToContext(
   }>,
   displayContext: BoardDisplayContext,
   showSecrets: boolean,
+  showGridOutline = true,
 ): void {
   const previewCells = previewPaintLevelCells(
     level,
@@ -1379,7 +1383,9 @@ function drawBrushPreviewCellsToContext(
       x,
       y,
     );
-    drawGridCellOutline(ctx, canvasSpriteCache.tileSize, previewCell.index);
+    if (showGridOutline) {
+      drawGridCellOutline(ctx, canvasSpriteCache.tileSize, previewCell.index);
+    }
   }
 }
 
@@ -1622,7 +1628,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       showMonsterOrder,
       showValidityWarnings,
       threeDLevelsEnabled,
-      experimentalViewportRenderer,
+      lowDetailRendering,
       tool,
       primaryTile,
       secondaryTile,
@@ -1781,7 +1787,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         overlayCanvasRef.current,
       ];
 
-      if (experimentalViewportRenderer) {
+      if (lowDetailRendering) {
         const viewportWidth = Math.max(1, Math.floor(boardViewportSize.width || boardSize));
         const viewportHeight = Math.max(1, Math.floor(boardViewportSize.height || boardSize));
         ensureCanvasSize(canvas, viewportWidth, viewportHeight);
@@ -1815,9 +1821,10 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     const boardPanActive = !!boardPanState || !!touchGestureState;
     const isBrushDragging = dragState?.tool === "brush";
-    const shouldDrawConnections = showConnections && !isBrushDragging;
-    const shouldDrawMonsterOrder = showMonsterOrder;
-    const shouldDrawValidityWarnings = showValidityWarnings && !isBrushDragging;
+    const shouldDrawConnections = showConnections && !isBrushDragging && !lowDetailRendering;
+    const shouldDrawMonsterOrder = showMonsterOrder && !lowDetailRendering;
+    const shouldDrawValidityWarnings =
+      showValidityWarnings && !isBrushDragging && !lowDetailRendering;
 
     const previewLevel = useMemo(() => {
       if (!activeLevel || !dragState) return activeLevel;
@@ -1835,13 +1842,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     const invalidCellIndices = useMemo(
       () =>
-        previewLevel && !isBrushDragging
+        previewLevel && !isBrushDragging && !lowDetailRendering
           ? getInvalidCellIndices(
               previewLevel,
               makePaintOptions(threeDLevelsEnabled, selectedLayerZ),
             )
           : [],
-      [isBrushDragging, previewLevel, selectedLayerZ, threeDLevelsEnabled],
+      [isBrushDragging, lowDetailRendering, previewLevel, selectedLayerZ, threeDLevelsEnabled],
     );
 
     const hoverCellSummary = useMemo(
@@ -1869,6 +1876,119 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         height: Math.min(clipboard.height, 32 - anchor.y),
       };
     }, [clipboard, dragState, hoverPoint, pastePreviewActive, selection, tool]);
+
+    function renderLowDetailBoard(brushStateOverride: BrushDragState | null = null): void {
+      if (!lowDetailRendering || !previewLevel || !spriteSet || !canvasSpriteCache) return;
+
+      const canvas = presentedBoardCanvasRef.current;
+      if (!canvas) return;
+
+      const viewportWidth = Math.max(1, Math.floor(boardViewportSize.width || boardSize));
+      const viewportHeight = Math.max(1, Math.floor(boardViewportSize.height || boardSize));
+      ensureCanvasSize(canvas, viewportWidth, viewportHeight);
+
+      const ctx = getBoardBaseCanvasContext(canvas);
+      if (!ctx) throw new Error("Canvas 2D context unavailable");
+      ctx.imageSmoothingEnabled = false;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, viewportWidth, viewportHeight);
+
+      const visibleCellWindow = resolveVisibleBoardCellWindow(
+        resolveBoardScreenRect({
+          boardSize,
+          boardPan,
+          boardZoom,
+        }),
+        boardSize,
+        viewportWidth,
+        viewportHeight,
+        1,
+      );
+      if (!visibleCellWindow) return;
+
+      const visibleIndices = enumerateVisibleBoardCellWindow(visibleCellWindow);
+      const displayLevel = createDat3dDisplayLevel(previewLevel, activeDisplayContext);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, viewportWidth, viewportHeight);
+      ctx.clip();
+      ctx.setTransform(boardZoom, 0, 0, boardZoom, boardPan.x, boardPan.y);
+
+      drawCc1CellsToContext(
+        ctx,
+        displayLevel,
+        visibleIndices,
+        canvasSpriteCache,
+        { showSecrets },
+        { clearCells: false },
+      );
+
+      if (liveSelection) {
+        drawRectOverlay(
+          ctx,
+          spriteSet.tileSize,
+          liveSelection,
+          "rgba(12, 121, 156, 0.18)",
+          "rgba(12, 121, 156, 0.96)",
+        );
+      }
+
+      if (pastePreview && pastePreview.width > 0 && pastePreview.height > 0) {
+        drawRectOverlay(
+          ctx,
+          spriteSet.tileSize,
+          pastePreview,
+          "rgba(197, 151, 44, 0.08)",
+          "rgba(197, 151, 44, 0.92)",
+          true,
+        );
+      }
+
+      if (pendingConnection) {
+        drawRectOverlay(
+          ctx,
+          spriteSet.tileSize,
+          {
+            x: pendingConnection.startIndex % 32,
+            y: Math.floor(pendingConnection.startIndex / 32),
+            width: 1,
+            height: 1,
+          },
+          "rgba(196, 55, 55, 0.12)",
+          "rgba(196, 55, 55, 0.96)",
+        );
+        drawPendingConnection(
+          ctx,
+          spriteSet.tileSize,
+          pendingConnection.startIndex,
+          pendingConnection.cursor,
+        );
+      }
+
+      const activeBrushState =
+        brushStateOverride ?? (dragState?.tool === "brush" ? dragState : null);
+      if (activeBrushState && activeLevel) {
+        const visibleBrushCells = activeBrushState.cells.filter((index) =>
+          isIndexVisibleInBoardCellWindow(index, visibleCellWindow),
+        );
+
+        if (visibleBrushCells.length > 0) {
+          drawBrushPreviewCellsToContext(
+            ctx,
+            canvasSpriteCache,
+            activeLevel,
+            visibleBrushCells,
+            activeBrushState,
+            activeDisplayContext,
+            showSecrets,
+            false,
+          );
+        }
+      }
+
+      ctx.restore();
+    }
 
     useEffect(() => {
       statusStore.update({
@@ -2001,7 +2121,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     }, [activeLevel]);
 
     useEffect(() => {
-      if (!previewLevel || !spriteSet || !canvasSpriteCache) return;
+      if (lowDetailRendering || !previewLevel || !spriteSet || !canvasSpriteCache) return;
 
       try {
         const canvas = getOrCreateInternalCanvas(boardCanvasRef);
@@ -2111,12 +2231,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       showSecrets,
       spriteSet,
       canvasSpriteCache,
+      lowDetailRendering,
       threeDLevelsEnabled,
       onSetErrorMessage,
     ]);
 
     useEffect(() => {
-      if (!previewLevel || !spriteSet) return;
+      if (lowDetailRendering || !previewLevel || !spriteSet) return;
 
       try {
         const canvas = getOrCreateInternalCanvas(boardAnnotationCanvasRef);
@@ -2148,11 +2269,12 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       shouldDrawConnections,
       shouldDrawMonsterOrder,
       spriteSet,
+      lowDetailRendering,
       onSetErrorMessage,
     ]);
 
     useEffect(() => {
-      if (!spriteSet) return;
+      if (lowDetailRendering || !spriteSet) return;
 
       try {
         const size = spriteSet.tileSize * 32;
@@ -2212,12 +2334,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       shouldDrawValidityWarnings,
       showSecrets,
       spriteSet,
+      lowDetailRendering,
       threeDLevelsEnabled,
       onSetErrorMessage,
     ]);
 
     useEffect(() => {
-      if (!spriteSet) return;
+      if (lowDetailRendering || !spriteSet) return;
 
       const size = spriteSet.tileSize * 32;
       const canvas = getOrCreateInternalCanvas(overlayCanvasRef);
@@ -2375,12 +2498,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       showSecrets,
       spriteSet,
       canvasSpriteCache,
+      lowDetailRendering,
       threeDLevelsEnabled,
     ]);
 
     useEffect(() => {
       const brushState = dragState?.tool === "brush" ? dragState : null;
-      if (!brushState || !spriteSet || !canvasSpriteCache || !activeLevel) {
+      if (lowDetailRendering || !brushState || !spriteSet || !canvasSpriteCache || !activeLevel) {
         brushPreviewReplayKeyRef.current = null;
         return;
       }
@@ -2429,11 +2553,39 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       showSecrets,
       spriteSet,
       canvasSpriteCache,
+      lowDetailRendering,
       threeDLevelsEnabled,
     ]);
 
     useEffect(() => {
-      if (!spriteSet) return;
+      if (!lowDetailRendering || !spriteSet) return;
+
+      try {
+        renderLowDetailBoard();
+      } catch (error: unknown) {
+        onSetErrorMessage(asErrorMessage(error));
+      }
+    }, [
+      activeDisplayContext,
+      activeLevel,
+      boardViewportSize,
+      boardPan,
+      boardSize,
+      boardZoom,
+      dragState,
+      liveSelection,
+      lowDetailRendering,
+      pastePreview,
+      pendingConnection,
+      previewLevel,
+      showSecrets,
+      spriteSet,
+      canvasSpriteCache,
+      onSetErrorMessage,
+    ]);
+
+    useEffect(() => {
+      if (lowDetailRendering || !spriteSet) return;
 
       try {
         presentBoardLayers();
@@ -2448,7 +2600,6 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       boardSize,
       boardZoom,
       dragState,
-      experimentalViewportRenderer,
       hoverPoint,
       invalidCellIndices,
       liveSelection,
@@ -2464,6 +2615,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       spriteSet,
       canvasSpriteCache,
       threeDLevelsEnabled,
+      lowDetailRendering,
       onSetErrorMessage,
     ]);
 
@@ -2598,13 +2750,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         boardSize,
         boardPan,
         boardZoom,
-        experimentalViewportRenderer,
+        lowDetailRendering,
       });
       const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent, {
         boardSize,
         boardPan,
         boardZoom,
-        experimentalViewportRenderer,
+        lowDetailRendering,
       });
       setHoverPointIfChanged(point);
       onClearMetadataError();
@@ -2665,19 +2817,23 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         };
         brushPreviewReplayKeyRef.current = null;
         brushDragStateRef.current = nextDragState;
-        const interactionCanvas = getOrCreateInternalCanvas(overlayCanvasRef);
-        const ctx = getOverlayCanvasContext(interactionCanvas);
-        if (ctx && canvasSpriteCache) {
-          drawBrushPreviewCellsToContext(
-            ctx,
-            canvasSpriteCache,
-            activeLevel,
-            nextDragState.cells,
-            nextDragState,
-            activeDisplayContext,
-            showSecrets,
-          );
-          presentBoardLayers();
+        if (lowDetailRendering) {
+          renderLowDetailBoard(nextDragState);
+        } else {
+          const interactionCanvas = getOrCreateInternalCanvas(overlayCanvasRef);
+          const ctx = getOverlayCanvasContext(interactionCanvas);
+          if (ctx && canvasSpriteCache) {
+            drawBrushPreviewCellsToContext(
+              ctx,
+              canvasSpriteCache,
+              activeLevel,
+              nextDragState.cells,
+              nextDragState,
+              activeDisplayContext,
+              showSecrets,
+            );
+            presentBoardLayers();
+          }
         }
         setDragState(nextDragState);
       } else if (tool === "line") {
@@ -2730,13 +2886,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         boardSize,
         boardPan,
         boardZoom,
-        experimentalViewportRenderer,
+        lowDetailRendering,
       });
       const boardPoint = canvasPointToBoard(event.currentTarget, event.nativeEvent, {
         boardSize,
         boardPan,
         boardZoom,
-        experimentalViewportRenderer,
+        lowDetailRendering,
       });
       if (dragState?.tool === "brush") setHoverPointIfChanged(null);
       else setHoverPointIfChanged(point);
@@ -2819,7 +2975,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         boardSize,
         boardPan,
         boardZoom,
-        experimentalViewportRenderer,
+        lowDetailRendering,
       });
 
       if (activeDragState.tool === "brush") {
@@ -2938,7 +3094,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       boardPan,
       boardZoom,
     });
-    const boardChromeFrameStyle = experimentalViewportRenderer
+    const boardChromeFrameStyle = lowDetailRendering
       ? ({
           left: boardScreenRect.x,
           top: boardScreenRect.y,
@@ -2946,7 +3102,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           height: boardScreenRect.height,
         } as CSSProperties)
       : undefined;
-    const boardStageTransformStyle = experimentalViewportRenderer
+    const boardStageTransformStyle = lowDetailRendering
       ? ({
           width: "100%",
           height: "100%",
@@ -2956,7 +3112,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           height: boardSize,
           transform: `translate(${boardPan.x}px, ${boardPan.y}px) scale(${boardZoom})`,
         } as CSSProperties);
-    const boardStageStyle = experimentalViewportRenderer
+    const boardStageStyle = lowDetailRendering
       ? ({
           width: "100%",
           height: "100%",
@@ -3012,7 +3168,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
               className={`boardStageTransform ${boardPanActive ? "panning" : ""}`}
               style={boardStageTransformStyle}
             >
-              {experimentalViewportRenderer ? null : boardChrome}
+              {lowDetailRendering ? null : boardChrome}
               <div className="boardStage" style={boardStageStyle}>
                 <canvas
                   ref={presentedBoardCanvasRef}
@@ -3027,7 +3183,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                   }}
                 />
               </div>
-              {experimentalViewportRenderer ? (
+              {lowDetailRendering ? (
                 <div className="boardChromeFrame" style={boardChromeFrameStyle}>
                   {boardChrome}
                 </div>
@@ -3094,8 +3250,8 @@ export default function App() {
   const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(
     initialAppState.preferences.threeDLevelsEnabled,
   );
-  const [experimentalViewportRenderer, setExperimentalViewportRenderer] = useState(
-    initialAppState.preferences.experimentalViewportRenderer,
+  const [lowDetailRendering, setLowDetailRendering] = useState(
+    initialAppState.preferences.lowDetailRendering,
   );
   const [paletteViewportWidth, setPaletteViewportWidth] = useState(0);
   const [paletteTileSizeTarget, setPaletteTileSizeTarget] = useState(MIN_PALETTE_TILE_SIZE);
@@ -3329,11 +3485,11 @@ export default function App() {
         showMonsterOrder,
         showValidityWarnings,
         threeDLevelsEnabled,
-        experimentalViewportRenderer,
+        lowDetailRendering,
       }),
     );
   }, [
-    experimentalViewportRenderer,
+    lowDetailRendering,
     showConnections,
     showMonsterOrder,
     showSecrets,
@@ -4811,9 +4967,9 @@ export default function App() {
                     <button
                       type="button"
                       className="dropdownMenuItem"
-                      onClick={() => setExperimentalViewportRenderer((current) => !current)}
+                      onClick={() => setLowDetailRendering((current) => !current)}
                     >
-                      {`${experimentalViewportRenderer ? "Disable" : "Enable"} Experimental: Viewport Renderer`}
+                      {`${lowDetailRendering ? "Disable" : "Enable"} Low Detail Rendering`}
                     </button>
                   </div>
                 ) : null}
@@ -5090,7 +5246,7 @@ export default function App() {
           showMonsterOrder={showMonsterOrder}
           showValidityWarnings={showValidityWarnings}
           threeDLevelsEnabled={threeDLevelsEnabled}
-          experimentalViewportRenderer={experimentalViewportRenderer}
+          lowDetailRendering={lowDetailRendering}
           tool={tool}
           primaryTile={primaryTile}
           secondaryTile={secondaryTile}

@@ -53,6 +53,13 @@ export type BoardPoint = Readonly<{
   y: number;
 }>;
 
+export type VisibleBoardCellWindow = Readonly<{
+  startColumn: number;
+  endColumn: number;
+  startRow: number;
+  endRow: number;
+}>;
+
 export function ensureCanvasSize(canvas: SizedCanvas, width: number, height: number): boolean {
   if (canvas.width === width && canvas.height === height) return false;
   canvas.width = width;
@@ -80,6 +87,72 @@ export function resolveBoardScreenRect(options: BoardViewportPresentationOptions
     width: options.boardSize * options.boardZoom,
     height: options.boardSize * options.boardZoom,
   };
+}
+
+function clampCellCoordinate(value: number): number {
+  return Math.min(31, Math.max(0, value));
+}
+
+export function resolveVisibleBoardCellWindow(
+  boardRect: BoardScreenRect,
+  boardSize: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  overscanCells = 0,
+): VisibleBoardCellWindow | null {
+  if (
+    boardSize <= 0 ||
+    viewportWidth <= 0 ||
+    viewportHeight <= 0 ||
+    boardRect.width <= 0 ||
+    boardRect.height <= 0
+  ) {
+    return null;
+  }
+
+  const visibleLeft = Math.max(0, boardRect.x);
+  const visibleTop = Math.max(0, boardRect.y);
+  const visibleRight = Math.min(viewportWidth, boardRect.x + boardRect.width);
+  const visibleBottom = Math.min(viewportHeight, boardRect.y + boardRect.height);
+
+  if (visibleLeft >= visibleRight || visibleTop >= visibleBottom) return null;
+
+  const tileSize = boardSize / 32;
+  const boardLeft = ((visibleLeft - boardRect.x) / boardRect.width) * boardSize;
+  const boardTop = ((visibleTop - boardRect.y) / boardRect.height) * boardSize;
+  const boardRight = ((visibleRight - boardRect.x) / boardRect.width) * boardSize;
+  const boardBottom = ((visibleBottom - boardRect.y) / boardRect.height) * boardSize;
+
+  return {
+    startColumn: clampCellCoordinate(Math.floor(boardLeft / tileSize) - overscanCells),
+    endColumn: clampCellCoordinate(Math.ceil(boardRight / tileSize) - 1 + overscanCells),
+    startRow: clampCellCoordinate(Math.floor(boardTop / tileSize) - overscanCells),
+    endRow: clampCellCoordinate(Math.ceil(boardBottom / tileSize) - 1 + overscanCells),
+  };
+}
+
+export function enumerateVisibleBoardCellWindow(window: VisibleBoardCellWindow): number[] {
+  const indices: number[] = [];
+  for (let row = window.startRow; row <= window.endRow; row++) {
+    for (let column = window.startColumn; column <= window.endColumn; column++) {
+      indices.push(row * 32 + column);
+    }
+  }
+  return indices;
+}
+
+export function isIndexVisibleInBoardCellWindow(
+  index: number,
+  window: VisibleBoardCellWindow,
+): boolean {
+  const column = index % 32;
+  const row = Math.floor(index / 32);
+  return (
+    column >= window.startColumn &&
+    column <= window.endColumn &&
+    row >= window.startRow &&
+    row <= window.endRow
+  );
 }
 
 export function drawViewportPresentedBoardLayers<TLayer>(

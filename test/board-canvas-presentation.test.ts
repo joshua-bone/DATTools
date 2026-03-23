@@ -4,8 +4,11 @@ import {
   boardPointToCell,
   drawPresentedBoardLayers,
   drawViewportPresentedBoardLayers,
+  enumerateVisibleBoardCellWindow,
   ensureCanvasSize,
+  isIndexVisibleInBoardCellWindow,
   resolveBoardScreenRect,
+  resolveVisibleBoardCellWindow,
   viewportClientPointToBoardPoint,
 } from "@/web/src/boardCanvasPresentation";
 
@@ -93,5 +96,24 @@ describe("board canvas presentation", () => {
         256,
       ),
     ).toBeNull();
+  });
+
+  it("resolves only the visible board cells for viewport rendering", () => {
+    const window = resolveVisibleBoardCellWindow(
+      { x: -10, y: -10, width: 80, height: 80 },
+      320,
+      40,
+      40,
+    );
+
+    expect(window).toEqual({
+      startColumn: 4,
+      endColumn: 19,
+      startRow: 4,
+      endRow: 19,
+    });
+    expect(enumerateVisibleBoardCellWindow(window!)).toHaveLength(16 * 16);
+    expect(isIndexVisibleInBoardCellWindow(4 * 32 + 4, window!)).toBe(true);
+    expect(isIndexVisibleInBoardCellWindow(3 * 32 + 4, window!)).toBe(false);
   });
 });

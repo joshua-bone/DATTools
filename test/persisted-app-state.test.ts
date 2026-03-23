@@ -26,7 +26,7 @@ describe("persisted app preferences", () => {
       showMonsterOrder: false,
       showValidityWarnings: true,
       threeDLevelsEnabled: true,
-      experimentalViewportRenderer: true,
+      lowDetailRendering: true,
     });
 
     expect(parsePersistedAppPreferences(serialized)).toEqual({
@@ -35,7 +35,7 @@ describe("persisted app preferences", () => {
       showMonsterOrder: false,
       showValidityWarnings: true,
       threeDLevelsEnabled: true,
-      experimentalViewportRenderer: true,
+      lowDetailRendering: true,
     });
   });
 
@@ -55,6 +55,20 @@ describe("persisted app preferences", () => {
     ).toEqual({
       ...DEFAULT_PERSISTED_APP_PREFERENCES,
       showSecrets: false,
+    });
+  });
+
+  it("reads the previous viewport-renderer flag for compatibility", () => {
+    expect(
+      parsePersistedAppPreferences(
+        JSON.stringify({
+          schema: "datTools.web.appPreferences.v1",
+          experimentalViewportRenderer: true,
+        }),
+      ),
+    ).toEqual({
+      ...DEFAULT_PERSISTED_APP_PREFERENCES,
+      lowDetailRendering: true,
     });
   });
 });

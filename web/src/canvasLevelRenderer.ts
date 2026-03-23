@@ -35,14 +35,20 @@ export function drawCc1CellsToContext(
   indices: ReadonlyArray<number>,
   spriteCache: CanvasSpriteCache,
   opts: RenderOptions,
+  options?: Readonly<{
+    clearCells?: boolean;
+  }>,
 ): void {
   const size = spriteCache.tileSize;
+  const clearCells = options?.clearCells ?? true;
   for (const index of indices) {
     const column = index % 32;
     const row = Math.floor(index / 32);
     const dx = column * size;
     const dy = row * size;
-    ctx.clearRect(dx, dy, size, size);
+    if (clearCells) {
+      ctx.clearRect(dx, dy, size, size);
+    }
     drawCc1CellToContext(
       ctx,
       level.map.top[index] ?? level.map.bottom[index] ?? "FLOOR",
