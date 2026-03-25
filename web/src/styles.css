@@ -155,11 +155,6 @@ button:disabled {
   font-size: 11px;
 }
 
-.brandingActionButton {
-  min-height: 24px;
-  padding: 0 10px;
-}
-
 .toolbarCluster,
 .statusStrip {
   display: flex;
@@ -1604,7 +1599,6 @@ button:disabled {
 .appShell.tabletLayout .menuButton,
 .appShell.tabletLayout .dropdownMenuItem,
 .appShell.tabletLayout .contextMenuItem,
-.appShell.tabletLayout .brandingActionButton,
 .appShell.tabletLayout .boardIconButton,
 .appShell.tabletLayout .refreshIconButton,
 .appShell.tabletLayout .levelListItem {

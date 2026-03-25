@@ -318,6 +318,31 @@ describe("level editing helpers", () => {
     expect(undone.selectedIndex).toBe(0);
   });
 
+  it("undoes a whole-document replacement back to the prior levelset and selection", () => {
+    const base = selectLevelInHistory(createLevelsetEditorHistory(makeDoc()), 1);
+    const replacement: DatLevelsetJsonV1 = {
+      schema: "datTools.dat.levelset.json.v1",
+      magicNumber: 0x0002aaac,
+      levels: [createEmptyLevel(1, { title: "Fresh" })],
+    };
+
+    const replaced = commitLevelsetEvent(base, {
+      type: "replace-doc",
+      doc: replacement,
+    });
+
+    expect(replaced.doc.levels.map((level) => level.title)).toEqual(["Fresh"]);
+    expect(replaced.selectedIndex).toBe(0);
+
+    const undone = undoLevelsetEvent(replaced);
+    expect(undone.doc.levels.map((level) => level.title)).toEqual(["One", "Two"]);
+    expect(undone.selectedIndex).toBe(1);
+
+    const redone = redoLevelsetEvent(undone);
+    expect(redone.doc.levels.map((level) => level.title)).toEqual(["Fresh"]);
+    expect(redone.selectedIndex).toBe(0);
+  });
+
   it("renumbers levels to match their slot after insert and move operations", () => {
     const base = createLevelsetEditorHistory(makeDoc());
     const inserted = commitLevelsetEvent(base, {

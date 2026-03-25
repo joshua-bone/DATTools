@@ -3585,19 +3585,9 @@ export default function App() {
   }, [tabletDrawerSide]);
 
   function loadDocument(nextDoc: DatLevelsetJsonV1, nextFileName?: string | null): void {
+    resetWorkspaceUiState();
     setEditor(createLevelsetEditorHistory(nextDoc));
     setFileName(nextFileName ?? fileName);
-    setSelection(null);
-    setLayoutResizeState(null);
-    setDraggedLevelIndex(null);
-    setLevelDropState(null);
-    setLevelContextMenu(null);
-    setBoardMenuOpen(null);
-    setBoardInteractionResetToken((current) => current + 1);
-    setBoardViewResetToken((current) => current + 1);
-    setMetadataDraft(null);
-    setErrorMessage(null);
-    setMetadataError(null);
   }
 
   function commitEvent(event: Parameters<typeof commitLevelsetEvent>[1]): void {
@@ -3629,6 +3619,25 @@ export default function App() {
       doc: nextDoc,
       selectedIndex: nextSelectedRawIndex,
     });
+  }
+
+  function resetWorkspaceUiState(): void {
+    setSelection(null);
+    setLayoutResizeState(null);
+    setDraggedLevelIndex(null);
+    setLevelDropState(null);
+    setLevelContextMenu(null);
+    setBoardMenuOpen(null);
+    setBoardInteractionResetToken((current) => current + 1);
+    setBoardViewResetToken((current) => current + 1);
+    setMetadataDraft(null);
+    setErrorMessage(null);
+    setMetadataError(null);
+  }
+
+  function createNewLevelset(): void {
+    replaceDocument(createDefaultLevelsetDocument());
+    resetWorkspaceUiState();
   }
 
   function cloneEditableGroup(group: Editable3dLevel): Editable3dLevel {
@@ -4757,23 +4766,6 @@ export default function App() {
                       ? `${threeDLevelsEnabled ? (logicalLevelset?.levels.length ?? 0) : doc.levels.length} levels`
                       : "no document"}
                   </span>
-                  <button
-                    type="button"
-                    className="actionButton brandingActionButton"
-                    onClick={triggerOpenDialog}
-                  >
-                    Open
-                  </button>
-                  <button
-                    type="button"
-                    className="actionButton brandingActionButton"
-                    disabled={!doc}
-                    onClick={() => {
-                      void saveCurrentDat();
-                    }}
-                  >
-                    Save As
-                  </button>
                 </div>
               </div>
             </div>
@@ -4791,6 +4783,9 @@ export default function App() {
                 </button>
                 {boardMenuOpen === "file" ? (
                   <div className="dropdownMenu">
+                    <button type="button" className="dropdownMenuItem" onClick={createNewLevelset}>
+                      New
+                    </button>
                     <button
                       type="button"
                       className="dropdownMenuItem"
