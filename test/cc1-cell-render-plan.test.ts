@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCc1CellRenderSteps } from "@/src/dat/render/cc1CellRenderPlan";
+import {
+  buildCc1CellRenderSteps,
+  getPalettePreviewSpriteEffect,
+} from "@/src/dat/render/cc1CellRenderPlan";
 
 describe("CC1 cell render plan", () => {
   it("draws only the bottom terrain when the top tile is FLOOR", () => {
@@ -43,6 +46,20 @@ describe("CC1 cell render plan", () => {
       { kind: "sprite", spriteName: "FLOOR", effect: "none" },
       { kind: "sprite", spriteName: "BLUE_WALL_FAKE", effect: "lighten" },
     ]);
+  });
+
+  it("uses the same preview sprite effect for fake blue walls in the palette", () => {
+    expect(
+      getPalettePreviewSpriteEffect("BLUE_WALL_FAKE", {
+        showSecrets: true,
+      }),
+    ).toBe("lighten");
+
+    expect(
+      getPalettePreviewSpriteEffect("BLUE_WALL_FAKE", {
+        showSecrets: false,
+      }),
+    ).toBe("none");
   });
 
   it("makes block overlays semi-transparent when secrets are visible", () => {

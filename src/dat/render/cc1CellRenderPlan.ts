@@ -58,6 +58,11 @@ function getTopSpriteEffect(topName: string, opts: RenderOptions): SpriteEffect 
   return "none";
 }
 
+export function getPalettePreviewSpriteEffect(topName: string, opts: RenderOptions): SpriteEffect {
+  if (topName !== "BLUE_WALL_FAKE") return "none";
+  return getTopSpriteEffect(topName, opts);
+}
+
 export function buildCc1CellRenderSteps(
   topName: string,
   bottomName: string,

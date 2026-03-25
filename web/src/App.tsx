@@ -5302,6 +5302,7 @@ export default function App() {
                         className="activeTileCompactCanvas"
                         pixelSize={40}
                         showPaletteDirectionArrow
+                        showSecrets={showSecrets}
                       />
                       <div className="activeTileCompactBody">
                         <div className="activeTileCompactName">
@@ -5322,6 +5323,7 @@ export default function App() {
                         className="activeTileCompactCanvas"
                         pixelSize={40}
                         showPaletteDirectionArrow
+                        showSecrets={showSecrets}
                       />
                       <div className="activeTileCompactBody">
                         <div className="activeTileCompactName">
@@ -5341,6 +5343,7 @@ export default function App() {
                         className="activeTileCompactCanvas"
                         pixelSize={40}
                         showPaletteDirectionArrow
+                        showSecrets={showSecrets}
                       />
                       <div className="activeTileCompactBody">
                         <div className="activeTileCompactName">
@@ -5357,6 +5360,7 @@ export default function App() {
                         className="activeTileCompactCanvas"
                         pixelSize={40}
                         showPaletteDirectionArrow
+                        showSecrets={showSecrets}
                       />
                       <div className="activeTileCompactBody">
                         <div className="activeTileCompactName">
@@ -5443,6 +5447,7 @@ export default function App() {
                         className="paletteGridCanvas"
                         pixelSize={paletteCellSize}
                         showPaletteDirectionArrow
+                        showSecrets={showSecrets}
                       />
                       {paletteTab === "invalid" ? (
                         <span className="paletteGridBadge">
