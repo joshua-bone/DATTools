@@ -4761,11 +4761,6 @@ export default function App() {
                     spellCheck={false}
                     onChange={(event) => setFileName(event.target.value)}
                   />
-                  <span className="statusBadge">
-                    {doc
-                      ? `${threeDLevelsEnabled ? (logicalLevelset?.levels.length ?? 0) : doc.levels.length} levels`
-                      : "no document"}
-                  </span>
                 </div>
               </div>
             </div>
@@ -5022,9 +5017,9 @@ export default function App() {
           {leftPanelTab === "levels" ? (
             <section className="panelSection leftPanelTabBody levelManagerSection">
               <div className="sectionHeader">
-                <div>
-                  <div className="sectionEyebrow">Levels</div>
-                  <h2 className="sectionTitle">Manager</h2>
+                <div className="levelManagerHeaderCopy">
+                  <h2 className="sectionEyebrow levelManagerTitle">Levels Manager</h2>
+                  <span className="statusBadge">{`${displayedLevelCount} levels`}</span>
                 </div>
                 {!isTabletLayout ? (
                   <div className="sectionActions">

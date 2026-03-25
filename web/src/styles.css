@@ -387,6 +387,17 @@ button:disabled {
   border-top: 1px solid rgba(57, 75, 66, 0.08);
 }
 
+.levelManagerHeaderCopy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.levelManagerTitle {
+  margin: 0;
+}
+
 .levelManagerHint {
   margin-bottom: 6px;
   color: var(--muted);
