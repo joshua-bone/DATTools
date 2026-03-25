@@ -72,6 +72,7 @@ import {
 import { createCanvasSpriteCache, type CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
 import { resolveBoardTileRedrawPlan } from "@/web/src/boardRenderInvalidation";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
+import { createNewLevelsetFileName } from "@/web/src/levelsetFileName";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
 import {
   APP_PREFERENCES_STORAGE_KEY,
@@ -3637,6 +3638,7 @@ export default function App() {
 
   function createNewLevelset(): void {
     replaceDocument(createDefaultLevelsetDocument());
+    setFileName(createNewLevelsetFileName());
     resetWorkspaceUiState();
   }
 
