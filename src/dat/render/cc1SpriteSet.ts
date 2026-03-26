@@ -115,7 +115,7 @@ const ELEVATOR_UP_GLYPHS: Readonly<Record<"U" | "P", ReadonlyArray<string>>> = {
   P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
 };
 
-const HEX_GLYPHS: Readonly<Record<string, ReadonlyArray<string>>> = {
+const SMALL_HEX_GLYPHS: Readonly<Record<string, ReadonlyArray<string>>> = {
   "0": ["111", "101", "101", "101", "111"],
   "1": ["010", "110", "010", "010", "111"],
   "2": ["111", "001", "111", "100", "111"],
@@ -134,6 +134,25 @@ const HEX_GLYPHS: Readonly<Record<string, ReadonlyArray<string>>> = {
   F: ["111", "100", "110", "100", "100"],
 };
 
+const LARGE_HEX_GLYPHS: Readonly<Record<string, ReadonlyArray<string>>> = {
+  "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+  "2": ["01110", "10001", "00001", "00110", "01000", "10000", "11111"],
+  "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+  "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+  "5": ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
+  "6": ["00110", "01000", "10000", "11110", "10001", "10001", "01110"],
+  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+  "9": ["01110", "10001", "10001", "01111", "00001", "00010", "11100"],
+  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+  B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+  C: ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
+  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+};
+
 function drawBitmapGlyph(
   img: RgbaImage,
   x: number,
@@ -148,6 +167,69 @@ function drawBitmapGlyph(
       fillRect(img, x + columnIndex * scale, y + rowIndex * scale, scale, scale, rgba);
     }
   });
+}
+
+type BitmapFont = Readonly<{
+  glyphs: Readonly<Record<string, ReadonlyArray<string>>>;
+  preferredGap: (scale: number) => number;
+}>;
+
+type BitmapLabelLayout = Readonly<{
+  font: BitmapFont;
+  scale: number;
+  gap: number;
+  width: number;
+  height: number;
+}>;
+
+function chooseBitmapLabelLayout(
+  label: string,
+  areaWidth: number,
+  areaHeight: number,
+): BitmapLabelLayout {
+  const fonts = [
+    {
+      glyphs: LARGE_HEX_GLYPHS,
+      preferredGap: (scale: number) => Math.max(1, Math.floor(scale / 2)),
+    },
+    {
+      glyphs: SMALL_HEX_GLYPHS,
+      preferredGap: (scale: number) => Math.max(0, scale - 1),
+    },
+  ] as const satisfies ReadonlyArray<BitmapFont>;
+
+  for (const font of fonts) {
+    const baselineGlyph = font.glyphs["0"]!;
+    const glyphColumns = baselineGlyph[0]!.length;
+    const glyphRows = baselineGlyph.length;
+    const maxScale = Math.max(
+      1,
+      Math.min(
+        Math.floor(areaWidth / (glyphColumns * label.length)),
+        Math.floor(areaHeight / glyphRows),
+      ),
+    );
+
+    for (let scale = maxScale; scale >= 1; scale -= 1) {
+      const preferredGap = font.preferredGap(scale);
+      const maxGap = Math.max(0, areaWidth - glyphColumns * scale * label.length);
+      const gap = Math.min(preferredGap, maxGap);
+      const width = glyphColumns * scale * label.length + gap * (label.length - 1);
+      const height = glyphRows * scale;
+      if (width > areaWidth || height > areaHeight) continue;
+
+      return { font, scale, gap, width, height };
+    }
+  }
+
+  const fallbackGlyph = SMALL_HEX_GLYPHS["0"]!;
+  return {
+    font: { glyphs: SMALL_HEX_GLYPHS, preferredGap: () => 0 },
+    scale: 1,
+    gap: 0,
+    width: fallbackGlyph[0]!.length * label.length,
+    height: fallbackGlyph.length,
+  };
 }
 
 function makeDat3dElevatorSprite(size: number): RgbaImage {
@@ -249,31 +331,28 @@ function makeUnknownByteSprite(baseTile: RgbaImage | null, code: number): RgbaIm
   const size = baseTile?.width ?? 8;
   const base = baseTile ? cloneImage(baseTile) : createImage(size, size, [126, 126, 126, 255]);
   const label = code.toString(16).padStart(2, "0").toUpperCase();
-  const baselineGlyph = HEX_GLYPHS["0"]!;
-  const glyphColumns = baselineGlyph[0]!.length;
-  const glyphRows = baselineGlyph.length;
-  const maxContentWidth = Math.max(1, size - 2);
-  const maxContentHeight = Math.max(1, size - 2);
-  const scale = Math.max(
-    1,
-    Math.min(
-      Math.floor(maxContentWidth / (glyphColumns * label.length)),
-      Math.floor(maxContentHeight / glyphRows),
-    ),
-  );
-  const glyphWidth = glyphColumns * scale;
-  const glyphHeight = glyphRows * scale;
-  const gap = Math.min(Math.max(0, scale - 1), maxContentWidth - glyphWidth * label.length);
-  const totalWidth = glyphWidth * label.length + gap * (label.length - 1);
-  const startX = Math.floor((size - totalWidth) / 2);
-  const startY = Math.floor((size - glyphHeight) / 2);
-  const text = [18, 18, 18, 255] as const;
+  const padding = Math.max(1, Math.floor(size / 6));
+  const areaWidth = Math.max(1, size - padding * 2);
+  const areaHeight = Math.max(1, size - padding * 2);
+  const layout = chooseBitmapLabelLayout(label, areaWidth, areaHeight);
+  const baselineGlyph = layout.font.glyphs["0"]!;
+  const glyphWidth = baselineGlyph[0]!.length * layout.scale;
+  const startX = Math.floor((size - layout.width) / 2);
+  const startY = Math.floor((size - layout.height) / 2);
+  const text = [240, 234, 220, 255] as const;
+  const outline = [38, 26, 20, 255] as const;
 
   for (const [index, digit] of label.split("").entries()) {
-    const glyph = HEX_GLYPHS[digit];
+    const glyph = layout.font.glyphs[digit];
     if (!glyph) continue;
-    const x = startX + index * (glyphWidth + gap);
-    drawBitmapGlyph(base, x, startY, glyph, scale, text);
+    const x = startX + index * (glyphWidth + layout.gap);
+    for (let oy = -1; oy <= 1; oy += 1) {
+      for (let ox = -1; ox <= 1; ox += 1) {
+        if (ox === 0 && oy === 0) continue;
+        drawBitmapGlyph(base, x + ox, startY + oy, glyph, layout.scale, outline);
+      }
+    }
+    drawBitmapGlyph(base, x, startY, glyph, layout.scale, text);
   }
 
   return base;

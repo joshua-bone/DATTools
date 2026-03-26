@@ -30,24 +30,14 @@ function readPixel(
   ];
 }
 
-function columnMatches(
-  a: ReturnType<typeof createImage>,
-  b: ReturnType<typeof createImage>,
-  x: number,
-): boolean {
-  for (let y = 0; y < a.height; y++) {
-    if (readPixel(a, x, y).join(",") !== readPixel(b, x, y).join(",")) return false;
-  }
-  return true;
-}
-
 describe("CC1 sprite set fallbacks", () => {
   it("renders unknown invalid bytes as centered labels over the floor tile art", () => {
-    const size = 8;
+    const size = 32;
+    const floorColor = [132, 144, 156, 255] as const;
     const sheet = createImage(size * 13, size * 16, [255, 0, 255, 255]);
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
-        setPixel(sheet, x, y, x === 0 || x === size - 1 ? [70, 82, 96, 255] : [132, 144, 156, 255]);
+        setPixel(sheet, x, y, floorColor);
       }
     }
     const spriteSet = buildCc1SpriteSet(sheet);
@@ -57,15 +47,38 @@ describe("CC1 sprite set fallbacks", () => {
     expect(sprite.width).toBe(size);
     expect(sprite.height).toBe(size);
 
-    expect(columnMatches(sprite, floor, 0)).toBe(true);
-    expect(columnMatches(sprite, floor, size - 1)).toBe(true);
+    expect(readPixel(sprite, 0, 0)).toEqual(floorColor);
+    expect(readPixel(sprite, size - 1, 0)).toEqual(floorColor);
+    expect(readPixel(sprite, 0, size - 1)).toEqual(floorColor);
+    expect(readPixel(sprite, size - 1, size - 1)).toEqual(floorColor);
 
-    const hasOpaquePixel = sprite.data.some((channel, index) => index % 4 === 3 && channel > 0);
-    const hasDarkGlyphPixel = sprite.data.some(
-      (channel, index) => index % 4 === 0 && channel < 40 && (sprite.data[index + 3] ?? 0) === 255,
-    );
+    const changedPixels: Array<{ x: number; y: number }> = [];
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (readPixel(sprite, x, y).join(",") !== readPixel(floor, x, y).join(",")) {
+          changedPixels.push({ x, y });
+        }
+      }
+    }
 
-    expect(hasOpaquePixel).toBe(true);
-    expect(hasDarkGlyphPixel).toBe(true);
+    expect(changedPixels.length).toBeGreaterThan(0);
+
+    const xs = changedPixels.map((point) => point.x);
+    const ys = changedPixels.map((point) => point.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    expect(maxX - minX + 1).toBeLessThanOrEqual(24);
+    expect(maxY - minY + 1).toBeLessThanOrEqual(20);
+    expect(Math.abs(centerX - (size - 1) / 2)).toBeLessThanOrEqual(1);
+    expect(Math.abs(centerY - (size - 1) / 2)).toBeLessThanOrEqual(1);
+    expect(minX).toBeGreaterThanOrEqual(4);
+    expect(maxX).toBeLessThanOrEqual(size - 5);
+    expect(minY).toBeGreaterThanOrEqual(6);
+    expect(maxY).toBeLessThanOrEqual(size - 7);
   });
 });
