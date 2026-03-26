@@ -1,7 +1,7 @@
 // src/dat/render/cc1SpriteSet.ts
 import { CC1_TILE_COUNT, tileCodeFromName, tileNameFromCode } from "@/src/dat/cc1Tiles";
 import type { RgbaImage } from "@/src/dat/render/rgbaImage";
-import { cropRect, createImage } from "@/src/dat/render/rgbaImage";
+import { cloneImage, cropRect, createImage } from "@/src/dat/render/rgbaImage";
 
 export const DAT_3D_AIR_SPRITE_NAME = "__DAT3D_AIR__";
 export const DAT_3D_ELEVATOR_SPRITE_NAME = "__DAT3D_ELEVATOR__";
@@ -245,32 +245,34 @@ function makeDat3dElevatorSprite(size: number): RgbaImage {
   return base;
 }
 
-function makeUnknownByteSprite(size: number, code: number): RgbaImage {
-  const base = createImage(size, size, [126, 126, 126, 255]);
-  const border = Math.max(1, Math.floor(size / 8));
-  const bevel = Math.max(1, Math.floor(size / 10));
-  const scale = Math.max(1, Math.floor(size / 6));
+function makeUnknownByteSprite(baseTile: RgbaImage | null, code: number): RgbaImage {
+  const size = baseTile?.width ?? 8;
+  const base = baseTile ? cloneImage(baseTile) : createImage(size, size, [126, 126, 126, 255]);
   const label = code.toString(16).padStart(2, "0").toUpperCase();
-  const glyphWidth = 3 * scale;
-  const glyphHeight = 5 * scale;
-  const gap = scale;
-  const totalWidth = glyphWidth * 2 + gap;
-  const startX = Math.max(border, Math.floor((size - totalWidth) / 2));
-  const startY = Math.max(border, Math.floor((size - glyphHeight) / 2));
-  const text = [34, 34, 34, 255] as const;
-  const textShadow = [224, 224, 224, 192] as const;
-
-  strokeRect(base, 0, 0, size, size, border, [74, 74, 74, 255]);
-  fillRect(base, border, border, size - border * 2, bevel, [170, 170, 170, 255]);
-  fillRect(base, border, border, bevel, size - border * 2, [170, 170, 170, 255]);
-  fillRect(base, border, size - border - bevel, size - border * 2, bevel, [98, 98, 98, 255]);
-  fillRect(base, size - border - bevel, border, bevel, size - border * 2, [98, 98, 98, 255]);
+  const baselineGlyph = HEX_GLYPHS["0"]!;
+  const glyphColumns = baselineGlyph[0]!.length;
+  const glyphRows = baselineGlyph.length;
+  const maxContentWidth = Math.max(1, size - 2);
+  const maxContentHeight = Math.max(1, size - 2);
+  const scale = Math.max(
+    1,
+    Math.min(
+      Math.floor(maxContentWidth / (glyphColumns * label.length)),
+      Math.floor(maxContentHeight / glyphRows),
+    ),
+  );
+  const glyphWidth = glyphColumns * scale;
+  const glyphHeight = glyphRows * scale;
+  const gap = Math.min(Math.max(0, scale - 1), maxContentWidth - glyphWidth * label.length);
+  const totalWidth = glyphWidth * label.length + gap * (label.length - 1);
+  const startX = Math.floor((size - totalWidth) / 2);
+  const startY = Math.floor((size - glyphHeight) / 2);
+  const text = [18, 18, 18, 255] as const;
 
   for (const [index, digit] of label.split("").entries()) {
     const glyph = HEX_GLYPHS[digit];
     if (!glyph) continue;
     const x = startX + index * (glyphWidth + gap);
-    drawBitmapGlyph(base, x + scale, startY + scale, glyph, scale, textShadow);
     drawBitmapGlyph(base, x, startY, glyph, scale, text);
   }
 
@@ -341,7 +343,7 @@ export function buildCc1SpriteSet(sheet: RgbaImage): CC1SpriteSet {
       try {
         const code = tileCodeFromName(name);
         if (code >= CC1_TILE_COUNT) {
-          const fallback = makeUnknownByteSprite(size, code);
+          const fallback = makeUnknownByteSprite(sprites.get("FLOOR") ?? null, code);
           sprites.set(name, fallback);
           return fallback;
         }
