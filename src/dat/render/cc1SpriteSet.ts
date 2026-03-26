@@ -358,7 +358,10 @@ function makeUnknownByteSprite(baseTile: RgbaImage | null, code: number): RgbaIm
   return base;
 }
 
-export function buildCc1SpriteSet(sheet: RgbaImage): CC1SpriteSet {
+export function buildCc1SpriteSet(
+  sheet: RgbaImage,
+  spriteOverrides: Readonly<Record<string, RgbaImage>> = {},
+): CC1SpriteSet {
   if (sheet.height % 16 !== 0)
     throw new Error(`Spritesheet height must be divisible by 16, got ${sheet.height}`);
   const size = sheet.height / 16;
@@ -412,6 +415,14 @@ export function buildCc1SpriteSet(sheet: RgbaImage): CC1SpriteSet {
 
   sprites.set(DAT_3D_AIR_SPRITE_NAME, createImage(size, size, [0, 0, 0, 0]));
   sprites.set(DAT_3D_ELEVATOR_SPRITE_NAME, makeDat3dElevatorSprite(size));
+  for (const [name, sprite] of Object.entries(spriteOverrides)) {
+    if (sprite.width !== size || sprite.height !== size) {
+      throw new Error(
+        `Sprite override '${name}' must be ${size}x${size}, got ${sprite.width}x${sprite.height}`,
+      );
+    }
+    sprites.set(name, cloneImage(sprite));
+  }
 
   return {
     tileSize: size,

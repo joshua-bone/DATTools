@@ -89,6 +89,12 @@ describe("level editing helpers", () => {
     expect(level.map.top[0]).toBe("WATER");
     expect(level.map.bottom[0]).toBe("FLOOR");
     expect(level.movement).toEqual([]);
+
+    level = paintLevelCells(level, [1], "WALL");
+    level = paintLevelCells(level, [1], "UNKNOWN_0x70");
+    expect(level.map.top[1]).toBe("UNKNOWN_0x70");
+    expect(level.map.bottom[1]).toBe("WALL");
+    expect(level.movement).toEqual([]);
   });
 
   it("tracks monster movement order while painting and erasing", () => {
@@ -367,6 +373,7 @@ describe("level editing helpers", () => {
   it("classifies actors separately from terrain for tool routing", () => {
     expect(classifyTilePlacement("ANT_N")).toBe("actor");
     expect(classifyTilePlacement("BLOCK")).toBe("actor");
+    expect(classifyTilePlacement("UNKNOWN_0x70")).toBe("actor");
     expect(classifyTilePlacement("WALL")).toBe("terrain");
     expect(classifyTilePlacement("TRAP_BUTTON")).toBe("terrain");
     expect(

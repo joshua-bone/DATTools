@@ -81,4 +81,20 @@ describe("CC1 sprite set fallbacks", () => {
     expect(minY).toBeGreaterThanOrEqual(6);
     expect(maxY).toBeLessThanOrEqual(size - 7);
   });
+
+  it("uses explicit sprite overrides for named invalid tile artwork", () => {
+    const size = 32;
+    const sheet = createImage(size * 13, size * 16, [255, 0, 255, 255]);
+    const sandbag = createImage(size, size, [0, 0, 0, 0]);
+    setPixel(sandbag, 4, 5, [210, 180, 120, 255]);
+    setPixel(sandbag, 18, 24, [92, 68, 48, 255]);
+
+    const spriteSet = buildCc1SpriteSet(sheet, { UNKNOWN_0x70: sandbag });
+    const sprite = spriteSet.get("UNKNOWN_0x70");
+
+    expect(sprite.width).toBe(size);
+    expect(sprite.height).toBe(size);
+    expect(readPixel(sprite, 4, 5)).toEqual([210, 180, 120, 255]);
+    expect(readPixel(sprite, 18, 24)).toEqual([92, 68, 48, 255]);
+  });
 });
