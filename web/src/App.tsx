@@ -86,6 +86,7 @@ import {
 import {
   buildHoverCellSummary,
   createBoardEditorStatusStore,
+  resolveEyedropperTile,
   resolveBrushPreviewDirtyCells,
   resolveBrushPreviewRenderCells,
   type BoardDisplayContext,
@@ -289,6 +290,7 @@ type BoardEditorSurfaceProps = Readonly<{
   clipboard: LevelClipboard | null;
   pastePreviewActive: boolean;
   onSelectionChange: (selection: GridRect | null) => void;
+  onAssignPaletteTile: (tile: string, target: PaletteAssignmentTarget) => void;
   onClearMetadataError: () => void;
   onSetErrorMessage: (message: string | null) => void;
   onCommitSelectedLevelUpdate: (updater: (level: DatLevelJson) => DatLevelJson) => void;
@@ -1637,6 +1639,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       clipboard,
       pastePreviewActive,
       onSelectionChange,
+      onAssignPaletteTile,
       onClearMetadataError,
       onSetErrorMessage,
       onCommitSelectedLevelUpdate,
@@ -2761,6 +2764,14 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       });
       setHoverPointIfChanged(point);
       onClearMetadataError();
+
+      if (event.altKey && isSupportedCanvasPointerButton(event.button) && point) {
+        const eyedropperTile = resolveEyedropperTile(previewLevel, point);
+        if (eyedropperTile) {
+          onAssignPaletteTile(eyedropperTile, event.button === 2 ? "secondary" : "primary");
+        }
+        return;
+      }
 
       if (tool === "connect") {
         if (event.button !== 0 || !point || !boardPoint) return;
@@ -5247,6 +5258,7 @@ export default function App() {
           clipboard={clipboard}
           pastePreviewActive={pastePreviewActive}
           onSelectionChange={setSelection}
+          onAssignPaletteTile={assignPaletteTile}
           onClearMetadataError={() => setMetadataError(null)}
           onSetErrorMessage={setErrorMessage}
           onCommitSelectedLevelUpdate={commitSelectedLevelUpdate}

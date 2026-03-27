@@ -1,6 +1,7 @@
 import { DAT_3D_AIR_TILE } from "@/src/dat/dat3dLevels";
 import { getDat3dTileDisplayName } from "@/src/dat/dat3dDisplay";
 import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
+import { shouldOverlayTopTile } from "@/src/dat/render/cc1CellRenderPlan";
 import type { GridPoint } from "@/web/src/levelEditing";
 
 export type BoardDisplayContext = Readonly<{
@@ -104,6 +105,18 @@ export function buildHoverCellSummary(
         ? "AIR"
         : getDat3dTileDisplayName(bottom, displayContext),
   };
+}
+
+export function resolveEyedropperTile(
+  level: DatLevelJson | null,
+  point: GridPoint | null,
+): string | null {
+  if (!level || !point) return null;
+
+  const index = point.y * 32 + point.x;
+  const top = level.map.top[index] ?? "FLOOR";
+  const bottom = level.map.bottom[index] ?? "FLOOR";
+  return shouldOverlayTopTile(top, bottom) ? top : bottom;
 }
 
 export function resolveBrushPreviewDirtyCells(

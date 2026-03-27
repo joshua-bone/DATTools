@@ -7,6 +7,7 @@ import {
   createBoardEditorStatusStore,
   resolveBrushPreviewDirtyCells,
   resolveBrushPreviewRenderCells,
+  resolveEyedropperTile,
 } from "@/web/src/boardEditorStatus";
 
 describe("board editor status store", () => {
@@ -117,5 +118,35 @@ describe("buildHoverCellSummary", () => {
       top: "AIR",
       bottom: "AIR",
     });
+  });
+});
+
+describe("resolveEyedropperTile", () => {
+  it("picks the top tile when it visually overlays the cell", () => {
+    const level = createEmptyLevel(1);
+    const withTiles = {
+      ...level,
+      map: {
+        ...level.map,
+        top: level.map.top.map((tile, index) => (index === 0 ? "CHIP" : tile)),
+        bottom: level.map.bottom.map((tile, index) => (index === 0 ? "WALL" : tile)),
+      },
+    };
+
+    expect(resolveEyedropperTile(withTiles, { x: 0, y: 0 })).toBe("CHIP");
+  });
+
+  it("falls back to the bottom terrain when the top tile is FLOOR", () => {
+    const level = createEmptyLevel(1);
+    const withTiles = {
+      ...level,
+      map: {
+        ...level.map,
+        top: level.map.top.map((tile, index) => (index === 0 ? "FLOOR" : tile)),
+        bottom: level.map.bottom.map((tile, index) => (index === 0 ? "WATER" : tile)),
+      },
+    };
+
+    expect(resolveEyedropperTile(withTiles, { x: 0, y: 0 })).toBe("WATER");
   });
 });
