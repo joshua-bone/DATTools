@@ -325,6 +325,8 @@ const DAT_3D_VALID_TERRAIN_TILES = new Set<string>([DAT_3D_AIR_TILE, "CHIP_EXIT"
 const DEFAULT_LEVELSET_FILENAME = "NEW_LEVELSET.DAT";
 const DEFAULT_MAGIC_NUMBER = 174764;
 const BOARD_PARTIAL_REDRAW_THRESHOLD = 128;
+const EYEDROPPER_CURSOR =
+  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g transform='rotate(45 12 12)'><rect x='10' y='2.5' width='4' height='11' rx='1.4' fill='%23f6fbff' stroke='%23121a1f' stroke-width='1.6'/><path d='M10 5.5H8.4A1.4 1.4 0 0 0 7 6.9v3.7A1.4 1.4 0 0 0 8.4 12H10' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 13v6' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><path d='M10.3 19.3h7.4' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><circle cx='14' cy='21' r='1.5' fill='%23235f7a'/></g></svg>\") 4 20, crosshair";
 const TRANSFORM_MENU_ITEMS: ReadonlyArray<Readonly<{ kind: DatTransformKind; label: string }>> = [
   { kind: "ROTATE_90", label: "Rotate 90°" },
   { kind: "ROTATE_180", label: "Rotate 180°" },
@@ -1680,6 +1682,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     const [boardViewportSize, setBoardViewportSize] = useState({ width: 0, height: 0 });
     const [boardViewInitialized, setBoardViewInitialized] = useState(false);
     const [touchGestureState, setTouchGestureState] = useState<TouchGestureState>(null);
+    const [isAltPressed, setIsAltPressed] = useState(false);
 
     function setHoverPointIfChanged(nextPoint: GridPoint | null): void {
       setHoverPoint((current) => (gridPointsEqual(current, nextPoint) ? current : nextPoint));
@@ -1824,6 +1827,11 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     );
 
     const boardPanActive = !!boardPanState || !!touchGestureState;
+    const boardCanvasCursor = boardPanActive
+      ? "grabbing"
+      : isAltPressed
+        ? EYEDROPPER_CURSOR
+        : undefined;
     const isBrushDragging = dragState?.tool === "brush";
     const shouldDrawConnections = showConnections && !isBrushDragging && !lowDetailRendering;
     const shouldDrawMonsterOrder = showMonsterOrder && !lowDetailRendering;
@@ -2050,6 +2058,23 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       resetBoardView(1);
       setBoardViewInitialized(true);
     }, [activeLevel, boardSize, boardViewInitialized, spriteSet]);
+
+    useEffect(() => {
+      const updateAltPressed = (event: KeyboardEvent) => {
+        if (event.key !== "Alt") return;
+        setIsAltPressed(event.type === "keydown");
+      };
+      const clearAltPressed = () => setIsAltPressed(false);
+
+      document.addEventListener("keydown", updateAltPressed);
+      document.addEventListener("keyup", updateAltPressed);
+      window.addEventListener("blur", clearAltPressed);
+      return () => {
+        document.removeEventListener("keydown", updateAltPressed);
+        document.removeEventListener("keyup", updateAltPressed);
+        window.removeEventListener("blur", clearAltPressed);
+      };
+    }, []);
 
     useEffect(() => {
       resetInteractionState();
@@ -3185,6 +3210,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                 <canvas
                   ref={presentedBoardCanvasRef}
                   className="boardCanvas overlayCanvas"
+                  style={boardCanvasCursor ? { cursor: boardCanvasCursor } : undefined}
                   onPointerDown={handlePointerDown}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
