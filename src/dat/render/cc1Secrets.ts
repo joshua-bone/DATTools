@@ -14,7 +14,6 @@ const AMBIGUOUS_DIRECTION_TILE_PREFIXES = [
   "BLOB_",
   "PARAMECIUM_",
 ] as const;
-const SECRET_WALL_FILL: readonly [number, number, number, number] = [140, 140, 140, 255];
 const SECRET_WALL_STROKE: readonly [number, number, number, number] = [0, 0, 0, 255];
 
 export function dirFromTileName(name: string): Dir | null {
@@ -210,15 +209,11 @@ export function makeSecretWallMarker(size: number, variant: SecretWallVariant): 
   const borderThickness = Math.max(1, Math.round(size / 5));
 
   if (variant === "appearing") {
-    const img = createImage(size, size, SECRET_WALL_STROKE);
-    fillRectInPlace(
-      img,
-      borderThickness,
-      borderThickness,
-      size - borderThickness,
-      size - borderThickness,
-      SECRET_WALL_FILL,
-    );
+    const img = createImage(size, size, [0, 0, 0, 0]);
+    fillRectInPlace(img, 0, 0, size, borderThickness, SECRET_WALL_STROKE);
+    fillRectInPlace(img, 0, size - borderThickness, size, size, SECRET_WALL_STROKE);
+    fillRectInPlace(img, 0, 0, borderThickness, size, SECRET_WALL_STROKE);
+    fillRectInPlace(img, size - borderThickness, 0, size, size, SECRET_WALL_STROKE);
     return img;
   }
 

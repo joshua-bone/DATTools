@@ -70,10 +70,6 @@ export function getPalettePreviewSpriteEffect(topName: string, opts: RenderOptio
 }
 
 function buildSecretWallRevealSteps(variant: SecretWallVariant): CellRenderStep[] {
-  if (variant === "appearing") {
-    return [{ kind: "secretWall", variant }];
-  }
-
   return [
     { kind: "sprite", spriteName: "FLOOR", effect: "none" },
     { kind: "secretWall", variant },

@@ -68,7 +68,10 @@ describe("CC1 cell render plan", () => {
       buildCc1CellRenderSteps("INV_WALL_APP", "FLOOR", {
         showSecrets: true,
       }),
-    ).toEqual([{ kind: "secretWall", variant: "appearing" }]);
+    ).toEqual([
+      { kind: "sprite", spriteName: "FLOOR", effect: "none" },
+      { kind: "secretWall", variant: "appearing" },
+    ]);
   });
 
   it("reveals permanent invisible walls over floor when secrets are visible", () => {
@@ -87,7 +90,10 @@ describe("CC1 cell render plan", () => {
       buildPalettePreviewRenderSteps("INV_WALL_APP", "INV_WALL_APP", {
         showSecrets: false,
       }),
-    ).toEqual([{ kind: "secretWall", variant: "appearing" }]);
+    ).toEqual([
+      { kind: "sprite", spriteName: "FLOOR", effect: "none" },
+      { kind: "secretWall", variant: "appearing" },
+    ]);
 
     expect(
       buildPalettePreviewRenderSteps("INV_WALL_PERM", "INV_WALL_PERM", {

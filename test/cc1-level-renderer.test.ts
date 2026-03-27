@@ -155,14 +155,13 @@ describe("CC1 level renderer", () => {
     expect(pixelAt0(img)).toEqual([210, 210, 210, 255]);
   });
 
-  it("reveals appearing invisible walls with a black border and grey fill", () => {
+  it("reveals appearing invisible walls as a black frame over floor", () => {
     const img = renderCc1CellToRgba("INV_WALL_APP", "FLOOR", makeSpriteSet(), {
       showSecrets: true,
     });
 
     expect(pixelAt0(img)).toEqual([0, 0, 0, 255]);
-    expect(imageHasPixel(img, [140, 140, 140, 255])).toBe(true);
-    expect(imageHasPixel(img, [10, 20, 30, 255])).toBe(false);
+    expect(imageHasPixel(img, [10, 20, 30, 255])).toBe(true);
   });
 
   it("reveals permanent invisible walls as a black X over floor", () => {
