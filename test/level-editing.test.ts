@@ -374,6 +374,7 @@ describe("level editing helpers", () => {
     expect(classifyTilePlacement("ANT_N")).toBe("actor");
     expect(classifyTilePlacement("BLOCK")).toBe("actor");
     expect(classifyTilePlacement("UNKNOWN_0x70")).toBe("actor");
+    expect(classifyTilePlacement("UNKNOWN_0x71")).toBe("actor");
     expect(classifyTilePlacement("WALL")).toBe("terrain");
     expect(classifyTilePlacement("TRAP_BUTTON")).toBe("terrain");
     expect(
