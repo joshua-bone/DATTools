@@ -42,7 +42,7 @@ function cellShouldRenderAsAir(
 ): boolean {
   if (!context.threeDEnabled || context.layerZ <= 1) return false;
   if (topTile === DAT_3D_AIR_TILE) return true;
-  return bottomTile === DAT_3D_AIR_TILE;
+  return topTile === FLOOR_TILE && bottomTile === DAT_3D_AIR_TILE;
 }
 
 export function createDat3dDisplayCell(

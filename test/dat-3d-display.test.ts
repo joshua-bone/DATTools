@@ -101,4 +101,30 @@ describe("3D display elevator rendering", () => {
       bottom: "FLOOR",
     });
   });
+
+  it("preserves overlay sprites above air terrain", () => {
+    const context = {
+      threeDEnabled: true,
+      layerZ: 2,
+      layerCount: 2,
+    } as const;
+
+    expect(createDat3dDisplayCell("BALL_N", DAT_3D_AIR_TILE, context)).toEqual({
+      top: "BALL_N",
+      bottom: DAT_3D_AIR_SPRITE_NAME,
+    });
+  });
+
+  it("still collapses floor-over-air cells to full air", () => {
+    const context = {
+      threeDEnabled: true,
+      layerZ: 2,
+      layerCount: 2,
+    } as const;
+
+    expect(createDat3dDisplayCell("FLOOR", DAT_3D_AIR_TILE, context)).toEqual({
+      top: DAT_3D_AIR_SPRITE_NAME,
+      bottom: DAT_3D_AIR_SPRITE_NAME,
+    });
+  });
 });
