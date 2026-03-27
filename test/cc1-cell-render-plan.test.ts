@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCc1CellRenderSteps,
+  buildPalettePreviewRenderSteps,
   getPalettePreviewSpriteEffect,
 } from "@/src/dat/render/cc1CellRenderPlan";
 
@@ -60,6 +61,42 @@ describe("CC1 cell render plan", () => {
         showSecrets: false,
       }),
     ).toBe("none");
+  });
+
+  it("reveals appearing invisible walls with the custom marker when secrets are visible", () => {
+    expect(
+      buildCc1CellRenderSteps("INV_WALL_APP", "FLOOR", {
+        showSecrets: true,
+      }),
+    ).toEqual([{ kind: "secretWall", variant: "appearing" }]);
+  });
+
+  it("reveals permanent invisible walls over floor when secrets are visible", () => {
+    expect(
+      buildCc1CellRenderSteps("INV_WALL_PERM", "WALL", {
+        showSecrets: true,
+      }),
+    ).toEqual([
+      { kind: "sprite", spriteName: "FLOOR", effect: "none" },
+      { kind: "secretWall", variant: "permanent" },
+    ]);
+  });
+
+  it("always uses the custom invisible-wall graphics in palette previews", () => {
+    expect(
+      buildPalettePreviewRenderSteps("INV_WALL_APP", "INV_WALL_APP", {
+        showSecrets: false,
+      }),
+    ).toEqual([{ kind: "secretWall", variant: "appearing" }]);
+
+    expect(
+      buildPalettePreviewRenderSteps("INV_WALL_PERM", "INV_WALL_PERM", {
+        showSecrets: false,
+      }),
+    ).toEqual([
+      { kind: "sprite", spriteName: "FLOOR", effect: "none" },
+      { kind: "secretWall", variant: "permanent" },
+    ]);
   });
 
   it("makes block overlays semi-transparent when secrets are visible", () => {

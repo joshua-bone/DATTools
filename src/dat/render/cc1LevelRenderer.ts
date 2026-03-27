@@ -5,17 +5,19 @@ import {
   buildCc1CellRenderSteps,
   type RenderOptions,
 } from "@/src/dat/render/cc1CellRenderPlan";
+import { makeSecretWallMarker, type SecretWallVariant } from "@/src/dat/render/cc1Secrets";
 import type { RgbaImage } from "@/src/dat/render/rgbaImage";
 import { createImage, cloneImage, blit } from "@/src/dat/render/rgbaImage";
 import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import { makeArrow, overlayArrowInPlace } from "@/src/dat/render/cc1Secrets";
 
-function renderCc1CellToRgbaWithArrowCache(
+function renderCc1CellToRgbaWithCaches(
   topName: string,
   bottomName: string,
   sprites: CC1SpriteSet,
   opts: RenderOptions,
   arrowCache: Map<string, RgbaImage>,
+  secretWallCache: Map<string, RgbaImage>,
 ): RgbaImage {
   const size = sprites.tileSize;
   const getArrow = (dir: "N" | "E" | "S" | "W"): RgbaImage => {
@@ -25,6 +27,14 @@ function renderCc1CellToRgbaWithArrowCache(
     const arrow = makeArrow(size, dir);
     arrowCache.set(key, arrow);
     return arrow;
+  };
+  const getSecretWall = (variant: SecretWallVariant): RgbaImage => {
+    const key = `${size}:${variant}`;
+    const hit = secretWallCache.get(key);
+    if (hit) return hit;
+    const marker = makeSecretWallMarker(size, variant);
+    secretWallCache.set(key, marker);
+    return marker;
   };
 
   const steps = buildCc1CellRenderSteps(topName, bottomName, opts);
@@ -36,6 +46,14 @@ function renderCc1CellToRgbaWithArrowCache(
       applySpriteEffectInPlace(sprite, step.effect);
       if (!tileImg) tileImg = sprite;
       else blit(tileImg, sprite, 0, 0);
+      continue;
+    }
+
+    if (step.kind === "secretWall") {
+      if (!tileImg) {
+        tileImg = createImage(size, size, [0, 0, 0, 0]);
+      }
+      blit(tileImg, getSecretWall(step.variant), 0, 0);
       continue;
     }
 
@@ -55,7 +73,7 @@ export function renderCc1CellToRgba(
   sprites: CC1SpriteSet,
   opts: RenderOptions,
 ): RgbaImage {
-  return renderCc1CellToRgbaWithArrowCache(topName, bottomName, sprites, opts, new Map());
+  return renderCc1CellToRgbaWithCaches(topName, bottomName, sprites, opts, new Map(), new Map());
 }
 
 export function renderCc1LevelToRgba(
@@ -66,6 +84,7 @@ export function renderCc1LevelToRgba(
   const size = sprites.tileSize;
   const out = createImage(32 * size, 32 * size, [0, 0, 0, 0]);
   const arrowCache = new Map<string, RgbaImage>();
+  const secretWallCache = new Map<string, RgbaImage>();
 
   for (let j = 0; j < 32; j++) {
     for (let i = 0; i < 32; i++) {
@@ -73,12 +92,13 @@ export function renderCc1LevelToRgba(
 
       const bottomName = level.map.bottom[p] ?? "FLOOR";
       const topName = level.map.top[p] ?? bottomName;
-      const tileImg = renderCc1CellToRgbaWithArrowCache(
+      const tileImg = renderCc1CellToRgbaWithCaches(
         topName,
         bottomName,
         sprites,
         opts,
         arrowCache,
+        secretWallCache,
       );
 
       blit(out, tileImg, i * size, j * size);

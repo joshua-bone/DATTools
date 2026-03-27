@@ -1,9 +1,11 @@
 import {
   dirFromTileName,
+  getSecretWallVariant,
   lightenImageInPlace,
   makeSemiTransparentInPlace,
   shouldShowDirectionArrowInPalette,
   type Dir,
+  type SecretWallVariant,
 } from "@/src/dat/render/cc1Secrets";
 import type { RgbaImage } from "@/src/dat/render/rgbaImage";
 
@@ -18,6 +20,10 @@ export type CellRenderStep =
       kind: "sprite";
       spriteName: string;
       effect: SpriteEffect;
+    }>
+  | Readonly<{
+      kind: "secretWall";
+      variant: SecretWallVariant;
     }>
   | Readonly<{
       kind: "arrow";
@@ -63,11 +69,27 @@ export function getPalettePreviewSpriteEffect(topName: string, opts: RenderOptio
   return getTopSpriteEffect(topName, opts);
 }
 
+function buildSecretWallRevealSteps(variant: SecretWallVariant): CellRenderStep[] {
+  if (variant === "appearing") {
+    return [{ kind: "secretWall", variant }];
+  }
+
+  return [
+    { kind: "sprite", spriteName: "FLOOR", effect: "none" },
+    { kind: "secretWall", variant },
+  ];
+}
+
 export function buildCc1CellRenderSteps(
   topName: string,
   bottomName: string,
   opts: RenderOptions,
 ): CellRenderStep[] {
+  const secretWallVariant = opts.showSecrets ? getSecretWallVariant(topName) : null;
+  if (secretWallVariant) {
+    return buildSecretWallRevealSteps(secretWallVariant);
+  }
+
   const steps: CellRenderStep[] = [{ kind: "sprite", spriteName: bottomName, effect: "none" }];
   if (!shouldOverlayTopTile(topName, bottomName)) return steps;
 
@@ -83,4 +105,23 @@ export function buildCc1CellRenderSteps(
   }
 
   return steps;
+}
+
+export function buildPalettePreviewRenderSteps(
+  tileName: string,
+  spriteName: string,
+  opts: RenderOptions,
+): CellRenderStep[] {
+  const secretWallVariant = getSecretWallVariant(tileName);
+  if (secretWallVariant) {
+    return buildSecretWallRevealSteps(secretWallVariant);
+  }
+
+  return [
+    {
+      kind: "sprite",
+      spriteName,
+      effect: getPalettePreviewSpriteEffect(tileName, opts),
+    },
+  ];
 }

@@ -38,6 +38,8 @@ function makeSpriteSet(): CC1SpriteSet {
     ["BALL_N", [20, 40, 220, 255]],
     ["ANT_N", [30, 180, 60, 255]],
     ["BLUE_WALL_FAKE", [100, 100, 100, 255]],
+    ["INV_WALL_APP", [210, 210, 210, 255]],
+    ["INV_WALL_PERM", [220, 220, 220, 255]],
   ]);
 
   return {
@@ -50,6 +52,24 @@ function makeSpriteSet(): CC1SpriteSet {
 
 function pixelAt0(img: ReturnType<typeof renderCc1LevelToRgba>): number[] {
   return Array.from(img.data.slice(0, 4));
+}
+
+function imageHasPixel(
+  img: ReturnType<typeof renderCc1LevelToRgba>,
+  color: readonly [number, number, number, number],
+): boolean {
+  for (let index = 0; index < img.data.length; index += 4) {
+    if (
+      img.data[index + 0] === color[0] &&
+      img.data[index + 1] === color[1] &&
+      img.data[index + 2] === color[2] &&
+      img.data[index + 3] === color[3]
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 describe("CC1 level renderer", () => {
@@ -125,5 +145,32 @@ describe("CC1 level renderer", () => {
     });
 
     expect(pixelAt0(img)).toEqual([140, 140, 140, 255]);
+  });
+
+  it("keeps appearing invisible walls on their base sprite when secrets are hidden", () => {
+    const img = renderCc1CellToRgba("INV_WALL_APP", "FLOOR", makeSpriteSet(), {
+      showSecrets: false,
+    });
+
+    expect(pixelAt0(img)).toEqual([210, 210, 210, 255]);
+  });
+
+  it("reveals appearing invisible walls with a black border and grey fill", () => {
+    const img = renderCc1CellToRgba("INV_WALL_APP", "FLOOR", makeSpriteSet(), {
+      showSecrets: true,
+    });
+
+    expect(pixelAt0(img)).toEqual([0, 0, 0, 255]);
+    expect(imageHasPixel(img, [140, 140, 140, 255])).toBe(true);
+    expect(imageHasPixel(img, [10, 20, 30, 255])).toBe(false);
+  });
+
+  it("reveals permanent invisible walls as a black X over floor", () => {
+    const img = renderCc1CellToRgba("INV_WALL_PERM", "FLOOR", makeSpriteSet(), {
+      showSecrets: true,
+    });
+
+    expect(imageHasPixel(img, [0, 0, 0, 255])).toBe(true);
+    expect(imageHasPixel(img, [10, 20, 30, 255])).toBe(true);
   });
 });

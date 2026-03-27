@@ -4296,6 +4296,7 @@ export default function App() {
     primaryTile,
     secondaryTile,
     selection,
+    selectedLayerZ,
     selectedLogicalLevel,
     threeDLevelsEnabled,
     tool,

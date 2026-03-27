@@ -4,7 +4,12 @@ import {
   type RenderOptions,
   type SpriteEffect,
 } from "@/src/dat/render/cc1CellRenderPlan";
-import { makeArrow, type Dir } from "@/src/dat/render/cc1Secrets";
+import {
+  makeArrow,
+  makeSecretWallMarker,
+  type Dir,
+  type SecretWallVariant,
+} from "@/src/dat/render/cc1Secrets";
 import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import { cloneImage, type RgbaImage } from "@/src/dat/render/rgbaImage";
 import { drawRgbaImageToContext } from "@/web/src/canvasDrawing";
@@ -21,6 +26,7 @@ export type CanvasSpriteCache = Readonly<{
   tileSize: number;
   getSprite: (name: string, effect?: SpriteEffect) => CanvasAtlasSource;
   getArrow: (dir: Dir) => CanvasAtlasSource;
+  getSecretWall: (variant: SecretWallVariant) => CanvasAtlasSource;
   getComposedCell: (topName: string, bottomName: string, opts: RenderOptions) => CanvasAtlasSource;
   drawSource: (
     ctx: CanvasRenderingContext2D,
@@ -99,6 +105,7 @@ export function createCanvasSpriteCache(spriteSet: CC1SpriteSet): CanvasSpriteCa
 
   const spriteCache = new Map<string, CanvasAtlasSource>();
   const arrowCache = new Map<Dir, CanvasAtlasSource>();
+  const secretWallCache = new Map<SecretWallVariant, CanvasAtlasSource>();
   const composedCellCache = new Map<string, CanvasAtlasSource>();
 
   const drawSource = (
@@ -143,6 +150,18 @@ export function createCanvasSpriteCache(spriteSet: CC1SpriteSet): CanvasSpriteCa
     return source;
   };
 
+  const getSecretWall = (variant: SecretWallVariant): CanvasAtlasSource => {
+    const hit = secretWallCache.get(variant);
+    if (hit) return hit;
+
+    const source = createPrimitiveAtlasSource(
+      primitiveAtlas,
+      makeSecretWallMarker(spriteSet.tileSize, variant),
+    );
+    secretWallCache.set(variant, source);
+    return source;
+  };
+
   const getComposedCell = (
     topName: string,
     bottomName: string,
@@ -158,6 +177,10 @@ export function createCanvasSpriteCache(spriteSet: CC1SpriteSet): CanvasSpriteCa
           drawSource(ctx, getSprite(step.spriteName, step.effect), dx, dy);
           continue;
         }
+        if (step.kind === "secretWall") {
+          drawSource(ctx, getSecretWall(step.variant), dx, dy);
+          continue;
+        }
         drawSource(ctx, getArrow(step.dir), dx, dy);
       }
     });
@@ -169,6 +192,7 @@ export function createCanvasSpriteCache(spriteSet: CC1SpriteSet): CanvasSpriteCa
     tileSize: spriteSet.tileSize,
     getSprite,
     getArrow,
+    getSecretWall,
     getComposedCell,
     drawSource,
   };

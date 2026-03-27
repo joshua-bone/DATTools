@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import { getDat3dTileSpriteName, type Dat3dDisplayContext } from "@/src/dat/dat3dDisplay";
-import { getPalettePreviewSpriteEffect } from "@/src/dat/render/cc1CellRenderPlan";
+import { buildPalettePreviewRenderSteps } from "@/src/dat/render/cc1CellRenderPlan";
 import { dirFromTileName, shouldShowDirectionArrowInPalette } from "@/src/dat/render/cc1Secrets";
 import type { CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
 
@@ -42,14 +42,28 @@ export function TilePreview({
     if (!ctx) return;
 
     const spriteName = displayContext ? getDat3dTileSpriteName(tile, displayContext) : tile;
-    const spriteEffect = getPalettePreviewSpriteEffect(tile, { showSecrets });
     const overlayDir =
       showPaletteDirectionArrow && shouldShowDirectionArrowInPalette(tile)
         ? dirFromTileName(tile)
         : null;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    canvasSpriteCache.drawSource(ctx, canvasSpriteCache.getSprite(spriteName, spriteEffect), 0, 0);
+    for (const step of buildPalettePreviewRenderSteps(tile, spriteName, { showSecrets })) {
+      if (step.kind === "sprite") {
+        canvasSpriteCache.drawSource(
+          ctx,
+          canvasSpriteCache.getSprite(step.spriteName, step.effect),
+          0,
+          0,
+        );
+        continue;
+      }
+
+      if (step.kind === "secretWall") {
+        canvasSpriteCache.drawSource(ctx, canvasSpriteCache.getSecretWall(step.variant), 0, 0);
+      }
+    }
+
     if (overlayDir) {
       canvasSpriteCache.drawSource(ctx, canvasSpriteCache.getArrow(overlayDir), 0, 0);
     }

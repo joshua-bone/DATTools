@@ -3,6 +3,7 @@ import type { RgbaImage } from "@/src/dat/render/rgbaImage";
 import { createImage, blit, cloneImage } from "@/src/dat/render/rgbaImage";
 
 export type Dir = "N" | "E" | "S" | "W";
+export type SecretWallVariant = "appearing" | "permanent";
 
 const DIRECTIONAL_TILE_PATTERN = /_(N|E|S|W)$/;
 const AMBIGUOUS_DIRECTION_TILE_PREFIXES = [
@@ -13,6 +14,8 @@ const AMBIGUOUS_DIRECTION_TILE_PREFIXES = [
   "BLOB_",
   "PARAMECIUM_",
 ] as const;
+const SECRET_WALL_FILL: readonly [number, number, number, number] = [140, 140, 140, 255];
+const SECRET_WALL_STROKE: readonly [number, number, number, number] = [0, 0, 0, 255];
 
 export function dirFromTileName(name: string): Dir | null {
   const match = DIRECTIONAL_TILE_PATTERN.exec(name);
@@ -24,6 +27,12 @@ export function shouldShowDirectionArrowInPalette(name: string): boolean {
     dirFromTileName(name) !== null &&
     AMBIGUOUS_DIRECTION_TILE_PREFIXES.some((prefix) => name.startsWith(prefix))
   );
+}
+
+export function getSecretWallVariant(name: string): SecretWallVariant | null {
+  if (name === "INV_WALL_APP") return "appearing";
+  if (name === "INV_WALL_PERM") return "permanent";
+  return null;
 }
 
 export function lightenImageInPlace(img: RgbaImage, pct: number): void {
@@ -150,4 +159,74 @@ export function renderTileWithArrow(tileImg: RgbaImage, dir: Dir): RgbaImage {
   const out = cloneImage(tileImg);
   overlayArrowInPlace(out, makeArrow(tileImg.width, dir));
   return out;
+}
+
+function fillRectInPlace(
+  img: RgbaImage,
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+  color: readonly [number, number, number, number],
+): void {
+  const [r, g, b, a] = color;
+
+  for (let y = Math.max(0, top); y < Math.min(img.height, bottom); y++) {
+    for (let x = Math.max(0, left); x < Math.min(img.width, right); x++) {
+      const offset = (y * img.width + x) * 4;
+      img.data[offset + 0] = r;
+      img.data[offset + 1] = g;
+      img.data[offset + 2] = b;
+      img.data[offset + 3] = a;
+    }
+  }
+}
+
+function drawDiagonalCrossInPlace(
+  img: RgbaImage,
+  color: readonly [number, number, number, number],
+  thickness: number,
+): void {
+  const [r, g, b, a] = color;
+  const radius = Math.max(0, thickness - 1) / 2;
+  const lastIndex = img.width - 1;
+
+  for (let y = 0; y < img.height; y++) {
+    for (let x = 0; x < img.width; x++) {
+      const onForwardDiagonal = Math.abs(x - y) <= radius;
+      const onBackwardDiagonal = Math.abs(x - (lastIndex - y)) <= radius;
+      if (!onForwardDiagonal && !onBackwardDiagonal) continue;
+
+      const offset = (y * img.width + x) * 4;
+      img.data[offset + 0] = r;
+      img.data[offset + 1] = g;
+      img.data[offset + 2] = b;
+      img.data[offset + 3] = a;
+    }
+  }
+}
+
+export function makeSecretWallMarker(size: number, variant: SecretWallVariant): RgbaImage {
+  const borderThickness = Math.max(1, Math.round(size / 5));
+
+  if (variant === "appearing") {
+    const img = createImage(size, size, SECRET_WALL_STROKE);
+    fillRectInPlace(
+      img,
+      borderThickness,
+      borderThickness,
+      size - borderThickness,
+      size - borderThickness,
+      SECRET_WALL_FILL,
+    );
+    return img;
+  }
+
+  const img = createImage(size, size, [0, 0, 0, 0]);
+  fillRectInPlace(img, 0, 0, size, borderThickness, SECRET_WALL_STROKE);
+  fillRectInPlace(img, 0, size - borderThickness, size, size, SECRET_WALL_STROKE);
+  fillRectInPlace(img, 0, 0, borderThickness, size, SECRET_WALL_STROKE);
+  fillRectInPlace(img, size - borderThickness, 0, size, size, SECRET_WALL_STROKE);
+  drawDiagonalCrossInPlace(img, SECRET_WALL_STROKE, Math.max(1, Math.round(size / 6)));
+  return img;
 }
