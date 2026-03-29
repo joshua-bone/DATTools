@@ -1,5 +1,6 @@
 // src/dat/render/cc1SpriteSet.ts
 import { CC1_TILE_COUNT, tileCodeFromName, tileNameFromCode } from "@/src/dat/cc1Tiles";
+import { DAT_3D_CLOUD_TILE } from "@/src/dat/dat3dLevels";
 import type { RgbaImage } from "@/src/dat/render/rgbaImage";
 import { cloneImage, cropRect, createImage } from "@/src/dat/render/rgbaImage";
 
@@ -21,6 +22,19 @@ function makeTransparentByRgb(img: RgbaImage, keyR: number, keyG: number, keyB: 
     if (a !== 0 && r === keyR && g === keyG && b === keyB) {
       img.data[o + 3] = 0;
     }
+  }
+}
+
+function scaleAlphaInPlace(img: RgbaImage, factor: number): void {
+  for (let i = 0; i < img.width * img.height; i++) {
+    const alphaOffset = i * 4 + 3;
+    img.data[alphaOffset] = Math.max(0, Math.min(255, Math.round(img.data[alphaOffset]! * factor)));
+  }
+}
+
+function applySpritePostprocessing(name: string, sprite: RgbaImage): void {
+  if (name === DAT_3D_CLOUD_TILE) {
+    scaleAlphaInPlace(sprite, 0.5);
   }
 }
 
@@ -409,6 +423,7 @@ export function buildCc1SpriteSet(
     if (name.startsWith("NOT_USED_")) {
       drawNotUsedCrossInPlace(sprite);
     }
+    applySpritePostprocessing(name, sprite);
 
     sprites.set(name, sprite);
   }
@@ -421,7 +436,9 @@ export function buildCc1SpriteSet(
         `Sprite override '${name}' must be ${size}x${size}, got ${sprite.width}x${sprite.height}`,
       );
     }
-    sprites.set(name, cloneImage(sprite));
+    const nextSprite = cloneImage(sprite);
+    applySpritePostprocessing(name, nextSprite);
+    sprites.set(name, nextSprite);
   }
 
   return {
@@ -434,6 +451,7 @@ export function buildCc1SpriteSet(
         const code = tileCodeFromName(name);
         if (code >= CC1_TILE_COUNT) {
           const fallback = makeUnknownByteSprite(sprites.get("FLOOR") ?? null, code);
+          applySpritePostprocessing(name, fallback);
           sprites.set(name, fallback);
           return fallback;
         }

@@ -22,12 +22,15 @@ import {
 import { decodeDatBytes, encodeDatBytes } from "@/src/dat/datCodec";
 import {
   DAT_3D_AIR_TILE,
+  DAT_3D_FULL_CELL_TERRAIN_TILES,
+  DAT_3D_VALID_TERRAIN_TILES,
   buildLogical3dLevelset,
   cloneCanonicalMetadata,
   cloneDatLevel,
   countChipsInLogical3dLevel,
   editable3dLevelsFromDoc,
   export3dLevelsetDoc,
+  getDat3dPaintTile,
   getLogical3dLevelForRawIndex,
   logicalLevelIndexForRawIndex,
   rawDocFromEditable3dLevels,
@@ -321,7 +324,6 @@ const TABLET_LAYOUT_MIN_VIEWPORT = 700;
 const TABLET_LAYOUT_MAX_VIEWPORT = 1400;
 const LAYOUT_MODE_PREFERENCE_STORAGE_KEY = "dattools-layout-mode";
 const DOCUMENT_PERSIST_DEBOUNCE_MS = 300;
-const DAT_3D_VALID_TERRAIN_TILES = new Set<string>([DAT_3D_AIR_TILE, "CHIP_EXIT"]);
 const DEFAULT_LEVELSET_FILENAME = "NEW_LEVELSET.DAT";
 const DEFAULT_MAGIC_NUMBER = 174764;
 const BOARD_PARTIAL_REDRAW_THRESHOLD = 128;
@@ -788,8 +790,15 @@ function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function getPaintTileForButton(button: number, primaryTile: string, secondaryTile: string): string {
-  return button === 2 ? secondaryTile : primaryTile;
+function getPaintTileForButton(
+  button: number,
+  primaryTile: string,
+  secondaryTile: string,
+  threeDEnabled: boolean,
+  layerZ: number,
+): string {
+  const tile = button === 2 ? secondaryTile : primaryTile;
+  return threeDEnabled ? getDat3dPaintTile(tile, layerZ) : tile;
 }
 
 function makePaintOptions(threeDEnabled: boolean, layerZ: number, buryOnBottom = false) {
@@ -801,7 +810,7 @@ function makePaintOptions(threeDEnabled: boolean, layerZ: number, buryOnBottom =
         }
       : {}),
     ...(threeDEnabled && layerZ > 1
-      ? { fullCellTerrainTiles: new Set<string>([DAT_3D_AIR_TILE]) }
+      ? { fullCellTerrainTiles: DAT_3D_FULL_CELL_TERRAIN_TILES }
       : {}),
     ...(buryOnBottom ? { buryOnBottom: true } : {}),
   };
@@ -2832,7 +2841,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           fillLevelArea(
             level,
             point,
-            getPaintTileForButton(event.button, primaryTile, secondaryTile),
+            getPaintTileForButton(
+              event.button,
+              primaryTile,
+              secondaryTile,
+              threeDLevelsEnabled,
+              selectedLayerZ,
+            ),
             makePaintOptions(threeDLevelsEnabled, selectedLayerZ, event.shiftKey),
           ),
         );
@@ -2840,7 +2855,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       }
 
       event.currentTarget.setPointerCapture(event.pointerId);
-      const dragTile = getPaintTileForButton(event.button, primaryTile, secondaryTile);
+      const dragTile = getPaintTileForButton(
+        event.button,
+        primaryTile,
+        secondaryTile,
+        threeDLevelsEnabled,
+        selectedLayerZ,
+      );
 
       if (tool === "brush") {
         const nextDragState: BrushDragState = {

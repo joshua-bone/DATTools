@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DAT_3D_CLOUD_TILE } from "@/src/dat/dat3dLevels";
 import { buildCc1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import { createImage } from "@/src/dat/render/rgbaImage";
 
@@ -96,5 +97,21 @@ describe("CC1 sprite set fallbacks", () => {
     expect(sprite.height).toBe(size);
     expect(readPixel(sprite, 4, 5)).toEqual([210, 180, 120, 255]);
     expect(readPixel(sprite, 18, 24)).toEqual([92, 68, 48, 255]);
+  });
+
+  it("renders the cloud override at half opacity", () => {
+    const size = 32;
+    const sheet = createImage(size * 13, size * 16, [255, 0, 255, 255]);
+    const cloud = createImage(size, size, [0, 0, 0, 0]);
+    setPixel(cloud, 4, 5, [188, 220, 255, 255]);
+    setPixel(cloud, 18, 24, [92, 68, 48, 64]);
+
+    const spriteSet = buildCc1SpriteSet(sheet, { [DAT_3D_CLOUD_TILE]: cloud });
+    const sprite = spriteSet.get(DAT_3D_CLOUD_TILE);
+
+    expect(sprite.width).toBe(size);
+    expect(sprite.height).toBe(size);
+    expect(readPixel(sprite, 4, 5)).toEqual([188, 220, 255, 128]);
+    expect(readPixel(sprite, 18, 24)).toEqual([92, 68, 48, 32]);
   });
 });

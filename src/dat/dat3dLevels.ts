@@ -3,10 +3,20 @@ import { tileNameFromCode } from "@/src/dat/cc1Tiles";
 
 export const DAT_3D_AIR_TILE = tileNameFromCode(32);
 export const DAT_3D_ELEVATOR_TILE = tileNameFromCode(57);
+export const DAT_3D_CLOUD_TILE = tileNameFromCode(0x72);
+export const DAT_3D_FULL_CELL_TERRAIN_TILES = new Set<string>([DAT_3D_AIR_TILE, DAT_3D_CLOUD_TILE]);
+export const DAT_3D_VALID_TERRAIN_TILES = new Set<string>([
+  ...DAT_3D_FULL_CELL_TERRAIN_TILES,
+  "CHIP_EXIT",
+]);
 
 const BOARD_TILE_COUNT = 32 * 32;
 const FLOOR_TILE = "FLOOR";
 const TITLE_SUFFIX_RE = /^(.*)\\([1-9]\d*)$/;
+
+export function getDat3dPaintTile(tile: string, layerZ: number): string {
+  return layerZ <= 1 && DAT_3D_FULL_CELL_TERRAIN_TILES.has(tile) ? FLOOR_TILE : tile;
+}
 
 type MutableLevel = {
   -readonly [K in keyof DatLevelJson]: DatLevelJson[K];

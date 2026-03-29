@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  DAT_3D_CLOUD_TILE,
+  DAT_3D_FULL_CELL_TERRAIN_TILES,
+  DAT_3D_VALID_TERRAIN_TILES,
+  getDat3dPaintTile,
+} from "@/src/dat/dat3dLevels";
 import type { DatLevelsetJsonV1 } from "@/src/dat/datLevelsetJsonV1";
 import {
   classifyTilePlacement,
@@ -160,6 +166,36 @@ describe("level editing helpers", () => {
 
     expect(level.map.top[0]).toBe("WALL");
     expect(level.map.bottom[0]).toBe("FIRE");
+  });
+
+  it("treats cloud as upper-layer-only full-cell terrain in 3D paint mode", () => {
+    const z1CloudTile = getDat3dPaintTile(DAT_3D_CLOUD_TILE, 1);
+    const z2CloudTile = getDat3dPaintTile(DAT_3D_CLOUD_TILE, 2);
+    let level = createEmptyLevel(1);
+
+    level = paintLevelCells(level, [0], z1CloudTile, {
+      treatAsTerrainTiles: DAT_3D_VALID_TERRAIN_TILES,
+      allowedInvalidTiles: DAT_3D_VALID_TERRAIN_TILES,
+    });
+    expect(z1CloudTile).toBe("FLOOR");
+    expect(level.map.top[0]).toBe("FLOOR");
+    expect(level.map.bottom[0]).toBe("FLOOR");
+
+    level = paintLevelCells(level, [1], z2CloudTile, {
+      treatAsTerrainTiles: DAT_3D_VALID_TERRAIN_TILES,
+      allowedInvalidTiles: DAT_3D_VALID_TERRAIN_TILES,
+      fullCellTerrainTiles: DAT_3D_FULL_CELL_TERRAIN_TILES,
+    });
+    expect(z2CloudTile).toBe(DAT_3D_CLOUD_TILE);
+    expect(level.map.top[1]).toBe(DAT_3D_CLOUD_TILE);
+    expect(level.map.bottom[1]).toBe(DAT_3D_CLOUD_TILE);
+    expect(
+      getInvalidCellIndices(level, {
+        treatAsTerrainTiles: DAT_3D_VALID_TERRAIN_TILES,
+        allowedInvalidTiles: DAT_3D_VALID_TERRAIN_TILES,
+        fullCellTerrainTiles: DAT_3D_FULL_CELL_TERRAIN_TILES,
+      }),
+    ).toEqual([]);
   });
 
   it("counts chip tiles present in either layer once per cell", () => {

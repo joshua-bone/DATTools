@@ -1,5 +1,4 @@
 import { CC1_LEGACY_INVALID_TILE_NAMES } from "@/src/dat/cc1Tiles";
-import { DAT_3D_AIR_TILE } from "@/src/dat/dat3dLevels";
 import type {
   CloneControl,
   DatExtraField,
@@ -607,8 +606,7 @@ export function isLevelCellValid(
     (INVALID_CELL_TILES.has(top) && !options?.allowedInvalidTiles?.has(top)) ||
     (INVALID_CELL_TILES.has(bottom) && !options?.allowedInvalidTiles?.has(bottom));
   const buriedMob = isActorTile(bottom, options);
-  const isAllowedFullCellTerrain =
-    top === bottom && options?.fullCellTerrainTiles?.has(top) && top === DAT_3D_AIR_TILE;
+  const isAllowedFullCellTerrain = top === bottom && options?.fullCellTerrainTiles?.has(top);
   const buried = !isActorTile(top, options) && bottom !== FLOOR_TILE && !isAllowedFullCellTerrain;
   return !(invalidCode || buriedMob || buried);
 }
