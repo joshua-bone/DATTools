@@ -84,6 +84,7 @@ const ACTOR_TILES = new Set<string>([
   "CLONE_BLOCK_E",
   "UNKNOWN_0x70",
   "UNKNOWN_0x71",
+  "UNKNOWN_0x72",
   "CHIP_EXIT",
   "DROWN_CHIP",
   "BURNED_CHIP0",

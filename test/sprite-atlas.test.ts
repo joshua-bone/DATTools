@@ -32,15 +32,17 @@ function readPixel(
 
 describe("sprite atlas", () => {
   it("extracts named sprite overrides from atlas frames", () => {
-    const atlasImage = createImage(64, 32, [0, 0, 0, 0]);
+    const atlasImage = createImage(96, 32, [0, 0, 0, 0]);
     setPixel(atlasImage, 4, 5, [210, 180, 120, 255]);
     setPixel(atlasImage, 32 + 18, 24, [92, 68, 48, 255]);
+    setPixel(atlasImage, 64 + 11, 9, [188, 220, 255, 255]);
 
     const atlasKey = parseSpriteAtlasKey({
       image: "expansion.png",
       frames: {
         UNKNOWN_0x70: { x: 0, y: 0, width: 32, height: 32 },
         UNKNOWN_0x71: { x: 32, y: 0, width: 32, height: 32 },
+        UNKNOWN_0x72: { x: 64, y: 0, width: 32, height: 32 },
       },
     });
 
@@ -48,6 +50,7 @@ describe("sprite atlas", () => {
 
     expect(readPixel(overrides.UNKNOWN_0x70!, 4, 5)).toEqual([210, 180, 120, 255]);
     expect(readPixel(overrides.UNKNOWN_0x71!, 18, 24)).toEqual([92, 68, 48, 255]);
+    expect(readPixel(overrides.UNKNOWN_0x72!, 11, 9)).toEqual([188, 220, 255, 255]);
   });
 
   it("rejects non-square tile frames", () => {
