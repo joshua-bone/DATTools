@@ -63,6 +63,12 @@ import {
   drawCc1LevelToContext,
 } from "@/web/src/canvasLevelRenderer";
 import {
+  DESKTOP_RELEASES_URL,
+  LATEST_DESKTOP_RELEASE_URL,
+  fetchLatestDesktopRelease,
+  type LatestDesktopRelease,
+} from "@/web/src/githubReleases";
+import {
   boardPointToCell,
   drawPresentedBoardLayers,
   drawViewportPresentedBoardLayers,
@@ -136,6 +142,7 @@ type PaletteTab = "normal" | "invalid";
 type LayoutModePreference = "auto" | "desktop" | "tablet";
 type TabletDrawerSide = "left" | "right" | null;
 type PaletteAssignmentTarget = "primary" | "secondary";
+type LatestDesktopReleaseLoadState = "idle" | "loading" | "ready" | "error";
 
 type MetadataDraft = Readonly<{
   number: string;
@@ -329,6 +336,9 @@ const DOCUMENT_PERSIST_DEBOUNCE_MS = 300;
 const DEFAULT_LEVELSET_FILENAME = "NEW_LEVELSET.DAT";
 const DEFAULT_MAGIC_NUMBER = 174764;
 const BOARD_PARTIAL_REDRAW_THRESHOLD = 128;
+const DESKTOP_RELEASE_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+});
 const EYEDROPPER_CURSOR =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g transform='rotate(45 12 12)'><rect x='10' y='2.5' width='4' height='11' rx='1.4' fill='%23f6fbff' stroke='%23121a1f' stroke-width='1.6'/><path d='M10 5.5H8.4A1.4 1.4 0 0 0 7 6.9v3.7A1.4 1.4 0 0 0 8.4 12H10' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 13v6' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><path d='M10.3 19.3h7.4' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><circle cx='14' cy='21' r='1.5' fill='%23235f7a'/></g></svg>\") 4 20, crosshair";
 const TRANSFORM_MENU_ITEMS: ReadonlyArray<Readonly<{ kind: DatTransformKind; label: string }>> = [
@@ -3240,6 +3250,11 @@ export default function App() {
     "file" | "view" | "options" | "transform" | null
   >(null);
   const [openDialog, setOpenDialog] = useState<"brandingHelp" | "threeDHelp" | null>(null);
+  const [latestDesktopRelease, setLatestDesktopRelease] = useState<LatestDesktopRelease | null>(
+    null,
+  );
+  const [latestDesktopReleaseLoadState, setLatestDesktopReleaseLoadState] =
+    useState<LatestDesktopReleaseLoadState>("idle");
   const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(
     initialAppState.preferences.threeDLevelsEnabled,
   );
@@ -3432,6 +3447,9 @@ export default function App() {
       }) as CSSProperties,
     [paletteCellSize, paletteColumnCount],
   );
+  const latestDesktopReleasePublishedAt = latestDesktopRelease?.publishedAt
+    ? DESKTOP_RELEASE_DATE_FORMATTER.format(new Date(latestDesktopRelease.publishedAt))
+    : null;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3576,6 +3594,25 @@ export default function App() {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [tabletDrawerSide]);
+
+  useEffect(() => {
+    if (openDialog !== "brandingHelp") return;
+
+    const controller = new AbortController();
+    setLatestDesktopReleaseLoadState("loading");
+
+    void fetchLatestDesktopRelease(controller.signal)
+      .then((release) => {
+        setLatestDesktopRelease(release);
+        setLatestDesktopReleaseLoadState("ready");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setLatestDesktopReleaseLoadState("error");
+      });
+
+    return () => controller.abort();
+  }, [openDialog]);
 
   function loadDocument(nextDoc: DatLevelsetJsonV1, nextFileName?: string | null): void {
     resetWorkspaceUiState();
@@ -4619,6 +4656,20 @@ export default function App() {
       .catch((error: unknown) => {
         setErrorMessage(asErrorMessage(error));
       });
+  }
+
+  function openLatestDesktopRelease(): void {
+    void platform
+      .openExternalUrl(latestDesktopRelease?.htmlUrl ?? LATEST_DESKTOP_RELEASE_URL)
+      .catch((error: unknown) => {
+        setErrorMessage(asErrorMessage(error));
+      });
+  }
+
+  function openDesktopReleasesPage(): void {
+    void platform.openExternalUrl(DESKTOP_RELEASES_URL).catch((error: unknown) => {
+      setErrorMessage(asErrorMessage(error));
+    });
   }
 
   async function saveCurrentDat(): Promise<void> {
@@ -5845,6 +5896,45 @@ export default function App() {
                     reinterpretations visible.
                   </li>
                 </ul>
+                <div className="releaseHelpCard">
+                  <h3 className="modalSectionTitle">Desktop App</h3>
+                  <p className="releaseHelpStatus">
+                    {latestDesktopRelease
+                      ? `Latest release: ${latestDesktopRelease.version}`
+                      : latestDesktopReleaseLoadState === "loading"
+                        ? "Checking the latest desktop release..."
+                        : latestDesktopReleaseLoadState === "error"
+                          ? "Latest release info is unavailable right now."
+                          : "Latest release info loads when this help panel opens."}
+                  </p>
+                  <p>
+                    Download the offline desktop build from GitHub Releases for Windows, macOS, or
+                    Linux.
+                  </p>
+                  {latestDesktopReleasePublishedAt ? (
+                    <p className="releaseHelpMeta">Published {latestDesktopReleasePublishedAt}.</p>
+                  ) : null}
+                  <p className="releaseHelpMeta">
+                    Desktop builds do not auto-update yet. Install a newer release manually when a
+                    new version is published.
+                  </p>
+                  <div className="releaseHelpActions">
+                    <button
+                      type="button"
+                      className="actionButton"
+                      onClick={openLatestDesktopRelease}
+                    >
+                      Download Desktop Version
+                    </button>
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      onClick={openDesktopReleasesPage}
+                    >
+                      View All Releases
+                    </button>
+                  </div>
+                </div>
               </section>
               <section className="modalColumn">
                 <h3 className="modalSectionTitle">Controls</h3>

@@ -67,7 +67,7 @@ Release behavior:
 - If you use Conventional Commit signals, `feat:` bumps `minor` and `!:` or
   `BREAKING CHANGE:` bumps `major`.
 - Any other commit subject still releases and defaults to a `patch` bump.
-- The workflow creates or updates a draft GitHub Release for that tag.
+- The workflow creates or updates a published GitHub Release for that tag.
 - Windows builds publish an NSIS installer with the offline WebView2 runtime
   bundled.
 - macOS builds publish DMGs for both Intel and Apple Silicon targets.

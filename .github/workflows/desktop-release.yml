@@ -151,6 +151,6 @@ jobs:
             - Windows: NSIS installer with offline WebView2 runtime
             - macOS: DMG (unsigned by default; signed/notarized only when MACOS_SIGNING_ENABLED=true and Apple secrets are configured)
             - Linux: AppImage
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

@@ -1424,6 +1424,29 @@ button:disabled {
   margin-top: 10px;
 }
 
+.releaseHelpCard {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(47, 70, 81, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.releaseHelpStatus {
+  font-weight: 700;
+}
+
+.releaseHelpMeta {
+  color: rgba(23, 34, 41, 0.72);
+}
+
+.releaseHelpActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .modalBody code {
   padding: 1px 5px;
   border-radius: 6px;

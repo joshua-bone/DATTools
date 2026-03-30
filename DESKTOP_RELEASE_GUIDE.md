@@ -9,7 +9,7 @@ to run before publishing a release.
 - Pushing to `main` now runs the auto-release workflow.
 - That workflow computes the next version, creates a `v*` tag, and then calls
   the desktop build workflow with that tag.
-- The desktop build workflow creates or updates a draft GitHub Release.
+- The desktop build workflow creates or updates a published GitHub Release.
 - Current targets:
   - Windows: NSIS installer with offline WebView2 runtime
   - macOS: DMG for Intel and Apple Silicon
@@ -131,7 +131,7 @@ After the auto-release workflow runs:
 
 - [ ] Workflow creates or reuses the expected `v*` tag
 - [ ] GitHub Actions starts all four desktop jobs
-- [ ] Draft GitHub Release contains Windows, macOS Intel, macOS Apple Silicon,
+- [ ] Published GitHub Release contains Windows, macOS Intel, macOS Apple Silicon,
       and Linux artifacts
 - [ ] Release notes mention whether builds are signed and notarized
 
@@ -167,5 +167,4 @@ Linux smoke test:
 Release finalization:
 
 - [ ] Finalize release notes
-- [ ] Publish the GitHub Release
 - [ ] Record any platform-specific issues or unsigned-build caveats
