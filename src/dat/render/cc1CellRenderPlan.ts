@@ -36,6 +36,7 @@ const BLOCKS = new Set<string>([
   "CLONE_BLOCK_W",
   "CLONE_BLOCK_S",
   "CLONE_BLOCK_E",
+  "UNKNOWN_0x74",
 ]);
 
 export function shouldOverlayTopTile(topName: string, bottomName: string): boolean {

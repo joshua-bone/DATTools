@@ -115,4 +115,15 @@ describe("CC1 cell render plan", () => {
       { kind: "sprite", spriteName: "BLOCK", effect: "semiTransparent" },
     ]);
   });
+
+  it("makes custom ice-block overlays semi-transparent when secrets are visible", () => {
+    expect(
+      buildCc1CellRenderSteps("UNKNOWN_0x74", "FLOOR", {
+        showSecrets: true,
+      }),
+    ).toEqual([
+      { kind: "sprite", spriteName: "FLOOR", effect: "none" },
+      { kind: "sprite", spriteName: "UNKNOWN_0x74", effect: "semiTransparent" },
+    ]);
+  });
 });
