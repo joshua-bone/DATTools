@@ -49,6 +49,7 @@ export type ButtonConnection =
 
 export type PaintLevelOptions = Readonly<{
   fullCellTerrainTiles?: ReadonlySet<string>;
+  terrainBottomOverrides?: ReadonlyMap<string, string>;
   treatAsTerrainTiles?: ReadonlySet<string>;
   allowedInvalidTiles?: ReadonlySet<string>;
   buryOnBottom?: boolean;
@@ -518,6 +519,8 @@ export function extendPaintStroke(
 }
 
 function getTerrainTile(top: string, bottom: string, options?: PaintLevelOptions): string {
+  const pairedTerrainTile = options?.terrainBottomOverrides?.get(top);
+  if (pairedTerrainTile && bottom === pairedTerrainTile) return top;
   if (bottom !== FLOOR_TILE && !isActorTile(bottom, options)) return bottom;
   if (!isActorTile(top, options)) return top;
   return FLOOR_TILE;
@@ -560,6 +563,14 @@ function applyTileToCell(
     return {
       top: tile,
       bottom: tile,
+    };
+  }
+
+  const terrainBottomOverride = options?.terrainBottomOverrides?.get(tile);
+  if (terrainBottomOverride) {
+    return {
+      top: tile,
+      bottom: terrainBottomOverride,
     };
   }
 

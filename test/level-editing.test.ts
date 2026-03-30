@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DAT_3D_AIR_TILE,
   DAT_3D_CLOUD_TILE,
   DAT_3D_FULL_CELL_TERRAIN_TILES,
+  DAT_3D_TERRAIN_BOTTOM_OVERRIDES,
   DAT_3D_VALID_TERRAIN_TILES,
   getDat3dPaintTile,
 } from "@/src/dat/dat3dLevels";
@@ -168,7 +170,7 @@ describe("level editing helpers", () => {
     expect(level.map.bottom[0]).toBe("FIRE");
   });
 
-  it("treats cloud as upper-layer-only full-cell terrain in 3D paint mode", () => {
+  it("treats cloud as an upper-layer terrain overlay in 3D paint mode", () => {
     const z1CloudTile = getDat3dPaintTile(DAT_3D_CLOUD_TILE, 1);
     const z2CloudTile = getDat3dPaintTile(DAT_3D_CLOUD_TILE, 2);
     let level = createEmptyLevel(1);
@@ -185,17 +187,28 @@ describe("level editing helpers", () => {
       treatAsTerrainTiles: DAT_3D_VALID_TERRAIN_TILES,
       allowedInvalidTiles: DAT_3D_VALID_TERRAIN_TILES,
       fullCellTerrainTiles: DAT_3D_FULL_CELL_TERRAIN_TILES,
+      terrainBottomOverrides: DAT_3D_TERRAIN_BOTTOM_OVERRIDES,
     });
     expect(z2CloudTile).toBe(DAT_3D_CLOUD_TILE);
     expect(level.map.top[1]).toBe(DAT_3D_CLOUD_TILE);
-    expect(level.map.bottom[1]).toBe(DAT_3D_CLOUD_TILE);
+    expect(level.map.bottom[1]).toBe(DAT_3D_AIR_TILE);
     expect(
       getInvalidCellIndices(level, {
         treatAsTerrainTiles: DAT_3D_VALID_TERRAIN_TILES,
         allowedInvalidTiles: DAT_3D_VALID_TERRAIN_TILES,
         fullCellTerrainTiles: DAT_3D_FULL_CELL_TERRAIN_TILES,
+        terrainBottomOverrides: DAT_3D_TERRAIN_BOTTOM_OVERRIDES,
       }),
-    ).toEqual([]);
+    ).toEqual([1]);
+
+    level = paintLevelCells(level, [1], "BALL_N", {
+      treatAsTerrainTiles: DAT_3D_VALID_TERRAIN_TILES,
+      allowedInvalidTiles: DAT_3D_VALID_TERRAIN_TILES,
+      fullCellTerrainTiles: DAT_3D_FULL_CELL_TERRAIN_TILES,
+      terrainBottomOverrides: DAT_3D_TERRAIN_BOTTOM_OVERRIDES,
+    });
+    expect(level.map.top[1]).toBe("BALL_N");
+    expect(level.map.bottom[1]).toBe(DAT_3D_CLOUD_TILE);
   });
 
   it("counts chip tiles present in either layer once per cell", () => {

@@ -23,6 +23,7 @@ import { decodeDatBytes, encodeDatBytes } from "@/src/dat/datCodec";
 import {
   DAT_3D_AIR_TILE,
   DAT_3D_FULL_CELL_TERRAIN_TILES,
+  DAT_3D_TERRAIN_BOTTOM_OVERRIDES,
   DAT_3D_VALID_TERRAIN_TILES,
   buildLogical3dLevelset,
   cloneCanonicalMetadata,
@@ -810,7 +811,10 @@ function makePaintOptions(threeDEnabled: boolean, layerZ: number, buryOnBottom =
         }
       : {}),
     ...(threeDEnabled && layerZ > 1
-      ? { fullCellTerrainTiles: DAT_3D_FULL_CELL_TERRAIN_TILES }
+      ? {
+          fullCellTerrainTiles: DAT_3D_FULL_CELL_TERRAIN_TILES,
+          terrainBottomOverrides: DAT_3D_TERRAIN_BOTTOM_OVERRIDES,
+        }
       : {}),
     ...(buryOnBottom ? { buryOnBottom: true } : {}),
   };
