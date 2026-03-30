@@ -32,8 +32,20 @@ Implementation detail:
 
 ## macOS signing and notarization
 
-The release workflow now supports the secret-based macOS signing flow that
-Tauri documents for GitHub Actions.
+Unsigned macOS builds are the default.
+
+The release workflow only enables the secret-based macOS signing flow when the
+repository Actions variable `MACOS_SIGNING_ENABLED` is set to `true`.
+
+If that variable is unset or set to any other value:
+
+- macOS artifacts are still built
+- macOS artifacts are unsigned and unnotarized
+- Apple certificate secrets are ignored
+
+If you later want signed/notarized macOS builds, set:
+
+- `MACOS_SIGNING_ENABLED=true`
 
 Secrets expected by the workflow:
 
@@ -54,12 +66,13 @@ Certificate preparation:
 
 Behavior:
 
-- If the certificate secrets are present on macOS runners, the workflow imports
-  the certificate into a temporary keychain and signs the bundle.
+- If `MACOS_SIGNING_ENABLED=true` and the certificate secrets are present on
+  macOS runners, the workflow imports the certificate into a temporary keychain
+  and signs the bundle.
 - If notarization credentials are also present, Tauri can notarize the macOS
   build during packaging.
-- If the secrets are absent, the build still runs, but the output remains
-  unsigned or unnotarized and will show stronger trust warnings.
+- Otherwise, the build still runs, but the output remains unsigned or
+  unnotarized and will show stronger trust warnings.
 
 ## Windows signing status
 

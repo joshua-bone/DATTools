@@ -78,8 +78,9 @@ Current caveats:
 - Tauri now reads its app version from `package.json`, and the auto-release
   workflow synthesizes a tagged release commit when it needs to bump that
   version.
-- macOS signing and notarization are secret-backed in CI and only activate when
-  the Apple credentials are configured.
+- macOS builds are unsigned by default. Signing and notarization only activate
+  when the Actions variable `MACOS_SIGNING_ENABLED=true` and the Apple secrets
+  are configured.
 - Windows signing is still a certificate-provider-specific follow-up and is not
   enabled by default in the repo.
 - Auto-update is intentionally deferred until signed releases and the release

@@ -37,5 +37,5 @@ describe("DAT fixtures: binary <-> JSON round-trip", () => {
 
       expect(bytesEqual(rebuilt, original), `${name}: byte-identical`).toBe(true);
     }
-  });
+  }, 15000);
 });

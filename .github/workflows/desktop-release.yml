@@ -57,11 +57,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     env:
       GITHUB_TOKEN: ${{ github.token }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      MACOS_SIGNING_ENABLED: ${{ vars.MACOS_SIGNING_ENABLED == 'true' && 'true' || 'false' }}
       HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' && 'true' || 'false' }}
       HAS_APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD != '' && 'true' || 'false' }}
 
@@ -98,7 +95,7 @@ jobs:
         run: npm ci
 
       - name: Import Apple Developer certificate
-        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_CERTIFICATE == 'true' && env.HAS_APPLE_CERTIFICATE_PASSWORD == 'true' && env.KEYCHAIN_PASSWORD != ''
+        if: matrix.platform == 'macos-latest' && env.MACOS_SIGNING_ENABLED == 'true' && env.HAS_APPLE_CERTIFICATE == 'true' && env.HAS_APPLE_CERTIFICATE_PASSWORD == 'true' && env.KEYCHAIN_PASSWORD != ''
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -124,7 +121,9 @@ jobs:
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: Resolve Apple signing identity
-        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_CERTIFICATE == 'true' && env.HAS_APPLE_CERTIFICATE_PASSWORD == 'true' && env.KEYCHAIN_PASSWORD != ''
+        if: matrix.platform == 'macos-latest' && env.MACOS_SIGNING_ENABLED == 'true' && env.HAS_APPLE_CERTIFICATE == 'true' && env.HAS_APPLE_CERTIFICATE_PASSWORD == 'true' && env.KEYCHAIN_PASSWORD != ''
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           CERT_ID="$APPLE_SIGNING_IDENTITY"
           if [ -z "$CERT_ID" ]; then
@@ -138,6 +137,10 @@ jobs:
 
       - name: Build desktop release
         uses: tauri-apps/tauri-action@v0.6.2
+        env:
+          APPLE_ID: ${{ vars.MACOS_SIGNING_ENABLED == 'true' && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ vars.MACOS_SIGNING_ENABLED == 'true' && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ vars.MACOS_SIGNING_ENABLED == 'true' && secrets.APPLE_TEAM_ID || '' }}
         with:
           tagName: ${{ inputs.release_tag || github.ref_name }}
           releaseName: DATTools ${{ inputs.release_tag || github.ref_name }}
@@ -146,7 +149,7 @@ jobs:
 
             Assets:
             - Windows: NSIS installer with offline WebView2 runtime
-            - macOS: DMG (signed/notarized when Apple secrets are configured)
+            - macOS: DMG (unsigned by default; signed/notarized only when MACOS_SIGNING_ENABLED=true and Apple secrets are configured)
             - Linux: AppImage
           releaseDraft: true
           prerelease: false
