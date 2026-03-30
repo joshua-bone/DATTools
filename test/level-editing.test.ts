@@ -103,6 +103,11 @@ describe("level editing helpers", () => {
     expect(level.map.top[1]).toBe("UNKNOWN_0x70");
     expect(level.map.bottom[1]).toBe("WALL");
     expect(level.movement).toEqual([]);
+
+    level = paintLevelCells(level, [2], "UNKNOWN_0x73");
+    expect(level.map.top[2]).toBe("UNKNOWN_0x73");
+    expect(level.map.bottom[2]).toBe("FLOOR");
+    expect(level.movement).toEqual([]);
   });
 
   it("tracks monster movement order while painting and erasing", () => {
@@ -425,6 +430,7 @@ describe("level editing helpers", () => {
     expect(classifyTilePlacement("UNKNOWN_0x70")).toBe("actor");
     expect(classifyTilePlacement("UNKNOWN_0x71")).toBe("actor");
     expect(classifyTilePlacement("UNKNOWN_0x72")).toBe("actor");
+    expect(classifyTilePlacement("UNKNOWN_0x73")).toBe("actor");
     expect(classifyTilePlacement("WALL")).toBe("terrain");
     expect(classifyTilePlacement("TRAP_BUTTON")).toBe("terrain");
     expect(

@@ -18,6 +18,12 @@
       "y": 0,
       "width": 32,
       "height": 32
+    },
+    "UNKNOWN_0x73": {
+      "x": 96,
+      "y": 0,
+      "width": 32,
+      "height": 32
     }
   }
 }
