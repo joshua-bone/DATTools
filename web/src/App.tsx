@@ -63,6 +63,7 @@ import {
   drawCc1LevelToContext,
 } from "@/web/src/canvasLevelRenderer";
 import {
+  compareReleaseVersions,
   DESKTOP_RELEASES_URL,
   LATEST_DESKTOP_RELEASE_URL,
   fetchLatestDesktopRelease,
@@ -396,6 +397,10 @@ function writeLocalStorage(key: string, value: string): boolean {
 function asErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+function formatDesktopVersion(version: string): string {
+  return version.startsWith("v") ? version : `v${version}`;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -3250,11 +3255,15 @@ export default function App() {
     "file" | "view" | "options" | "transform" | null
   >(null);
   const [openDialog, setOpenDialog] = useState<"brandingHelp" | "threeDHelp" | null>(null);
+  const [currentDesktopAppVersion, setCurrentDesktopAppVersion] = useState<string | null>(null);
   const [latestDesktopRelease, setLatestDesktopRelease] = useState<LatestDesktopRelease | null>(
     null,
   );
   const [latestDesktopReleaseLoadState, setLatestDesktopReleaseLoadState] =
     useState<LatestDesktopReleaseLoadState>("idle");
+  const [dismissedDesktopUpdateVersion, setDismissedDesktopUpdateVersion] = useState<string | null>(
+    null,
+  );
   const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(
     initialAppState.preferences.threeDLevelsEnabled,
   );
@@ -3450,6 +3459,32 @@ export default function App() {
   const latestDesktopReleasePublishedAt = latestDesktopRelease?.publishedAt
     ? DESKTOP_RELEASE_DATE_FORMATTER.format(new Date(latestDesktopRelease.publishedAt))
     : null;
+  const latestDesktopReleaseDisplayVersion = latestDesktopRelease
+    ? formatDesktopVersion(latestDesktopRelease.version)
+    : null;
+  const desktopUpdateAvailable =
+    currentDesktopAppVersion !== null &&
+    latestDesktopRelease !== null &&
+    compareReleaseVersions(latestDesktopRelease.version, currentDesktopAppVersion) > 0;
+  const showDesktopUpdateBanner =
+    desktopUpdateAvailable && latestDesktopRelease?.version !== dismissedDesktopUpdateVersion;
+  const desktopUpdateBannerMessage =
+    showDesktopUpdateBanner &&
+    latestDesktopReleaseDisplayVersion &&
+    currentDesktopAppVersion !== null
+      ? `Desktop update available: ${latestDesktopReleaseDisplayVersion}. Installed version: ${formatDesktopVersion(currentDesktopAppVersion)}.`
+      : null;
+  const desktopHelpStatusText = desktopUpdateAvailable
+    ? `Update available: ${latestDesktopReleaseDisplayVersion}`
+    : currentDesktopAppVersion !== null && latestDesktopRelease
+      ? `Installed desktop version: ${formatDesktopVersion(currentDesktopAppVersion)} is up to date.`
+      : latestDesktopRelease
+        ? `Latest release: ${latestDesktopRelease.version}`
+        : latestDesktopReleaseLoadState === "loading"
+          ? "Checking the latest desktop release..."
+          : latestDesktopReleaseLoadState === "error"
+            ? "Latest release info is unavailable right now."
+            : "Latest release info loads when this help panel opens.";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3596,7 +3631,27 @@ export default function App() {
   }, [tabletDrawerSide]);
 
   useEffect(() => {
-    if (openDialog !== "brandingHelp") return;
+    let cancelled = false;
+
+    void platform
+      .getAppVersion()
+      .then((version) => {
+        if (cancelled) return;
+        setCurrentDesktopAppVersion(version);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCurrentDesktopAppVersion(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (latestDesktopReleaseLoadState !== "idle") return;
+    if (openDialog !== "brandingHelp" && currentDesktopAppVersion === null) return;
 
     const controller = new AbortController();
     setLatestDesktopReleaseLoadState("loading");
@@ -3612,7 +3667,7 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [openDialog]);
+  }, [currentDesktopAppVersion, latestDesktopReleaseLoadState, openDialog]);
 
   function loadDocument(nextDoc: DatLevelsetJsonV1, nextFileName?: string | null): void {
     resetWorkspaceUiState();
@@ -4672,6 +4727,10 @@ export default function App() {
     });
   }
 
+  function dismissDesktopUpdateBanner(): void {
+    setDismissedDesktopUpdateVersion(latestDesktopRelease?.version ?? null);
+  }
+
   async function saveCurrentDat(): Promise<void> {
     if (!doc) return;
     try {
@@ -4714,6 +4773,25 @@ export default function App() {
     <div className={appShellClassName}>
       {spriteError ? <div className="banner errorBanner">{spriteError}</div> : null}
       {errorMessage ? <div className="banner errorBanner">{errorMessage}</div> : null}
+      {showDesktopUpdateBanner ? (
+        <div className="banner updateBanner">
+          <div className="updateBannerContent">
+            <div className="updateBannerText">{desktopUpdateBannerMessage}</div>
+            <div className="updateBannerActions">
+              <button type="button" className="actionButton" onClick={openLatestDesktopRelease}>
+                Download Update
+              </button>
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={dismissDesktopUpdateBanner}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <main className={editorLayoutClassName} ref={editorLayoutRef} style={editorLayoutStyle}>
         {isTabletLayout && tabletDrawerSide ? (
@@ -5898,25 +5976,22 @@ export default function App() {
                 </ul>
                 <div className="releaseHelpCard">
                   <h3 className="modalSectionTitle">Desktop App</h3>
-                  <p className="releaseHelpStatus">
-                    {latestDesktopRelease
-                      ? `Latest release: ${latestDesktopRelease.version}`
-                      : latestDesktopReleaseLoadState === "loading"
-                        ? "Checking the latest desktop release..."
-                        : latestDesktopReleaseLoadState === "error"
-                          ? "Latest release info is unavailable right now."
-                          : "Latest release info loads when this help panel opens."}
-                  </p>
+                  <p className="releaseHelpStatus">{desktopHelpStatusText}</p>
                   <p>
                     Download the offline desktop build from GitHub Releases for Windows, macOS, or
                     Linux.
                   </p>
+                  {currentDesktopAppVersion !== null ? (
+                    <p className="releaseHelpMeta">
+                      This desktop app is running {formatDesktopVersion(currentDesktopAppVersion)}.
+                    </p>
+                  ) : null}
                   {latestDesktopReleasePublishedAt ? (
                     <p className="releaseHelpMeta">Published {latestDesktopReleasePublishedAt}.</p>
                   ) : null}
                   <p className="releaseHelpMeta">
-                    Desktop builds do not auto-update yet. Install a newer release manually when a
-                    new version is published.
+                    Desktop builds check for a newer published release, but they do not auto-update
+                    yet. Install a newer release manually when one is published.
                   </p>
                   <div className="releaseHelpActions">
                     <button

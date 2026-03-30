@@ -139,9 +139,14 @@ async function openExternalUrl(url: string): Promise<void> {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+async function getAppVersion(): Promise<string | null> {
+  return null;
+}
+
 export const browserPlatform: EditorPlatform = {
   openLevelsetFile,
   saveDatFile,
   saveJsonFile,
   openExternalUrl,
+  getAppVersion,
 };

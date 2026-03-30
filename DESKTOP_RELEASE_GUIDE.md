@@ -94,6 +94,12 @@ Alternative:
 
 Auto-update is deferred for now.
 
+Current behavior:
+
+- The desktop app checks GitHub for the latest published release and can notify
+  users when a newer version exists.
+- Users still update manually by downloading and installing the newer release.
+
 Reasoning:
 
 - Tauri’s updater adds a plugin, updater permissions, signing keys, and a

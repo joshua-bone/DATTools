@@ -16,4 +16,5 @@ export type EditorPlatform = Readonly<{
   saveDatFile: (filename: string, bytes: Uint8Array) => Promise<void>;
   saveJsonFile: (filename: string, text: string) => Promise<void>;
   openExternalUrl: (url: string) => Promise<void>;
+  getAppVersion: () => Promise<string | null>;
 }>;

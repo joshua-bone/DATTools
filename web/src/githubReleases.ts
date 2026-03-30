@@ -9,8 +9,30 @@ export type LatestDesktopRelease = Readonly<{
   publishedAt: string | null;
 }>;
 
+function parseComparableVersion(version: string): number[] {
+  const normalizedVersion = version.trim().replace(/^v/i, "");
+  const coreVersion = normalizedVersion.split("-", 1)[0]?.split("+", 1)[0] ?? "";
+  const segments = coreVersion.split(".");
+  if (segments.length === 0 || segments.some((segment) => !/^\d+$/.test(segment))) {
+    throw new Error(`Invalid release version '${version}'.`);
+  }
+  return segments.map((segment) => Number(segment));
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null;
+}
+
+export function compareReleaseVersions(left: string, right: string): number {
+  const leftSegments = parseComparableVersion(left);
+  const rightSegments = parseComparableVersion(right);
+  const segmentCount = Math.max(leftSegments.length, rightSegments.length);
+  for (let index = 0; index < segmentCount; index += 1) {
+    const leftSegment = leftSegments[index] ?? 0;
+    const rightSegment = rightSegments[index] ?? 0;
+    if (leftSegment !== rightSegment) return leftSegment - rightSegment;
+  }
+  return 0;
 }
 
 export function parseLatestDesktopRelease(value: unknown): LatestDesktopRelease {

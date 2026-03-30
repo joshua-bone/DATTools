@@ -24,6 +24,9 @@ export const platform: EditorPlatform = {
   async openExternalUrl(url) {
     return (await resolvePlatform()).openExternalUrl(url);
   },
+  async getAppVersion() {
+    return (await resolvePlatform()).getAppVersion();
+  },
 };
 
 export type { EditorPlatform, OpenedLevelsetFile } from "./types";

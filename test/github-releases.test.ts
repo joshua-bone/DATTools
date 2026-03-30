@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseLatestDesktopRelease } from "@/web/src/githubReleases";
+import { compareReleaseVersions, parseLatestDesktopRelease } from "@/web/src/githubReleases";
 
 describe("github releases", () => {
   it("parses the latest desktop release payload", () => {
@@ -26,5 +26,11 @@ describe("github releases", () => {
         html_url: "https://github.com/joshua-bone/DATTools/releases/tag/v1.2.3",
       }),
     ).toThrow("Latest desktop release payload is missing tag_name.");
+  });
+
+  it("compares release versions with or without a leading v prefix", () => {
+    expect(compareReleaseVersions("v1.2.4", "1.2.3")).toBeGreaterThan(0);
+    expect(compareReleaseVersions("1.2.3", "v1.2.3")).toBe(0);
+    expect(compareReleaseVersions("1.3.0", "v1.9.9")).toBeLessThan(0);
   });
 });

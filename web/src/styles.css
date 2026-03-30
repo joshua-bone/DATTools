@@ -226,6 +226,29 @@ button:disabled {
   color: #6f2e22;
 }
 
+.updateBanner {
+  border-color: rgba(175, 133, 40, 0.34);
+  background: linear-gradient(180deg, rgba(255, 252, 236, 0.96), rgba(248, 242, 206, 0.95));
+  color: #6e5314;
+}
+
+.updateBannerContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.updateBannerText {
+  min-width: 0;
+}
+
+.updateBannerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .subtleErrorBanner {
   margin-bottom: 12px;
 }
@@ -1463,6 +1486,11 @@ button:disabled {
 }
 
 @media (max-width: 760px) {
+  .updateBannerContent {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .modalColumns {
     grid-template-columns: minmax(0, 1fr);
   }

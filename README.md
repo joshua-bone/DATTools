@@ -83,8 +83,10 @@ Current caveats:
   are configured.
 - Windows signing is still a certificate-provider-specific follow-up and is not
   enabled by default in the repo.
-- Auto-update is intentionally deferred until signed releases and the release
-  flow have stabilized.
+- The desktop app checks GitHub for a newer published release, but updates are
+  still manual.
+- Full auto-update is intentionally deferred until signed releases and the
+  release flow have stabilized.
 
 See `DESKTOP_RELEASE_GUIDE.md` for signing requirements, the auto-update
 decision, and the release QA checklist.

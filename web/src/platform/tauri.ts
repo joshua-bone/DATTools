@@ -84,9 +84,15 @@ async function openExternalUrl(url: string): Promise<void> {
   await openUrl(url);
 }
 
+async function getAppVersion(): Promise<string> {
+  const { getVersion } = await import("@tauri-apps/api/app");
+  return getVersion();
+}
+
 export const tauriPlatform: EditorPlatform = {
   openLevelsetFile,
   saveDatFile,
   saveJsonFile,
   openExternalUrl,
+  getAppVersion,
 };
