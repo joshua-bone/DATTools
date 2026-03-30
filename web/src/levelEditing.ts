@@ -618,7 +618,12 @@ export function isLevelCellValid(
     (INVALID_CELL_TILES.has(bottom) && !options?.allowedInvalidTiles?.has(bottom));
   const buriedMob = isActorTile(bottom, options);
   const isAllowedFullCellTerrain = top === bottom && options?.fullCellTerrainTiles?.has(top);
-  const buried = !isActorTile(top, options) && bottom !== FLOOR_TILE && !isAllowedFullCellTerrain;
+  const isAllowedTerrainPair = options?.terrainBottomOverrides?.get(top) === bottom;
+  const buried =
+    !isActorTile(top, options) &&
+    bottom !== FLOOR_TILE &&
+    !isAllowedFullCellTerrain &&
+    !isAllowedTerrainPair;
   return !(invalidCode || buriedMob || buried);
 }
 

@@ -170,7 +170,7 @@ describe("level editing helpers", () => {
     expect(level.map.bottom[0]).toBe("FIRE");
   });
 
-  it("treats cloud as an upper-layer terrain overlay in 3D paint mode", () => {
+  it("treats cloud as a valid upper-layer terrain overlay in 3D paint mode", () => {
     const z1CloudTile = getDat3dPaintTile(DAT_3D_CLOUD_TILE, 1);
     const z2CloudTile = getDat3dPaintTile(DAT_3D_CLOUD_TILE, 2);
     let level = createEmptyLevel(1);
@@ -199,7 +199,7 @@ describe("level editing helpers", () => {
         fullCellTerrainTiles: DAT_3D_FULL_CELL_TERRAIN_TILES,
         terrainBottomOverrides: DAT_3D_TERRAIN_BOTTOM_OVERRIDES,
       }),
-    ).toEqual([1]);
+    ).toEqual([]);
 
     level = paintLevelCells(level, [1], "BALL_N", {
       treatAsTerrainTiles: DAT_3D_VALID_TERRAIN_TILES,
