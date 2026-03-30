@@ -1,0 +1,22 @@
+[package]
+name = "dattools-desktop"
+version = "1.0.0"
+description = "DATTools desktop shell"
+authors = ["Joshua Bone"]
+license = "ISC"
+repository = "https://github.com/joshua-bone/DATTools"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "dattools_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.5.6" }
+
+[dependencies]
+tauri = { version = "2.10.3" }
+tauri-plugin-dialog = "2.6.0"
+tauri-plugin-fs = "2.4.5"
+tauri-plugin-opener = "2.5.3"

@@ -4598,19 +4598,27 @@ export default function App() {
 
   function openSelectedLevelInTworld(ruleset: "MS" | "Lynx"): void {
     if (!doc) return;
-    platform.openExternalUrl(
-      buildTworldUrl(
-        doc,
-        displayedExternalTestLevelNumber,
-        ruleset,
-        normalizeDatFileName(fileName),
-      ),
-    );
+    void platform
+      .openExternalUrl(
+        buildTworldUrl(
+          doc,
+          displayedExternalTestLevelNumber,
+          ruleset,
+          normalizeDatFileName(fileName),
+        ),
+      )
+      .catch((error: unknown) => {
+        setErrorMessage(asErrorMessage(error));
+      });
   }
 
   function openSelectedLevelInLexysLabyrinth(): void {
     if (!doc || !singleLevelExternalTestLevel) return;
-    platform.openExternalUrl(buildLexysLabyrinthSharedUrl(doc, singleLevelExternalTestLevel));
+    void platform
+      .openExternalUrl(buildLexysLabyrinthSharedUrl(doc, singleLevelExternalTestLevel))
+      .catch((error: unknown) => {
+        setErrorMessage(asErrorMessage(error));
+      });
   }
 
   async function saveCurrentDat(): Promise<void> {

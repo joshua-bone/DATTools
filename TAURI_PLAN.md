@@ -46,14 +46,14 @@ Acceptance criteria:
 
 Goal: add the actual desktop wrapper and native file dialogs.
 
-- [ ] Add Tauri project scaffolding under `src-tauri/`
-- [ ] Add npm scripts for desktop development and packaging
-- [ ] Load the existing Vite frontend inside Tauri
-- [ ] Replace browser-only open/save flows with Tauri dialog/fs integration when
+- [x] Add Tauri project scaffolding under `src-tauri/`
+- [x] Add npm scripts for desktop development and packaging
+- [x] Load the existing Vite frontend inside Tauri
+- [x] Replace browser-only open/save flows with Tauri dialog/fs integration when
       running in desktop mode
-- [ ] Route external test links through the OS browser
+- [x] Route external test links through the OS browser
 - [ ] Confirm the app works with network disconnected after installation
-- [ ] Add desktop-specific documentation for local setup
+- [x] Add desktop-specific documentation for local setup
 
 Acceptance criteria:
 
@@ -103,11 +103,17 @@ Acceptance criteria:
 
 ## Implementation Notes
 
-- [ ] Keep the desktop app and web app on the same frontend codebase
-- [ ] Prefer a thin desktop shell over moving editor logic into Rust
-- [ ] Keep offline runtime assets bundled with the app
-- [ ] Avoid taking a dependency on a local backend process
+- [x] Keep the desktop app and web app on the same frontend codebase
+- [x] Prefer a thin desktop shell over moving editor logic into Rust
+- [x] Keep offline runtime assets bundled with the app
+- [x] Avoid taking a dependency on a local backend process
 - [ ] Do not block the first release on auto-update or code signing
+
+Verification note:
+
+- `tauri dev` and `tauri build` still need Rust plus the Tauri OS prerequisites
+  installed locally. This repo can typecheck and produce the web build without
+  them, but the desktop shell itself cannot be launched from this machine yet.
 
 ## Risks / Open Items
 
