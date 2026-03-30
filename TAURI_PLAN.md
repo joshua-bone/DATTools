@@ -66,18 +66,18 @@ Acceptance criteria:
 
 Goal: produce downloadable artifacts for all supported desktop platforms.
 
-- [ ] Add GitHub Actions workflow for desktop builds
-- [ ] Build release artifacts on:
+- [x] Add GitHub Actions workflow for desktop builds
+- [x] Build release artifacts on:
   - Windows
   - macOS
   - Linux
-- [ ] Configure Tauri bundling targets:
+- [x] Configure Tauri bundling targets:
   - Windows: installer
   - macOS: DMG
   - Linux: AppImage
-- [ ] Configure Windows packaging for offline-capable WebView runtime handling
-- [ ] Upload artifacts to GitHub Releases
-- [ ] Document end-user download/install steps
+- [x] Configure Windows packaging for offline-capable WebView runtime handling
+- [x] Upload artifacts to GitHub Releases
+- [x] Document end-user download/install steps
 
 Acceptance criteria:
 
@@ -107,17 +107,19 @@ Acceptance criteria:
 - [x] Prefer a thin desktop shell over moving editor logic into Rust
 - [x] Keep offline runtime assets bundled with the app
 - [x] Avoid taking a dependency on a local backend process
-- [ ] Do not block the first release on auto-update or code signing
+- [x] Do not block the first release on auto-update or code signing
 
 Verification note:
 
 - `tauri dev` and `tauri build` still need Rust plus the Tauri OS prerequisites
   installed locally. This repo can typecheck and produce the web build without
   them, but the desktop shell itself cannot be launched from this machine yet.
+- The PR 3 release workflow is tag-driven (`v*`) and has not been exercised in
+  this environment because it requires GitHub-hosted runners.
 
 ## Risks / Open Items
 
-- [ ] Decide exact Windows bundling mode for the WebView runtime
+- [x] Decide exact Windows bundling mode for the WebView runtime
 - [ ] Decide whether Linux should also ship a `.deb`
 - [ ] Decide how much native “open recent” or OS integration is worth in v1
 - [ ] Verify external play-test integrations should remain browser-only in the
