@@ -81,6 +81,7 @@ import {
   viewportClientPointToBoardPoint,
 } from "@/web/src/boardCanvasPresentation";
 import { createCanvasSpriteCache, type CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
+import { brushPreviewNeedsTransientBoard } from "@/web/src/brushPreview";
 import { resolveBoardTileRedrawPlan } from "@/web/src/boardRenderInvalidation";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
 import { createNewLevelsetFileName } from "@/web/src/levelsetFileName";
@@ -1808,8 +1809,18 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
         );
       }
+      if (dragState.tool === "brush") {
+        return brushPreviewNeedsTransientBoard(dragState.tile, activeDisplayContext)
+          ? paintLevelCells(
+              activeLevel,
+              dragState.cells,
+              dragState.tile,
+              makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
+            )
+          : activeLevel;
+      }
       return activeLevel;
-    }, [activeLevel, dragState, selectedLayerZ, threeDLevelsEnabled]);
+    }, [activeDisplayContext, activeLevel, dragState, selectedLayerZ, threeDLevelsEnabled]);
 
     const invalidCellIndices = useMemo(
       () =>
