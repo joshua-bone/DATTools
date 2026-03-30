@@ -45,6 +45,13 @@ Secrets expected by the workflow:
 - `KEYCHAIN_PASSWORD`: temporary CI keychain password
 - `APPLE_SIGNING_IDENTITY`: optional explicit signing identity override
 
+Certificate preparation:
+
+- Export the Apple signing certificate as a `.p12`.
+- Encode that file for the `APPLE_CERTIFICATE` secret with:
+  `openssl base64 -A -in certificate.p12 -out certificate-base64.txt`
+- Store the `.p12` export password in `APPLE_CERTIFICATE_PASSWORD`.
+
 Behavior:
 
 - If the certificate secrets are present on macOS runners, the workflow imports
