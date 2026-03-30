@@ -2,12 +2,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { getWebBuildTarget, resolveWebBuildBasePath } from "./src/webBuildTarget";
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig(({ command }) => {
-  const repo = process.env.GITHUB_REPOSITORY?.split("/")[1];
-  const base = command === "build" && repo ? `/${repo}/` : "/";
+export default defineConfig(({ command, mode }) => {
+  const buildTarget = getWebBuildTarget(mode);
+  const base = resolveWebBuildBasePath(command, buildTarget, process.env.GITHUB_REPOSITORY);
 
   return {
     root: "web",

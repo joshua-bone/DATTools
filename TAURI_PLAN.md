@@ -23,24 +23,24 @@ of the DATTools editor that works offline.
 Goal: remove browser-only assumptions from the editor so the frontend can run
 inside either GitHub Pages or a Tauri shell.
 
-- [ ] Add a small platform abstraction layer for:
+- [x] Add a small platform abstraction layer for:
   - open file
   - save DAT
   - save JSON
   - open external links
-- [ ] Move current browser implementations behind that abstraction
-- [ ] Split Vite config or build-time env handling so:
+- [x] Move current browser implementations behind that abstraction
+- [x] Split Vite config or build-time env handling so:
   - GitHub Pages keeps repo-base asset paths
   - desktop build uses local-friendly asset paths
-- [ ] Ensure sprite and expansion artwork loading works in both targets
-- [ ] Keep current browser file input and download fallback behavior intact
-- [ ] Add tests around the new platform abstraction where practical
+- [x] Ensure sprite and expansion artwork loading works in both targets
+- [x] Keep current browser file input and download fallback behavior intact
+- [x] Add tests around the new platform abstraction where practical
 
 Acceptance criteria:
 
-- [ ] `npm run build:web` still produces a working web build
-- [ ] No desktop-shell-specific logic leaks into core editor code paths
-- [ ] Web editor behavior is unchanged for existing users
+- [x] `npm run build:web` still produces a working web build
+- [x] No desktop-shell-specific logic leaks into core editor code paths
+- [x] Web editor behavior is unchanged for existing users
 
 ## PR 2: Tauri Shell Integration
 

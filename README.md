@@ -24,6 +24,12 @@ Production build:
 npm run build:web
 ```
 
+GitHub Pages build:
+
+```bash
+npm run build:web:pages
+```
+
 ## GitHub Pages
 
 The editor is intended to be served from:

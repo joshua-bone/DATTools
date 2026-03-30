@@ -78,6 +78,7 @@ import { resolveBoardTileRedrawPlan } from "@/web/src/boardRenderInvalidation";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
 import { createNewLevelsetFileName } from "@/web/src/levelsetFileName";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
+import { platform } from "@/web/src/platform";
 import {
   APP_PREFERENCES_STORAGE_KEY,
   EDITOR_SESSION_STORAGE_KEY,
@@ -408,76 +409,6 @@ function isKeyboardPanKey(key: string): boolean {
     key === "arrowleft" ||
     key === "arrowright"
   );
-}
-
-function downloadBlob(filename: string, blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function downloadBytes(filename: string, bytes: Uint8Array): void {
-  const ab = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
-  downloadBlob(filename, new Blob([ab], { type: "application/octet-stream" }));
-}
-
-function downloadText(filename: string, text: string): void {
-  downloadBlob(filename, new Blob([text], { type: "application/json" }));
-}
-
-type SaveFilePickerHandle = {
-  createWritable(): Promise<{
-    write(data: Blob): Promise<void>;
-    close(): Promise<void>;
-  }>;
-};
-
-type WindowWithSavePicker = Window &
-  typeof globalThis & {
-    showSaveFilePicker?: (options?: {
-      suggestedName?: string;
-      excludeAcceptAllOption?: boolean;
-      types?: Array<{
-        description?: string;
-        accept: Record<string, string[]>;
-      }>;
-    }) => Promise<SaveFilePickerHandle>;
-  };
-
-async function saveBytesLocally(filename: string, bytes: Uint8Array): Promise<void> {
-  const savePicker = (window as WindowWithSavePicker).showSaveFilePicker;
-  if (!savePicker) {
-    downloadBytes(filename, bytes);
-    return;
-  }
-
-  const handle = await savePicker({
-    suggestedName: filename,
-    excludeAcceptAllOption: false,
-    types: [
-      {
-        description: "CC1 DAT levelset",
-        accept: {
-          "application/octet-stream": [".dat"],
-        },
-      },
-    ],
-  });
-  const writable = await handle.createWritable();
-  const ab = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
-  await writable.write(new Blob([ab], { type: "application/octet-stream" }));
-  await writable.close();
 }
 
 function createDefaultLevelsetDocument(): DatLevelsetJsonV1 {
@@ -3273,7 +3204,6 @@ export default function App() {
   } | null>(null);
   const boardEditorRef = useRef<BoardEditorHandle>(null);
   const editorLayoutRef = useRef<HTMLElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const paletteGridRef = useRef<HTMLDivElement>(null);
   const [boardStatusStore] = useState(() => createBoardEditorStatusStore());
   const [initialAppState] = useState(() => createInitialAppState());
@@ -3760,14 +3690,17 @@ export default function App() {
     }
   }
 
-  async function openJson(file: File): Promise<void> {
-    openLevelsetJsonText(await file.text(), file.name);
-  }
-
-  async function openDat(file: File): Promise<void> {
+  async function openLevelsetFromPlatform(): Promise<void> {
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      loadDocument(decodeDatBytes(bytes), file.name);
+      const file = await platform.openLevelsetFile();
+      if (!file) return;
+
+      if (file.kind === "dat") {
+        loadDocument(decodeDatBytes(file.bytes), file.name);
+        return;
+      }
+
+      openLevelsetJsonText(file.text, file.name);
     } catch (error: unknown) {
       setErrorMessage(asErrorMessage(error));
     }
@@ -4663,44 +4596,21 @@ export default function App() {
     });
   }
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): void {
-    const file = event.target.files?.item(0);
-    if (!file) return;
-
-    if (file.name.toLowerCase().endsWith(".dat")) {
-      void openDat(file);
-    } else {
-      void openJson(file);
-    }
-
-    event.target.value = "";
-  }
-
-  function triggerOpenDialog(): void {
-    fileInputRef.current?.click();
-  }
-
   function openSelectedLevelInTworld(ruleset: "MS" | "Lynx"): void {
     if (!doc) return;
-    window.open(
+    platform.openExternalUrl(
       buildTworldUrl(
         doc,
         displayedExternalTestLevelNumber,
         ruleset,
         normalizeDatFileName(fileName),
       ),
-      "_blank",
-      "noopener,noreferrer",
     );
   }
 
   function openSelectedLevelInLexysLabyrinth(): void {
     if (!doc || !singleLevelExternalTestLevel) return;
-    window.open(
-      buildLexysLabyrinthSharedUrl(doc, singleLevelExternalTestLevel),
-      "_blank",
-      "noopener,noreferrer",
-    );
+    platform.openExternalUrl(buildLexysLabyrinthSharedUrl(doc, singleLevelExternalTestLevel));
   }
 
   async function saveCurrentDat(): Promise<void> {
@@ -4708,7 +4618,19 @@ export default function App() {
     try {
       const output = normalizeDatFileName(fileName);
       const exportDoc = threeDLevelsEnabled ? export3dLevelsetDoc(doc) : doc;
-      await saveBytesLocally(output, encodeDatBytes(exportDoc));
+      await platform.saveDatFile(output, encodeDatBytes(exportDoc));
+      setErrorMessage(null);
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setErrorMessage(asErrorMessage(error));
+    }
+  }
+
+  async function saveCurrentJson(): Promise<void> {
+    if (!doc) return;
+    try {
+      const exportDoc = threeDLevelsEnabled ? export3dLevelsetDoc(doc) : doc;
+      await platform.saveJsonFile("levelset.json", stringifyDatLevelsetJsonV1(exportDoc));
       setErrorMessage(null);
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === "AbortError") return;
@@ -4731,14 +4653,6 @@ export default function App() {
 
   return (
     <div className={appShellClassName}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".dat,.json"
-        hidden
-        onChange={handleFileChange}
-      />
-
       {spriteError ? <div className="banner errorBanner">{spriteError}</div> : null}
       {errorMessage ? <div className="banner errorBanner">{errorMessage}</div> : null}
 
@@ -4851,7 +4765,7 @@ export default function App() {
                       className="dropdownMenuItem"
                       onClick={() => {
                         setBoardMenuOpen(null);
-                        triggerOpenDialog();
+                        void openLevelsetFromPlatform();
                       }}
                     >
                       Open
@@ -4863,8 +4777,7 @@ export default function App() {
                       onClick={() => {
                         if (!doc) return;
                         setBoardMenuOpen(null);
-                        const exportDoc = threeDLevelsEnabled ? export3dLevelsetDoc(doc) : doc;
-                        downloadText("levelset.json", stringifyDatLevelsetJsonV1(exportDoc));
+                        void saveCurrentJson();
                       }}
                     >
                       Download JSON

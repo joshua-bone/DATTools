@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "dev:web": "vite",
     "build:web": "vite build",
+    "build:web:pages": "vite build --mode pages",
     "preview:web": "vite preview",
     "fmt:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "fmt:write": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
