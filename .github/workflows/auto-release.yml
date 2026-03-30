@@ -60,7 +60,6 @@ jobs:
           npm test
           npm run build:web
           GITHUB_REPOSITORY=${{ github.repository }} npm run build:web:pages
-          npm run generate:desktop-icon
 
       - name: Create synthetic release commit
         if: steps.prepare.outputs.release_exists != 'true' && steps.prepare.outputs.should_release == 'true' && steps.prepare.outputs.create_release_commit == 'true'

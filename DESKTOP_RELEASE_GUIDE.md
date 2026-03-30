@@ -102,6 +102,9 @@ Per-push gate checks:
 - [ ] `npm test`
 - [ ] `npm run build:web`
 - [ ] `GITHUB_REPOSITORY=joshua-bone/DATTools npm run build:web:pages`
+
+Only when desktop icon source art changes:
+
 - [ ] `npm run generate:desktop-icon`
 
 After the auto-release workflow runs:
