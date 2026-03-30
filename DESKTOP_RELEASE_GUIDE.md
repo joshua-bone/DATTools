@@ -6,12 +6,29 @@ to run before publishing a release.
 
 ## Release trigger
 
-- Desktop artifacts are built by GitHub Actions when a `v*` tag is pushed.
-- The workflow creates or updates a draft GitHub Release.
+- Pushing to `main` now runs the auto-release workflow.
+- That workflow computes the next version, creates a `v*` tag, and then calls
+  the desktop build workflow with that tag.
+- The desktop build workflow creates or updates a draft GitHub Release.
 - Current targets:
   - Windows: NSIS installer with offline WebView2 runtime
   - macOS: DMG for Intel and Apple Silicon
   - Linux: AppImage
+
+Versioning behavior:
+
+- If there are no prior `v*` tags, the first automated release uses the current
+  `package.json` version.
+- After that, every push to `main` releases by default.
+- `feat:` commits bump `minor`.
+- `!:` or `BREAKING CHANGE:` bumps `major`.
+- Any other commit still releases and bumps `patch`.
+
+Implementation detail:
+
+- The auto-release workflow does not push version-bump commits to `main`.
+- When it needs a new version, it creates a synthetic tagged release commit in
+  CI so your local branch does not have to constantly pull automation commits.
 
 ## macOS signing and notarization
 
@@ -73,9 +90,13 @@ Revisit auto-update after:
 
 ## Release QA checklist
 
-Pre-tag:
+Before enabling automated releases in repo settings:
 
-- [ ] `src-tauri/tauri.conf.json` version matches the intended release tag
+- [ ] `Actions -> General -> Workflow permissions = Read and write permissions`
+- [ ] Branch/ruleset settings allow GitHub Actions to push release tags
+
+Per-push gate checks:
+
 - [ ] `npm run fmt:check`
 - [ ] `npm run typecheck`
 - [ ] `npm test`
@@ -83,8 +104,9 @@ Pre-tag:
 - [ ] `GITHUB_REPOSITORY=joshua-bone/DATTools npm run build:web:pages`
 - [ ] `npm run generate:desktop-icon`
 
-After pushing the tag:
+After the auto-release workflow runs:
 
+- [ ] Workflow creates or reuses the expected `v*` tag
 - [ ] GitHub Actions starts all four desktop jobs
 - [ ] Draft GitHub Release contains Windows, macOS Intel, macOS Apple Silicon,
       and Linux artifacts

@@ -57,16 +57,16 @@ Notes:
 
 ## Desktop releases
 
-GitHub Actions now builds desktop release artifacts when a version tag is
-pushed:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
+GitHub Actions now cuts desktop releases automatically on every push to `main`.
+The release flow computes the next version, tags it, and builds the installers
+without requiring a manual version bump or tag push.
 
 Release behavior:
 
+- A release tag is always created for the build.
+- If you use Conventional Commit signals, `feat:` bumps `minor` and `!:` or
+  `BREAKING CHANGE:` bumps `major`.
+- Any other commit subject still releases and defaults to a `patch` bump.
 - The workflow creates or updates a draft GitHub Release for that tag.
 - Windows builds publish an NSIS installer with the offline WebView2 runtime
   bundled.
@@ -75,8 +75,9 @@ Release behavior:
 
 Current caveats:
 
-- Keep the Tauri app version in `src-tauri/tauri.conf.json` aligned with the
-  tag you push.
+- Tauri now reads its app version from `package.json`, and the auto-release
+  workflow synthesizes a tagged release commit when it needs to bump that
+  version.
 - macOS signing and notarization are secret-backed in CI and only activate when
   the Apple credentials are configured.
 - Windows signing is still a certificate-provider-specific follow-up and is not

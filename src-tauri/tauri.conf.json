@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "DATTools",
-  "version": "1.0.0",
+  "version": "../package.json",
   "identifier": "io.github.joshua-bone.dattools",
   "build": {
     "frontendDist": "../dist-web",

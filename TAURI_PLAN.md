@@ -101,6 +101,27 @@ Acceptance criteria:
 - [ ] OS trust warnings are reduced as much as practical
 - [ ] Release process is documented and repeatable
 
+## PR 5: Zero-Touch Tagged Releases
+
+Goal: remove the manual version/tag step while preserving tagged desktop
+artifacts and keeping `main` free of automation-only release commits.
+
+- [x] Make Tauri read its version from `package.json`
+- [x] Add CI logic to infer the next release version from git history
+- [x] Default every push to `main` to a release-safe `patch` bump
+- [x] Allow optional `feat:` and breaking-change signals to produce `minor` and
+      `major` versions
+- [x] Create or reuse a `v*` tag automatically from CI
+- [x] Reuse the existing desktop build workflow from the auto-release pipeline
+- [x] Document the repo settings required for tag-push permissions
+
+Acceptance criteria:
+
+- [ ] Pushing to `main` creates or reuses a release tag without manual steps
+- [ ] Desktop artifacts build from that computed tag
+- [ ] Normal development on `main` does not require pulling bot-written release
+      commits
+
 ## Implementation Notes
 
 - [x] Keep the desktop app and web app on the same frontend codebase
@@ -114,10 +135,11 @@ Verification note:
 - `tauri dev` and `tauri build` still need Rust plus the Tauri OS prerequisites
   installed locally. This repo can typecheck and produce the web build without
   them, but the desktop shell itself cannot be launched from this machine yet.
-- The PR 3 release workflow is tag-driven (`v*`) and has not been exercised in
-  this environment because it requires GitHub-hosted runners.
-- PR 4 wires optional macOS signing/notarization into that workflow, but it
-  still requires repository secrets and a tagged GitHub Actions run to verify.
+- The desktop build still depends on GitHub-hosted runners for real packaging,
+  signing, and release publication, so the release workflows are only locally
+  linted and dry-run-tested here.
+- PR 4 wires optional macOS signing/notarization into the desktop workflow, but
+  it still requires repository secrets and a GitHub Actions run to verify.
 
 ## Risks / Open Items
 
@@ -131,3 +153,4 @@ Verification note:
       is available
 - [ ] Verify external play-test integrations should remain browser-only in the
       desktop app
+- [ ] Confirm the first end-to-end automated desktop release on GitHub Actions

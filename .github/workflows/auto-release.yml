@@ -1,0 +1,91 @@
+name: Auto-release desktop builds
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-release-main
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.prepare.outputs.should_release }}
+      release_exists: ${{ steps.prepare.outputs.release_exists }}
+      create_release_commit: ${{ steps.prepare.outputs.create_release_commit }}
+      release_type: ${{ steps.prepare.outputs.release_type }}
+      release_tag: ${{ steps.prepare.outputs.release_tag }}
+      release_version: ${{ steps.prepare.outputs.release_version }}
+      source_sha: ${{ steps.prepare.outputs.source_sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Compute release metadata
+        id: prepare
+        run: node scripts/prepare-release.mjs
+
+      - name: Stop if this commit already has a release tag
+        if: steps.prepare.outputs.release_exists == 'true'
+        run: |
+          echo "Release tag ${RELEASE_TAG} already exists for ${SOURCE_SHA}."
+        env:
+          RELEASE_TAG: ${{ steps.prepare.outputs.release_tag }}
+          SOURCE_SHA: ${{ steps.prepare.outputs.source_sha }}
+
+      - name: Install dependencies
+        if: steps.prepare.outputs.release_exists != 'true' && steps.prepare.outputs.should_release == 'true'
+        run: npm ci
+
+      - name: Run release gate checks
+        if: steps.prepare.outputs.release_exists != 'true' && steps.prepare.outputs.should_release == 'true'
+        run: |
+          npm run fmt:check
+          npm run typecheck
+          npm test
+          npm run build:web
+          GITHUB_REPOSITORY=${{ github.repository }} npm run build:web:pages
+          npm run generate:desktop-icon
+
+      - name: Create synthetic release commit
+        if: steps.prepare.outputs.release_exists != 'true' && steps.prepare.outputs.should_release == 'true' && steps.prepare.outputs.create_release_commit == 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.prepare.outputs.release_version }}
+          SOURCE_SHA: ${{ steps.prepare.outputs.source_sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version "$RELEASE_VERSION" --no-git-tag-version
+          git add package.json package-lock.json
+          git commit -m "chore(release): $RELEASE_VERSION" -m "Source-Commit: $SOURCE_SHA"
+
+      - name: Create and push release tag
+        if: steps.prepare.outputs.release_exists != 'true' && steps.prepare.outputs.should_release == 'true'
+        env:
+          RELEASE_TAG: ${{ steps.prepare.outputs.release_tag }}
+        run: |
+          git tag "$RELEASE_TAG"
+          git push origin "refs/tags/$RELEASE_TAG"
+
+  build-release:
+    needs: prepare-release
+    if: needs.prepare-release.outputs.should_release == 'true'
+    uses: ./.github/workflows/desktop-release.yml
+    with:
+      release_tag: ${{ needs.prepare-release.outputs.release_tag }}
+    secrets: inherit
