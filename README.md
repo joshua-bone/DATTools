@@ -52,6 +52,8 @@ Notes:
   static sprite/art assets for offline use.
 - Native desktop open/save flows come from Tauri dialogs and filesystem APIs
   instead of browser file inputs/downloads.
+- Regenerate desktop icons with `npm run generate:desktop-icon` after changing
+  the source icon art.
 
 ## Desktop releases
 
@@ -73,10 +75,17 @@ Release behavior:
 
 Current caveats:
 
-- PR 4 still covers signing and notarization, so early public builds may show
-  OS trust warnings.
 - Keep the Tauri app version in `src-tauri/tauri.conf.json` aligned with the
   tag you push.
+- macOS signing and notarization are secret-backed in CI and only activate when
+  the Apple credentials are configured.
+- Windows signing is still a certificate-provider-specific follow-up and is not
+  enabled by default in the repo.
+- Auto-update is intentionally deferred until signed releases and the release
+  flow have stabilized.
+
+See `DESKTOP_RELEASE_GUIDE.md` for signing requirements, the auto-update
+decision, and the release QA checklist.
 
 ## GitHub Pages
 

@@ -11,6 +11,7 @@
     "tauri": "tauri",
     "dev:web": "vite",
     "dev:desktop": "tauri dev",
+    "generate:desktop-icon": "python3 scripts/generate_desktop_icon.py && npm run tauri -- icon src-tauri/app-icon.png --output src-tauri/icons",
     "build:web": "vite build",
     "build:web:pages": "vite build --mode pages",
     "build:desktop": "tauri build",

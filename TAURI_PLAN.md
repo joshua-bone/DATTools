@@ -89,11 +89,11 @@ Acceptance criteria:
 
 Goal: improve distribution quality after the first downloadable release works.
 
-- [ ] Add app icons and polished bundle metadata
-- [ ] Add macOS signing/notarization
+- [x] Add app icons and polished bundle metadata
+- [x] Add macOS signing/notarization
 - [ ] Add Windows signing if certificates are available
-- [ ] Decide whether to add auto-update
-- [ ] Add release QA checklist
+- [x] Decide whether to add auto-update
+- [x] Add release QA checklist
 
 Acceptance criteria:
 
@@ -116,11 +116,18 @@ Verification note:
   them, but the desktop shell itself cannot be launched from this machine yet.
 - The PR 3 release workflow is tag-driven (`v*`) and has not been exercised in
   this environment because it requires GitHub-hosted runners.
+- PR 4 wires optional macOS signing/notarization into that workflow, but it
+  still requires repository secrets and a tagged GitHub Actions run to verify.
 
 ## Risks / Open Items
 
 - [x] Decide exact Windows bundling mode for the WebView runtime
 - [ ] Decide whether Linux should also ship a `.deb`
 - [ ] Decide how much native “open recent” or OS integration is worth in v1
+- [x] Decide whether to add auto-update
+      Decision: defer auto-update until signed installers and one successful tagged
+      desktop release exist.
+- [ ] Pick and configure the final Windows signing provider when a certificate
+      is available
 - [ ] Verify external play-test integrations should remain browser-only in the
       desktop app
