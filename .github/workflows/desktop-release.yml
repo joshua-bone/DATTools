@@ -57,13 +57,13 @@ jobs:
     runs-on: ${{ matrix.platform }}
     env:
       GITHUB_TOKEN: ${{ github.token }}
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
       APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' && 'true' || 'false' }}
+      HAS_APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD != '' && 'true' || 'false' }}
 
     steps:
       - name: Checkout
@@ -98,7 +98,10 @@ jobs:
         run: npm ci
 
       - name: Import Apple Developer certificate
-        if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != '' && env.APPLE_CERTIFICATE_PASSWORD != '' && env.KEYCHAIN_PASSWORD != ''
+        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_CERTIFICATE == 'true' && env.HAS_APPLE_CERTIFICATE_PASSWORD == 'true' && env.KEYCHAIN_PASSWORD != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           CERTIFICATE_PATH="$RUNNER_TEMP/apple-certificate.p12"
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
@@ -121,7 +124,7 @@ jobs:
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: Resolve Apple signing identity
-        if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != '' && env.APPLE_CERTIFICATE_PASSWORD != '' && env.KEYCHAIN_PASSWORD != ''
+        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_CERTIFICATE == 'true' && env.HAS_APPLE_CERTIFICATE_PASSWORD == 'true' && env.KEYCHAIN_PASSWORD != ''
         run: |
           CERT_ID="$APPLE_SIGNING_IDENTITY"
           if [ -z "$CERT_ID" ]; then
