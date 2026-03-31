@@ -1,4 +1,5 @@
 import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
+import { CC1_EXPANDED_TILE_DISPLAY_NAMES } from "@/src/dat/cc1ExpandedTiles";
 import { DAT_3D_AIR_TILE, DAT_3D_ELEVATOR_TILE } from "@/src/dat/dat3dLevels";
 import { DAT_3D_AIR_SPRITE_NAME, DAT_3D_ELEVATOR_SPRITE_NAME } from "@/src/dat/render/cc1SpriteSet";
 
@@ -24,6 +25,9 @@ export function getDat3dTileDisplayName(tile: string, context: Dat3dDisplayConte
   if (!context.threeDEnabled && tile === "NOT_USED_0") {
     return OVERLAY_BUFFER_TILE_NAME;
   }
+  const expandedTileDisplayName =
+    CC1_EXPANDED_TILE_DISPLAY_NAMES[tile as keyof typeof CC1_EXPANDED_TILE_DISPLAY_NAMES];
+  if (expandedTileDisplayName) return expandedTileDisplayName;
   return tile;
 }
 

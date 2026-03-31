@@ -23,6 +23,21 @@ describe("3D display elevator rendering", () => {
     ).toBe("OVERLAY_BUFFER");
   });
 
+  it("labels expanded invalid tiles with friendly names", () => {
+    const context = {
+      threeDEnabled: false,
+      layerZ: 1,
+      layerCount: 1,
+    } as const;
+
+    expect(getDat3dTileDisplayName("UNKNOWN_0x70", context)).toBe("Sandbag");
+    expect(getDat3dTileDisplayName("UNKNOWN_0x71", context)).toBe("Bowling Ball");
+    expect(getDat3dTileDisplayName("UNKNOWN_0x72", context)).toBe("Cloud");
+    expect(getDat3dTileDisplayName("UNKNOWN_0x73", context)).toBe("Hook");
+    expect(getDat3dTileDisplayName("UNKNOWN_0x74", context)).toBe("Ice Block");
+    expect(getDat3dTileDisplayName("UNKNOWN_0x75", context)).toBe("Pet Carrier");
+  });
+
   it("always treats tile 57 as elevator while 3D mode is enabled", () => {
     const context = {
       threeDEnabled: true,

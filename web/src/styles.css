@@ -1189,14 +1189,37 @@ button:disabled {
 }
 
 .paletteGrid {
-  display: grid;
-  gap: 0;
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: 12px;
   min-height: 0;
   overflow: auto;
-  padding: 0;
-  align-content: start;
+  padding: 0 0 12px;
   background: rgba(57, 75, 66, 0.12);
+}
+
+.paletteTileSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.paletteTileSectionTitle {
+  padding: 12px 12px 0;
+  color: #4d5f68;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.paletteTileGrid {
+  display: grid;
+  gap: 0;
+  width: 100%;
+  min-height: 0;
+  align-content: start;
 }
 
 .paletteGridItem {

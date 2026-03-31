@@ -12,13 +12,7 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  CC1_INVALID_TILE_NAMES,
-  CC1_LEGACY_INVALID_TILE_NAMES,
-  CC1_VALID_TILE_NAMES,
-  rotateDirectionalTileName,
-  tileCodeFromName,
-} from "@/src/dat/cc1Tiles";
+import { rotateDirectionalTileName, tileCodeFromName } from "@/src/dat/cc1Tiles";
 import { decodeDatBytes, encodeDatBytes } from "@/src/dat/datCodec";
 import {
   DAT_3D_AIR_TILE,
@@ -86,6 +80,7 @@ import { resolveBoardTileRedrawPlan } from "@/web/src/boardRenderInvalidation";
 import { buildLexysLabyrinthSharedUrl } from "@/web/src/lexysLabyrinth";
 import { createNewLevelsetFileName } from "@/web/src/levelsetFileName";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
+import { getPaletteSections } from "@/web/src/paletteSections";
 import { platform } from "@/web/src/platform";
 import {
   APP_PREFERENCES_STORAGE_KEY,
@@ -3420,25 +3415,16 @@ export default function App() {
     [selectedLayerZ, selectedLogicalLevel, threeDLevelsEnabled],
   );
 
-  const filteredTiles = useMemo(() => {
-    const promoted3dTiles = threeDLevelsEnabled ? [DAT_3D_AIR_TILE, "CHIP_EXIT"] : [];
-    const sourceTiles =
-      paletteTab === "normal"
-        ? [...promoted3dTiles, ...CC1_VALID_TILE_NAMES]
-        : [
-            ...CC1_LEGACY_INVALID_TILE_NAMES.filter(
-              (tile) => !threeDLevelsEnabled || (tile !== DAT_3D_AIR_TILE && tile !== "CHIP_EXIT"),
-            ),
-            ...CC1_INVALID_TILE_NAMES,
-          ];
-    const query = deferredPaletteQuery.trim().toLowerCase();
-    if (query.length === 0) return sourceTiles;
-    return sourceTiles.filter((tile) =>
-      `${tile} ${getDat3dTileDisplayName(tile, paletteDisplayContext)}`
-        .toLowerCase()
-        .includes(query),
-    );
-  }, [deferredPaletteQuery, paletteDisplayContext, paletteTab, threeDLevelsEnabled]);
+  const paletteSections = useMemo(
+    () =>
+      getPaletteSections({
+        paletteTab,
+        query: deferredPaletteQuery,
+        displayContext: paletteDisplayContext,
+        threeDLevelsEnabled,
+      }),
+    [deferredPaletteQuery, paletteDisplayContext, paletteTab, threeDLevelsEnabled],
+  );
 
   const editorLayoutStyle = useMemo(
     () =>
@@ -5505,7 +5491,7 @@ export default function App() {
                 type="text"
                 value={paletteQuery}
                 onChange={(event) => setPaletteQuery(event.target.value)}
-                placeholder="Filter by DAT tile name"
+                placeholder="Filter by tile name or DAT id"
               />
 
               <div className="paletteTabs" role="tablist" aria-label="Palette tile groups">
@@ -5529,68 +5515,82 @@ export default function App() {
                 </button>
               </div>
 
-              <div
-                ref={paletteGridRef}
-                className="paletteGrid"
-                style={paletteGridStyle}
-                onWheel={handlePaletteWheel}
-              >
-                {filteredTiles.map((tile) => {
-                  const tileId = tileCodeFromName(tile);
-                  const displayTileName = getDat3dTileDisplayName(tile, paletteDisplayContext);
-                  const tileTooltip = `${displayTileName} (id ${tileId}, ${classifyTilePlacement(
-                    tile,
-                    makePaintOptions(threeDLevelsEnabled, selectedLayerZ),
-                  )})`;
-                  const isPrimaryTile = tile === primaryTile;
-                  const isSecondaryTile = tile === secondaryTile;
-                  const isAirTile = threeDLevelsEnabled && tile === DAT_3D_AIR_TILE;
-
-                  return (
-                    <button
-                      key={tile}
-                      type="button"
-                      className={`paletteGridItem ${isPrimaryTile ? "selectedPrimary" : ""} ${isSecondaryTile ? "selectedSecondary" : ""} ${isPrimaryTile && isSecondaryTile ? "selectedBoth" : ""}`}
-                      title={tileTooltip}
-                      aria-label={tileTooltip}
-                      onClick={() =>
-                        assignPaletteTile(
+              <div ref={paletteGridRef} className="paletteGrid" onWheel={handlePaletteWheel}>
+                {paletteSections.map((section) => (
+                  <div
+                    key={section.key}
+                    className="paletteTileSection"
+                    role={section.title ? "group" : undefined}
+                    aria-label={section.title ?? undefined}
+                  >
+                    {section.title ? (
+                      <div className="paletteTileSectionTitle">{section.title}</div>
+                    ) : null}
+                    <div className="paletteTileGrid" style={paletteGridStyle}>
+                      {section.tiles.map((tile) => {
+                        const tileId = tileCodeFromName(tile);
+                        const displayTileName = getDat3dTileDisplayName(
                           tile,
-                          isTabletLayout ? paletteAssignmentTarget : "primary",
-                        )
-                      }
-                      onPointerDown={(event) => {
-                        if (isTabletLayout) return;
-                        if (event.button !== 2) return;
-                        event.preventDefault();
-                        assignPaletteTile(tile, "secondary");
-                      }}
-                      onContextMenu={(event) => event.preventDefault()}
-                    >
-                      <TilePreview
-                        canvasSpriteCache={canvasSpriteCache}
-                        tile={tile}
-                        displayContext={paletteDisplayContext}
-                        className="paletteGridCanvas"
-                        pixelSize={paletteCellSize}
-                        showPaletteDirectionArrow
-                        showSecrets={showSecrets}
-                      />
-                      {paletteTab === "invalid" ? (
-                        <span className="paletteGridBadge">
-                          {tileId.toString(16).padStart(2, "0").toUpperCase()}
-                        </span>
-                      ) : null}
-                      {isAirTile ? (
-                        <span className="paletteGridBadge paletteGridAirBadge">AIR</span>
-                      ) : null}
-                      {isPrimaryTile ? <span className="paletteGridMarker primary">L</span> : null}
-                      {isSecondaryTile ? (
-                        <span className="paletteGridMarker secondary">R</span>
-                      ) : null}
-                    </button>
-                  );
-                })}
+                          paletteDisplayContext,
+                        );
+                        const tileTooltip = `${displayTileName} (id ${tileId}, ${classifyTilePlacement(
+                          tile,
+                          makePaintOptions(threeDLevelsEnabled, selectedLayerZ),
+                        )})`;
+                        const isPrimaryTile = tile === primaryTile;
+                        const isSecondaryTile = tile === secondaryTile;
+                        const isAirTile = threeDLevelsEnabled && tile === DAT_3D_AIR_TILE;
+
+                        return (
+                          <button
+                            key={tile}
+                            type="button"
+                            className={`paletteGridItem ${isPrimaryTile ? "selectedPrimary" : ""} ${isSecondaryTile ? "selectedSecondary" : ""} ${isPrimaryTile && isSecondaryTile ? "selectedBoth" : ""}`}
+                            title={tileTooltip}
+                            aria-label={tileTooltip}
+                            onClick={() =>
+                              assignPaletteTile(
+                                tile,
+                                isTabletLayout ? paletteAssignmentTarget : "primary",
+                              )
+                            }
+                            onPointerDown={(event) => {
+                              if (isTabletLayout) return;
+                              if (event.button !== 2) return;
+                              event.preventDefault();
+                              assignPaletteTile(tile, "secondary");
+                            }}
+                            onContextMenu={(event) => event.preventDefault()}
+                          >
+                            <TilePreview
+                              canvasSpriteCache={canvasSpriteCache}
+                              tile={tile}
+                              displayContext={paletteDisplayContext}
+                              className="paletteGridCanvas"
+                              pixelSize={paletteCellSize}
+                              showPaletteDirectionArrow
+                              showSecrets={showSecrets}
+                            />
+                            {paletteTab === "invalid" ? (
+                              <span className="paletteGridBadge">
+                                {tileId.toString(16).padStart(2, "0").toUpperCase()}
+                              </span>
+                            ) : null}
+                            {isAirTile ? (
+                              <span className="paletteGridBadge paletteGridAirBadge">AIR</span>
+                            ) : null}
+                            {isPrimaryTile ? (
+                              <span className="paletteGridMarker primary">L</span>
+                            ) : null}
+                            {isSecondaryTile ? (
+                              <span className="paletteGridMarker secondary">R</span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </section>
           ) : null}
