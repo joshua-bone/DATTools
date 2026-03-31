@@ -16,7 +16,7 @@ export type PersistedAppPreferences = Readonly<{
   showMonsterOrder: boolean;
   showValidityWarnings: boolean;
   threeDLevelsEnabled: boolean;
-  threeDOrthographicView: boolean;
+  threeDParallaxView: boolean;
   lowDetailRendering: boolean;
 }>;
 
@@ -32,7 +32,7 @@ export const DEFAULT_PERSISTED_APP_PREFERENCES: PersistedAppPreferences = {
   showMonsterOrder: true,
   showValidityWarnings: true,
   threeDLevelsEnabled: false,
-  threeDOrthographicView: false,
+  threeDParallaxView: false,
   lowDetailRendering: false,
 };
 
@@ -85,11 +85,12 @@ export function parsePersistedAppPreferences(value: string | null): PersistedApp
         "threeDLevelsEnabled",
         DEFAULT_PERSISTED_APP_PREFERENCES.threeDLevelsEnabled,
       ),
-      threeDOrthographicView: readBoolean(
-        parsed,
-        "threeDOrthographicView",
-        DEFAULT_PERSISTED_APP_PREFERENCES.threeDOrthographicView,
-      ),
+      threeDParallaxView:
+        typeof parsed.threeDParallaxView === "boolean"
+          ? parsed.threeDParallaxView
+          : typeof parsed.threeDOrthographicView === "boolean"
+            ? !parsed.threeDOrthographicView
+            : DEFAULT_PERSISTED_APP_PREFERENCES.threeDParallaxView,
       lowDetailRendering:
         typeof parsed.lowDetailRendering === "boolean"
           ? parsed.lowDetailRendering

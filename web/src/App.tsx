@@ -293,7 +293,7 @@ type BoardEditorSurfaceProps = Readonly<{
   showMonsterOrder: boolean;
   showValidityWarnings: boolean;
   threeDLevelsEnabled: boolean;
-  threeDOrthographicView: boolean;
+  threeDParallaxView: boolean;
   lowDetailRendering: boolean;
   tool: ToolMode;
   primaryTile: string;
@@ -1554,7 +1554,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       showMonsterOrder,
       showValidityWarnings,
       threeDLevelsEnabled,
-      threeDOrthographicView,
+      threeDParallaxView,
       lowDetailRendering,
       tool,
       primaryTile,
@@ -2131,7 +2131,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
               boardPan,
               boardZoom,
               viewportBounds,
-              threeDOrthographicView,
+              threeDParallaxView,
             );
 
             ctx.save();
@@ -2198,7 +2198,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       canvasSpriteCache,
       lowDetailRendering,
       threeDLevelsEnabled,
-      threeDOrthographicView,
+      threeDParallaxView,
       onSetErrorMessage,
     ]);
 
@@ -2340,7 +2340,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
             boardPan,
             boardZoom,
             viewportBounds,
-            threeDOrthographicView,
+            threeDParallaxView,
           );
           const clipRegions: ThreeDLayerClipRegion[] = [];
           let isVisibleThroughAir = true;
@@ -2373,7 +2373,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                       boardPan,
                       boardZoom,
                       viewportBounds,
-                      threeDOrthographicView,
+                      threeDParallaxView,
                     ),
               airIndices,
             });
@@ -2477,7 +2477,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       canvasSpriteCache,
       lowDetailRendering,
       threeDLevelsEnabled,
-      threeDOrthographicView,
+      threeDParallaxView,
     ]);
 
     useEffect(() => {
@@ -3257,8 +3257,8 @@ export default function App() {
   const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(
     initialAppState.preferences.threeDLevelsEnabled,
   );
-  const [threeDOrthographicView, setThreeDOrthographicView] = useState(
-    initialAppState.preferences.threeDOrthographicView,
+  const [threeDParallaxView, setThreeDParallaxView] = useState(
+    initialAppState.preferences.threeDParallaxView,
   );
   const [lowDetailRendering, setLowDetailRendering] = useState(
     initialAppState.preferences.lowDetailRendering,
@@ -3515,7 +3515,7 @@ export default function App() {
         showMonsterOrder,
         showValidityWarnings,
         threeDLevelsEnabled,
-        threeDOrthographicView,
+        threeDParallaxView,
         lowDetailRendering,
       }),
     );
@@ -3526,7 +3526,7 @@ export default function App() {
     showSecrets,
     showValidityWarnings,
     threeDLevelsEnabled,
-    threeDOrthographicView,
+    threeDParallaxView,
   ]);
 
   useEffect(() => {
@@ -5065,9 +5065,9 @@ export default function App() {
                     <button
                       type="button"
                       className="dropdownMenuItem"
-                      onClick={() => setThreeDOrthographicView((current) => !current)}
+                      onClick={() => setThreeDParallaxView((current) => !current)}
                     >
-                      {`${threeDOrthographicView ? "Disable" : "Enable"} 3D Orthographic View`}
+                      {`${threeDParallaxView ? "Disable" : "Enable"} 3D Parallax View`}
                     </button>
                   </div>
                 ) : null}
@@ -5344,7 +5344,7 @@ export default function App() {
           showMonsterOrder={showMonsterOrder}
           showValidityWarnings={showValidityWarnings}
           threeDLevelsEnabled={threeDLevelsEnabled}
-          threeDOrthographicView={threeDOrthographicView}
+          threeDParallaxView={threeDParallaxView}
           lowDetailRendering={lowDetailRendering}
           tool={tool}
           primaryTile={primaryTile}

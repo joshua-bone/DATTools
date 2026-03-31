@@ -26,7 +26,7 @@ describe("persisted app preferences", () => {
       showMonsterOrder: false,
       showValidityWarnings: true,
       threeDLevelsEnabled: true,
-      threeDOrthographicView: true,
+      threeDParallaxView: true,
       lowDetailRendering: true,
     });
 
@@ -36,7 +36,7 @@ describe("persisted app preferences", () => {
       showMonsterOrder: false,
       showValidityWarnings: true,
       threeDLevelsEnabled: true,
-      threeDOrthographicView: true,
+      threeDParallaxView: true,
       lowDetailRendering: true,
     });
   });
@@ -71,6 +71,20 @@ describe("persisted app preferences", () => {
     ).toEqual({
       ...DEFAULT_PERSISTED_APP_PREFERENCES,
       lowDetailRendering: true,
+    });
+  });
+
+  it("migrates the previous orthographic-view flag into the parallax toggle", () => {
+    expect(
+      parsePersistedAppPreferences(
+        JSON.stringify({
+          schema: "datTools.web.appPreferences.v1",
+          threeDOrthographicView: false,
+        }),
+      ),
+    ).toEqual({
+      ...DEFAULT_PERSISTED_APP_PREFERENCES,
+      threeDParallaxView: true,
     });
   });
 });

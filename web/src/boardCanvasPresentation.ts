@@ -104,9 +104,9 @@ export function resolveThreeDLayerDrawMetrics(
   boardPan: Readonly<{ x: number; y: number }>,
   boardZoom: number,
   viewport: Pick<RectLike, "width" | "height"> | null,
-  orthographicView: boolean,
+  parallaxView: boolean,
 ): ThreeDLayerDrawMetrics {
-  if (orthographicView) {
+  if (!parallaxView) {
     return {
       offsetX: 0,
       offsetY: 0,

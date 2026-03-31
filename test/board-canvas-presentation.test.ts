@@ -79,14 +79,14 @@ describe("board canvas presentation", () => {
     });
   });
 
-  it("applies depth scaling and pan lag in the default 3D stack projection", () => {
+  it("applies depth scaling and pan lag in 3D parallax view", () => {
     const metrics = resolveThreeDLayerDrawMetrics(
       2,
       256,
       { x: 24, y: -12 },
       2,
       { width: 640, height: 480 },
-      false,
+      true,
     );
 
     expect(metrics.offsetX).toBeCloseTo(30.72);
@@ -97,7 +97,7 @@ describe("board canvas presentation", () => {
     expect(metrics.scaleY).toBeCloseTo(0.81);
   });
 
-  it("keeps lower 3D layers aligned to the active grid in orthographic mode", () => {
+  it("keeps lower 3D layers aligned to the active grid in default orthographic mode", () => {
     expect(
       resolveThreeDLayerDrawMetrics(
         2,
@@ -105,7 +105,7 @@ describe("board canvas presentation", () => {
         { x: 24, y: -12 },
         2,
         { width: 640, height: 480 },
-        true,
+        false,
       ),
     ).toEqual({
       offsetX: 0,
