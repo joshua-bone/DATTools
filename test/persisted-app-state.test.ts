@@ -26,6 +26,7 @@ describe("persisted app preferences", () => {
       showMonsterOrder: false,
       showValidityWarnings: true,
       threeDLevelsEnabled: true,
+      threeDOrthographicView: true,
       lowDetailRendering: true,
     });
 
@@ -35,6 +36,7 @@ describe("persisted app preferences", () => {
       showMonsterOrder: false,
       showValidityWarnings: true,
       threeDLevelsEnabled: true,
+      threeDOrthographicView: true,
       lowDetailRendering: true,
     });
   });

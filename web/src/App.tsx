@@ -70,9 +70,11 @@ import {
   enumerateVisibleBoardCellWindow,
   ensureCanvasSize,
   isIndexVisibleInBoardCellWindow,
+  resolveThreeDLayerDrawMetrics,
   resolveBoardScreenRect,
   resolveVisibleBoardCellWindow,
   viewportClientPointToBoardPoint,
+  type ThreeDLayerDrawMetrics,
 } from "@/web/src/boardCanvasPresentation";
 import { createCanvasSpriteCache, type CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
 import { brushPreviewNeedsTransientBoard } from "@/web/src/brushPreview";
@@ -291,6 +293,7 @@ type BoardEditorSurfaceProps = Readonly<{
   showMonsterOrder: boolean;
   showValidityWarnings: boolean;
   threeDLevelsEnabled: boolean;
+  threeDOrthographicView: boolean;
   lowDetailRendering: boolean;
   tool: ToolMode;
   primaryTile: string;
@@ -1124,47 +1127,10 @@ function isTransparentAirCell(
   );
 }
 
-type ThreeDLayerDrawMetrics = Readonly<{
-  offsetX: number;
-  offsetY: number;
-  width: number;
-  height: number;
-  scaleX: number;
-  scaleY: number;
-}>;
-
 type ThreeDLayerClipRegion = Readonly<{
   metrics: ThreeDLayerDrawMetrics;
   airIndices: ReadonlyArray<number>;
 }>;
-
-function getThreeDLayerDrawMetrics(
-  depth: number,
-  boardSize: number,
-  boardPan: Readonly<{ x: number; y: number }>,
-  boardZoom: number,
-  viewport: Pick<HTMLDivElement, "clientWidth" | "clientHeight"> | null,
-): ThreeDLayerDrawMetrics {
-  const baseScale = Math.pow(0.9, depth);
-  const centeredPanX = viewport ? (viewport.clientWidth - boardSize * boardZoom) / 2 : boardPan.x;
-  const centeredPanY = viewport ? (viewport.clientHeight - boardSize * boardZoom) / 2 : boardPan.y;
-  const normalizedPanX = boardZoom > 0 ? (boardPan.x - centeredPanX) / boardZoom : 0;
-  const normalizedPanY = boardZoom > 0 ? (boardPan.y - centeredPanY) / boardZoom : 0;
-  const lagFactor = Math.min(0.45, depth * 0.16);
-  const width = boardSize * baseScale;
-  const height = boardSize * baseScale;
-  const offsetX = (boardSize - width) / 2 - normalizedPanX * lagFactor;
-  const offsetY = (boardSize - height) / 2 - normalizedPanY * lagFactor;
-
-  return {
-    offsetX,
-    offsetY,
-    width,
-    height,
-    scaleX: baseScale,
-    scaleY: baseScale,
-  };
-}
 
 function drawHighlightedCells(
   ctx: CanvasRenderingContext2D,
@@ -1588,6 +1554,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       showMonsterOrder,
       showValidityWarnings,
       threeDLevelsEnabled,
+      threeDOrthographicView,
       lowDetailRendering,
       tool,
       primaryTile,
@@ -2149,18 +2116,22 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           const layerCount = selectedLogicalLevel.layers.length;
           const activeCanvas = renderLayerCanvas(previewLevel, selectedLayerZ, layerCount);
           const viewport = boardViewportRef.current;
+          const viewportBounds = viewport
+            ? { width: viewport.clientWidth, height: viewport.clientHeight }
+            : null;
 
           for (let depth = Math.min(THREE_D_STACK_DEPTH, selectedLayerZ - 1); depth >= 1; depth--) {
             const lowerLayer = selectedLogicalLevel.layers[selectedLayerZ - 1 - depth];
             if (!lowerLayer) continue;
 
             const layerCanvas = renderLayerCanvas(lowerLayer.level, lowerLayer.z, layerCount);
-            const metrics = getThreeDLayerDrawMetrics(
+            const metrics = resolveThreeDLayerDrawMetrics(
               depth,
               boardSize,
               boardPan,
               boardZoom,
-              viewport,
+              viewportBounds,
+              threeDOrthographicView,
             );
 
             ctx.save();
@@ -2227,6 +2198,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       canvasSpriteCache,
       lowDetailRendering,
       threeDLevelsEnabled,
+      threeDOrthographicView,
       onSetErrorMessage,
     ]);
 
@@ -2347,6 +2319,9 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
       if (threeDLevelsEnabled && hoverPoint && selectedLogicalLevel && selectedLayerZ > 1) {
         const viewport = boardViewportRef.current;
+        const viewportBounds = viewport
+          ? { width: viewport.clientWidth, height: viewport.clientHeight }
+          : null;
         const activeLayerMetrics: ThreeDLayerDrawMetrics = {
           offsetX: 0,
           offsetY: 0,
@@ -2359,7 +2334,14 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         for (let depth = Math.min(THREE_D_STACK_DEPTH, selectedLayerZ - 1); depth >= 1; depth--) {
           const lowerLayer = selectedLogicalLevel.layers[selectedLayerZ - 1 - depth];
           if (!lowerLayer) continue;
-          const metrics = getThreeDLayerDrawMetrics(depth, size, boardPan, boardZoom, viewport);
+          const metrics = resolveThreeDLayerDrawMetrics(
+            depth,
+            size,
+            boardPan,
+            boardZoom,
+            viewportBounds,
+            threeDOrthographicView,
+          );
           const clipRegions: ThreeDLayerClipRegion[] = [];
           let isVisibleThroughAir = true;
 
@@ -2385,12 +2367,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
               metrics:
                 layerZ === selectedLayerZ
                   ? activeLayerMetrics
-                  : getThreeDLayerDrawMetrics(
+                  : resolveThreeDLayerDrawMetrics(
                       selectedLayerZ - layerZ,
                       size,
                       boardPan,
                       boardZoom,
-                      viewport,
+                      viewportBounds,
+                      threeDOrthographicView,
                     ),
               airIndices,
             });
@@ -2494,6 +2477,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       canvasSpriteCache,
       lowDetailRendering,
       threeDLevelsEnabled,
+      threeDOrthographicView,
     ]);
 
     useEffect(() => {
@@ -3273,6 +3257,9 @@ export default function App() {
   const [threeDLevelsEnabled, setThreeDLevelsEnabled] = useState(
     initialAppState.preferences.threeDLevelsEnabled,
   );
+  const [threeDOrthographicView, setThreeDOrthographicView] = useState(
+    initialAppState.preferences.threeDOrthographicView,
+  );
   const [lowDetailRendering, setLowDetailRendering] = useState(
     initialAppState.preferences.lowDetailRendering,
   );
@@ -3528,6 +3515,7 @@ export default function App() {
         showMonsterOrder,
         showValidityWarnings,
         threeDLevelsEnabled,
+        threeDOrthographicView,
         lowDetailRendering,
       }),
     );
@@ -3538,6 +3526,7 @@ export default function App() {
     showSecrets,
     showValidityWarnings,
     threeDLevelsEnabled,
+    threeDOrthographicView,
   ]);
 
   useEffect(() => {
@@ -5073,6 +5062,13 @@ export default function App() {
                     >
                       {`${lowDetailRendering ? "Disable" : "Enable"} Low Detail Rendering`}
                     </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      onClick={() => setThreeDOrthographicView((current) => !current)}
+                    >
+                      {`${threeDOrthographicView ? "Disable" : "Enable"} 3D Orthographic View`}
+                    </button>
                   </div>
                 ) : null}
               </div>
@@ -5348,6 +5344,7 @@ export default function App() {
           showMonsterOrder={showMonsterOrder}
           showValidityWarnings={showValidityWarnings}
           threeDLevelsEnabled={threeDLevelsEnabled}
+          threeDOrthographicView={threeDOrthographicView}
           lowDetailRendering={lowDetailRendering}
           tool={tool}
           primaryTile={primaryTile}

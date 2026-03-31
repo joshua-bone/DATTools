@@ -8,6 +8,7 @@ import {
   ensureCanvasSize,
   isIndexVisibleInBoardCellWindow,
   resolveBoardScreenRect,
+  resolveThreeDLayerDrawMetrics,
   resolveVisibleBoardCellWindow,
   viewportClientPointToBoardPoint,
 } from "@/web/src/boardCanvasPresentation";
@@ -75,6 +76,44 @@ describe("board canvas presentation", () => {
       y: 48,
       width: 384,
       height: 384,
+    });
+  });
+
+  it("applies depth scaling and pan lag in the default 3D stack projection", () => {
+    const metrics = resolveThreeDLayerDrawMetrics(
+      2,
+      256,
+      { x: 24, y: -12 },
+      2,
+      { width: 640, height: 480 },
+      false,
+    );
+
+    expect(metrics.offsetX).toBeCloseTo(30.72);
+    expect(metrics.offsetY).toBeCloseTo(23.68);
+    expect(metrics.width).toBeCloseTo(207.36);
+    expect(metrics.height).toBeCloseTo(207.36);
+    expect(metrics.scaleX).toBeCloseTo(0.81);
+    expect(metrics.scaleY).toBeCloseTo(0.81);
+  });
+
+  it("keeps lower 3D layers aligned to the active grid in orthographic mode", () => {
+    expect(
+      resolveThreeDLayerDrawMetrics(
+        2,
+        256,
+        { x: 24, y: -12 },
+        2,
+        { width: 640, height: 480 },
+        true,
+      ),
+    ).toEqual({
+      offsetX: 0,
+      offsetY: 0,
+      width: 256,
+      height: 256,
+      scaleX: 1,
+      scaleY: 1,
     });
   });
 

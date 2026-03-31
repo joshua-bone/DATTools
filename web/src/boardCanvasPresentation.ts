@@ -36,6 +36,15 @@ export type BoardViewportPresentationOptions = Readonly<{
   boardZoom: number;
 }>;
 
+export type ThreeDLayerDrawMetrics = Readonly<{
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
+  scaleX: number;
+  scaleY: number;
+}>;
+
 export type ClientPoint = Readonly<{
   clientX: number;
   clientY: number;
@@ -86,6 +95,46 @@ export function resolveBoardScreenRect(options: BoardViewportPresentationOptions
     y: options.boardPan.y,
     width: options.boardSize * options.boardZoom,
     height: options.boardSize * options.boardZoom,
+  };
+}
+
+export function resolveThreeDLayerDrawMetrics(
+  depth: number,
+  boardSize: number,
+  boardPan: Readonly<{ x: number; y: number }>,
+  boardZoom: number,
+  viewport: Pick<RectLike, "width" | "height"> | null,
+  orthographicView: boolean,
+): ThreeDLayerDrawMetrics {
+  if (orthographicView) {
+    return {
+      offsetX: 0,
+      offsetY: 0,
+      width: boardSize,
+      height: boardSize,
+      scaleX: 1,
+      scaleY: 1,
+    };
+  }
+
+  const baseScale = Math.pow(0.9, depth);
+  const centeredPanX = viewport ? (viewport.width - boardSize * boardZoom) / 2 : boardPan.x;
+  const centeredPanY = viewport ? (viewport.height - boardSize * boardZoom) / 2 : boardPan.y;
+  const normalizedPanX = boardZoom > 0 ? (boardPan.x - centeredPanX) / boardZoom : 0;
+  const normalizedPanY = boardZoom > 0 ? (boardPan.y - centeredPanY) / boardZoom : 0;
+  const lagFactor = Math.min(0.45, depth * 0.16);
+  const width = boardSize * baseScale;
+  const height = boardSize * baseScale;
+  const offsetX = (boardSize - width) / 2 - normalizedPanX * lagFactor;
+  const offsetY = (boardSize - height) / 2 - normalizedPanY * lagFactor;
+
+  return {
+    offsetX,
+    offsetY,
+    width,
+    height,
+    scaleX: baseScale,
+    scaleY: baseScale,
   };
 }
 
