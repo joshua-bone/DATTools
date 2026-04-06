@@ -1,12 +1,25 @@
 import { getLevelsetFileKind } from "@/src/levelsetFiles";
 import type { EditorPlatform, OpenedLevelsetFile } from "./types";
 
+type TauriFilePath = string | URL;
+
 function createAbortError(): DOMException {
   return new DOMException("The operation was aborted.", "AbortError");
 }
 
-function getFileNameFromPath(path: string): string {
-  const normalizedPath = path.replace(/^file:\/\//, "");
+function normalizeTauriFilePath(path: string): TauriFilePath {
+  if (!path.startsWith("file://")) return path;
+
+  try {
+    return new URL(path);
+  } catch {
+    return path;
+  }
+}
+
+function getFileNameFromPath(path: TauriFilePath): string {
+  const normalizedPath =
+    path instanceof URL ? decodeURIComponent(path.pathname) : path.replace(/^file:\/\//, "");
   const parts = normalizedPath.split(/[\\/]/);
   return parts[parts.length - 1] || normalizedPath;
 }
@@ -25,25 +38,25 @@ async function openLevelsetFile(): Promise<OpenedLevelsetFile | null> {
       { name: "CC1 DAT levelsets", extensions: ["dat"] },
       { name: "Levelset JSON", extensions: ["json"] },
     ],
-    fileAccessMode: "scoped",
   });
 
   if (!selectedPath || Array.isArray(selectedPath)) return null;
 
-  const name = getFileNameFromPath(selectedPath);
+  const fsPath = normalizeTauriFilePath(selectedPath);
+  const name = getFileNameFromPath(fsPath);
   const kind = getLevelsetFileKind(name);
   if (kind === "dat") {
     return {
       kind,
       name,
-      bytes: await readFile(selectedPath),
+      bytes: await readFile(fsPath),
     };
   }
 
   return {
     kind,
     name,
-    text: await readTextFile(selectedPath),
+    text: await readTextFile(fsPath),
   };
 }
 
