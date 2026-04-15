@@ -27,6 +27,11 @@ Currently implemented in the modal:
 - `Worley / Cellular Noise`
 - `Thresholded Gradient Noise`
 - `Domain-Warped Noise`
+- `Radial Symmetry`
+- `Kaleidoscope`
+- `L-System / Turtle Patterns`
+- `Rose Curves / Polar Patterns`
+- `Tileable Motif Repeater`
 - `Backtracking Generator`
 - `Growing Tree`
 - `Prim's`
@@ -82,11 +87,11 @@ These are good follow-up generators that are not primarily maze algorithms, but 
 
 ### Symmetry And Ornament
 
-- `Radial Symmetry`: rings, spokes, medallions, and cathedral-window style wall sets.
-- `Kaleidoscope`: mirrored wedge-based layouts with rotational symmetry controls.
-- `L-System / Turtle Patterns`: branching ornamental lines, vines, glyphs, and recursive motifs.
-- `Rose Curves / Polar Patterns`: flowers, stars, petals, and circular emblem-style layouts.
-- `Tileable Motif Repeater`: stamp a local motif across the map with jitter, rotation, and spacing controls.
+- Done: `Radial Symmetry`, with fold, ring, twist, band-width, invert, and block-size controls.
+- Done: `Kaleidoscope`, with segment, scale, threshold, invert, and block-size controls.
+- Done: `L-System / Turtle Patterns`, with preset, iteration, turn-angle, stroke-width, invert, and block-size controls.
+- Done: `Rose Curves / Polar Patterns`, with petal, harmonic, rotation, stroke-width, invert, and block-size controls.
+- Done: `Tileable Motif Repeater`, with motif, spacing, size, jitter, rotation, invert, and block-size controls.
 
 ### Rooms And Architecture
 
@@ -123,7 +128,6 @@ These are good follow-up generators that are not primarily maze algorithms, but 
 ### Good Early Picks
 
 - `BSP Room Partitioner`: strong architectural contrast to the maze-heavy current catalog.
-- `Radial Symmetry`: quickly adds iconic, highly star-worthy layouts.
 - `Stamp Brush Generator`: cheap to implement and can cover a lot of visual ground fast.
 
 ## Modal Mapping Rules

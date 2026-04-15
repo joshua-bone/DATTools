@@ -10,13 +10,18 @@ import {
   createDefaultEllersControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
+  createDefaultKaleidoscopeControlState,
   createDefaultKruskalsControlState,
+  createDefaultLSystemTurtleControlState,
   createDefaultPerlinNoiseControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
+  createDefaultRadialSymmetryControlState,
   createDefaultRecursiveDivisionControlState,
+  createDefaultRoseCurvesControlState,
   createDefaultSidewinderControlState,
   createDefaultThresholdedGradientNoiseControlState,
+  createDefaultTileableMotifRepeaterControlState,
   createDefaultTrivialMazeControlState,
   createDefaultValueFractalNoiseControlState,
   createDefaultWilsonsControlState,
@@ -50,6 +55,11 @@ describe("generated layouts", () => {
           record.algorithm === "worley-noise" ||
           record.algorithm === "thresholded-gradient-noise" ||
           record.algorithm === "domain-warped-noise" ||
+          record.algorithm === "radial-symmetry" ||
+          record.algorithm === "kaleidoscope" ||
+          record.algorithm === "l-system-turtle" ||
+          record.algorithm === "rose-curves" ||
+          record.algorithm === "tileable-motif-repeater" ||
           record.algorithm === "backtracking-generator" ||
           record.algorithm === "growing-tree" ||
           record.algorithm === "prims" ||
@@ -344,6 +354,251 @@ describe("generated layouts", () => {
           record.params.octaves === 5 &&
           record.params.warpScale === 2.5 &&
           record.params.warpStrength === 0.4,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic radial-symmetry layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "radial-symmetry",
+      count: 6,
+      seed: 62626,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "radial-symmetry",
+      count: 6,
+      seed: 62626,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "radial-symmetry")).toBe(true);
+  });
+
+  it("keeps locked radial-symmetry parameters fixed across generated cards", () => {
+    const controls = createDefaultRadialSymmetryControlState();
+    const records = generateLayoutRecords({
+      algorithm: "radial-symmetry",
+      count: 6,
+      seed: 63636,
+      radialSymmetryControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: true },
+        folds: { randomize: false, value: 8 },
+        rings: { randomize: false, value: 5 },
+        twist: { randomize: false, value: 0.45 },
+        thickness: { randomize: false, value: 0.18 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "radial-symmetry" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === true &&
+          record.params.folds === 8 &&
+          record.params.rings === 5 &&
+          record.params.twist === 0.45 &&
+          record.params.thickness === 0.18,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic kaleidoscope layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "kaleidoscope",
+      count: 6,
+      seed: 64646,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "kaleidoscope",
+      count: 6,
+      seed: 64646,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "kaleidoscope")).toBe(true);
+  });
+
+  it("keeps locked kaleidoscope parameters fixed across generated cards", () => {
+    const controls = createDefaultKaleidoscopeControlState();
+    const records = generateLayoutRecords({
+      algorithm: "kaleidoscope",
+      count: 6,
+      seed: 65656,
+      kaleidoscopeControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 3 },
+        invert: { randomize: false, value: false },
+        segments: { randomize: false, value: 10 },
+        scale: { randomize: false, value: 4.5 },
+        threshold: { randomize: false, value: 0.56 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "kaleidoscope" &&
+          record.params.blockSize === 3 &&
+          record.params.invert === false &&
+          record.params.segments === 10 &&
+          record.params.scale === 4.5 &&
+          record.params.threshold === 0.56,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic l-system-turtle layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "l-system-turtle",
+      count: 6,
+      seed: 66666,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "l-system-turtle",
+      count: 6,
+      seed: 66666,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "l-system-turtle")).toBe(true);
+  });
+
+  it("keeps locked l-system-turtle parameters fixed across generated cards", () => {
+    const controls = createDefaultLSystemTurtleControlState();
+    const records = generateLayoutRecords({
+      algorithm: "l-system-turtle",
+      count: 6,
+      seed: 67676,
+      lSystemTurtleControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        invert: { randomize: false, value: true },
+        preset: { randomize: false, value: "dragon" },
+        iterations: { randomize: false, value: 4 },
+        turnAngle: { randomize: false, value: 90 },
+        strokeWidth: { randomize: false, value: 2 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "l-system-turtle" &&
+          record.params.blockSize === 1 &&
+          record.params.invert === true &&
+          record.params.preset === "dragon" &&
+          record.params.iterations === 4 &&
+          record.params.turnAngle === 90 &&
+          record.params.strokeWidth === 2,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic rose-curves layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "rose-curves",
+      count: 6,
+      seed: 68686,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "rose-curves",
+      count: 6,
+      seed: 68686,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "rose-curves")).toBe(true);
+  });
+
+  it("keeps locked rose-curves parameters fixed across generated cards", () => {
+    const controls = createDefaultRoseCurvesControlState();
+    const records = generateLayoutRecords({
+      algorithm: "rose-curves",
+      count: 6,
+      seed: 69696,
+      roseCurvesControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 4 },
+        invert: { randomize: false, value: false },
+        petals: { randomize: false, value: 7 },
+        harmonic: { randomize: false, value: 3 },
+        rotation: { randomize: false, value: 120 },
+        strokeWidth: { randomize: false, value: 3 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "rose-curves" &&
+          record.params.blockSize === 4 &&
+          record.params.invert === false &&
+          record.params.petals === 7 &&
+          record.params.harmonic === 3 &&
+          record.params.rotation === 120 &&
+          record.params.strokeWidth === 3,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic tileable-motif-repeater layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "tileable-motif-repeater",
+      count: 6,
+      seed: 70707,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "tileable-motif-repeater",
+      count: 6,
+      seed: 70707,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "tileable-motif-repeater")).toBe(true);
+  });
+
+  it("keeps locked tileable-motif-repeater parameters fixed across generated cards", () => {
+    const controls = createDefaultTileableMotifRepeaterControlState();
+    const records = generateLayoutRecords({
+      algorithm: "tileable-motif-repeater",
+      count: 6,
+      seed: 71771,
+      tileableMotifRepeaterControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: true },
+        motif: { randomize: false, value: "diamond" },
+        spacing: { randomize: false, value: 6 },
+        motifSize: { randomize: false, value: 3 },
+        jitter: { randomize: false, value: 2 },
+        rotation: { randomize: false, value: 90 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "tileable-motif-repeater" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === true &&
+          record.params.motif === "diamond" &&
+          record.params.spacing === 6 &&
+          record.params.motifSize === 3 &&
+          record.params.jitter === 2 &&
+          record.params.rotation === 90,
       ),
     ).toBe(true);
   });

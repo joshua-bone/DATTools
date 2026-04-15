@@ -44,6 +44,43 @@ export const DOMAIN_WARP_SCALE_STEP = 0.25;
 export const DOMAIN_WARP_STRENGTH_MIN = 0.1;
 export const DOMAIN_WARP_STRENGTH_MAX = 0.75;
 export const DOMAIN_WARP_STRENGTH_STEP = 0.05;
+export const RADIAL_SYMMETRY_FOLDS_MIN = 3;
+export const RADIAL_SYMMETRY_FOLDS_MAX = 12;
+export const RADIAL_SYMMETRY_RINGS_MIN = 1;
+export const RADIAL_SYMMETRY_RINGS_MAX = 7;
+export const RADIAL_SYMMETRY_TWIST_MIN = 0;
+export const RADIAL_SYMMETRY_TWIST_MAX = 1;
+export const RADIAL_SYMMETRY_TWIST_STEP = 0.05;
+export const RADIAL_SYMMETRY_THICKNESS_MIN = 0.06;
+export const RADIAL_SYMMETRY_THICKNESS_MAX = 0.26;
+export const RADIAL_SYMMETRY_THICKNESS_STEP = 0.02;
+export const KALEIDOSCOPE_SEGMENTS_MIN = 3;
+export const KALEIDOSCOPE_SEGMENTS_MAX = 12;
+export const KALEIDOSCOPE_SCALE_MIN = 1;
+export const KALEIDOSCOPE_SCALE_MAX = 8;
+export const KALEIDOSCOPE_SCALE_STEP = 0.25;
+export const LSYSTEM_ITERATIONS_MIN = 2;
+export const LSYSTEM_ITERATIONS_MAX = 5;
+export const LSYSTEM_TURN_ANGLE_MIN = 15;
+export const LSYSTEM_TURN_ANGLE_MAX = 90;
+export const LSYSTEM_TURN_ANGLE_STEP = 15;
+export const LSYSTEM_STROKE_WIDTH_MIN = 1;
+export const LSYSTEM_STROKE_WIDTH_MAX = 3;
+export const ROSE_CURVE_PETALS_MIN = 2;
+export const ROSE_CURVE_PETALS_MAX = 12;
+export const ROSE_CURVE_HARMONIC_MIN = 1;
+export const ROSE_CURVE_HARMONIC_MAX = 5;
+export const ROSE_CURVE_ROTATION_MIN = 0;
+export const ROSE_CURVE_ROTATION_MAX = 330;
+export const ROSE_CURVE_ROTATION_STEP = 15;
+export const ROSE_CURVE_STROKE_WIDTH_MIN = 1;
+export const ROSE_CURVE_STROKE_WIDTH_MAX = 3;
+export const TILEABLE_MOTIF_SPACING_MIN = 3;
+export const TILEABLE_MOTIF_SPACING_MAX = 10;
+export const TILEABLE_MOTIF_SIZE_MIN = 1;
+export const TILEABLE_MOTIF_SIZE_MAX = 4;
+export const TILEABLE_MOTIF_JITTER_MIN = 0;
+export const TILEABLE_MOTIF_JITTER_MAX = 2;
 
 export const MAZE_SEED_MIN = 1;
 export const MAZE_SEED_MAX = 0x7ffffffe;
@@ -78,6 +115,11 @@ export type GenerateAlgorithmId =
   | "worley-noise"
   | "thresholded-gradient-noise"
   | "domain-warped-noise"
+  | "radial-symmetry"
+  | "kaleidoscope"
+  | "l-system-turtle"
+  | "rose-curves"
+  | "tileable-motif-repeater"
   | "backtracking-generator"
   | "growing-tree"
   | "prims"
@@ -99,6 +141,8 @@ export type MazeBlockSize = (typeof MAZE_BLOCK_SIZE_OPTIONS)[number]["value"];
 export type BinaryTreeSkew = "NW" | "NE" | "SW" | "SE";
 export type HuntOrder = "random" | "serpentine";
 export type TrivialMazeType = "spiral" | "serpentine";
+export type LSystemPreset = "plant" | "dragon" | "bush";
+export type TileableMotifType = "cross" | "diamond" | "box" | "chevron" | "petal";
 
 export type RandomizableValue<T> = Readonly<{
   randomize: boolean;
@@ -152,6 +196,52 @@ export type DomainWarpedNoiseParameters = NoiseTerrainBaseParameters &
     octaves: number;
     warpScale: number;
     warpStrength: number;
+  }>;
+
+type OrnamentBaseParameters = Readonly<{
+  seed: number;
+  blockSize: number;
+  invert: boolean;
+}>;
+
+export type RadialSymmetryParameters = OrnamentBaseParameters &
+  Readonly<{
+    folds: number;
+    rings: number;
+    twist: number;
+    thickness: number;
+  }>;
+
+export type KaleidoscopeParameters = OrnamentBaseParameters &
+  Readonly<{
+    segments: number;
+    scale: number;
+    threshold: number;
+  }>;
+
+export type LSystemTurtleParameters = OrnamentBaseParameters &
+  Readonly<{
+    preset: LSystemPreset;
+    iterations: number;
+    turnAngle: number;
+    strokeWidth: number;
+  }>;
+
+export type RoseCurvesParameters = OrnamentBaseParameters &
+  Readonly<{
+    petals: number;
+    harmonic: number;
+    rotation: number;
+    strokeWidth: number;
+  }>;
+
+export type TileableMotifRepeaterParameters = OrnamentBaseParameters &
+  Readonly<{
+    motif: TileableMotifType;
+    spacing: number;
+    motifSize: number;
+    jitter: number;
+    rotation: number;
   }>;
 
 export type MazeAlgorithmParameters = Readonly<{
@@ -275,6 +365,52 @@ export type DomainWarpedNoiseControlState = NoiseTerrainBaseControlState &
     warpStrength: RandomizableValue<number>;
   }>;
 
+type OrnamentBaseControlState = Readonly<{
+  seed: RandomizableValue<number>;
+  blockSize: RandomizableValue<number>;
+  invert: RandomizableValue<boolean>;
+}>;
+
+export type RadialSymmetryControlState = OrnamentBaseControlState &
+  Readonly<{
+    folds: RandomizableValue<number>;
+    rings: RandomizableValue<number>;
+    twist: RandomizableValue<number>;
+    thickness: RandomizableValue<number>;
+  }>;
+
+export type KaleidoscopeControlState = OrnamentBaseControlState &
+  Readonly<{
+    segments: RandomizableValue<number>;
+    scale: RandomizableValue<number>;
+    threshold: RandomizableValue<number>;
+  }>;
+
+export type LSystemTurtleControlState = OrnamentBaseControlState &
+  Readonly<{
+    preset: RandomizableValue<LSystemPreset>;
+    iterations: RandomizableValue<number>;
+    turnAngle: RandomizableValue<number>;
+    strokeWidth: RandomizableValue<number>;
+  }>;
+
+export type RoseCurvesControlState = OrnamentBaseControlState &
+  Readonly<{
+    petals: RandomizableValue<number>;
+    harmonic: RandomizableValue<number>;
+    rotation: RandomizableValue<number>;
+    strokeWidth: RandomizableValue<number>;
+  }>;
+
+export type TileableMotifRepeaterControlState = OrnamentBaseControlState &
+  Readonly<{
+    motif: RandomizableValue<TileableMotifType>;
+    spacing: RandomizableValue<number>;
+    motifSize: RandomizableValue<number>;
+    jitter: RandomizableValue<number>;
+    rotation: RandomizableValue<number>;
+  }>;
+
 type MazeBaseControlState = Readonly<{
   seed: RandomizableValue<number>;
   blockSize: RandomizableValue<MazeBlockSize>;
@@ -344,6 +480,11 @@ type BaseGeneratedLayoutRecord<
     | WorleyNoiseParameters
     | ThresholdedGradientNoiseParameters
     | DomainWarpedNoiseParameters
+    | RadialSymmetryParameters
+    | KaleidoscopeParameters
+    | LSystemTurtleParameters
+    | RoseCurvesParameters
+    | TileableMotifRepeaterParameters
     | BacktrackingParameters
     | PrimsParameters
     | KruskalsParameters
@@ -396,6 +537,31 @@ export type ThresholdedGradientNoiseGeneratedLayoutRecord = BaseGeneratedLayoutR
 export type DomainWarpedNoiseGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "domain-warped-noise",
   DomainWarpedNoiseParameters
+>;
+
+export type RadialSymmetryGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "radial-symmetry",
+  RadialSymmetryParameters
+>;
+
+export type KaleidoscopeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "kaleidoscope",
+  KaleidoscopeParameters
+>;
+
+export type LSystemTurtleGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "l-system-turtle",
+  LSystemTurtleParameters
+>;
+
+export type RoseCurvesGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "rose-curves",
+  RoseCurvesParameters
+>;
+
+export type TileableMotifRepeaterGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "tileable-motif-repeater",
+  TileableMotifRepeaterParameters
 >;
 
 export type BacktrackingGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
@@ -461,6 +627,11 @@ export type GeneratedLayoutRecord =
   | WorleyNoiseGeneratedLayoutRecord
   | ThresholdedGradientNoiseGeneratedLayoutRecord
   | DomainWarpedNoiseGeneratedLayoutRecord
+  | RadialSymmetryGeneratedLayoutRecord
+  | KaleidoscopeGeneratedLayoutRecord
+  | LSystemTurtleGeneratedLayoutRecord
+  | RoseCurvesGeneratedLayoutRecord
+  | TileableMotifRepeaterGeneratedLayoutRecord
   | BacktrackingGeneratedLayoutRecord
   | PrimsGeneratedLayoutRecord
   | KruskalsGeneratedLayoutRecord
@@ -487,6 +658,11 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "worley-noise", label: "Worley / Cellular Noise" },
   { value: "thresholded-gradient-noise", label: "Thresholded Gradient Noise" },
   { value: "domain-warped-noise", label: "Domain-Warped Noise" },
+  { value: "radial-symmetry", label: "Radial Symmetry" },
+  { value: "kaleidoscope", label: "Kaleidoscope" },
+  { value: "l-system-turtle", label: "L-System / Turtle Patterns" },
+  { value: "rose-curves", label: "Rose Curves / Polar Patterns" },
+  { value: "tileable-motif-repeater", label: "Tileable Motif Repeater" },
   { value: "backtracking-generator", label: "Backtracking Generator" },
   { value: "growing-tree", label: "Growing Tree" },
   { value: "prims", label: "Prim's" },
@@ -509,6 +685,11 @@ const VALUE_FRACTAL_NOISE_LABEL = "Value Noise / Fractal Noise";
 const WORLEY_NOISE_LABEL = "Worley / Cellular Noise";
 const THRESHOLDED_GRADIENT_NOISE_LABEL = "Thresholded Gradient Noise";
 const DOMAIN_WARPED_NOISE_LABEL = "Domain-Warped Noise";
+const RADIAL_SYMMETRY_LABEL = "Radial Symmetry";
+const KALEIDOSCOPE_LABEL = "Kaleidoscope";
+const LSYSTEM_TURTLE_LABEL = "L-System / Turtle Patterns";
+const ROSE_CURVES_LABEL = "Rose Curves / Polar Patterns";
+const TILEABLE_MOTIF_REPEATER_LABEL = "Tileable Motif Repeater";
 const BACKTRACKING_LABEL = "Backtracking Generator";
 const PRIMS_LABEL = "Prim's";
 const KRUSKALS_LABEL = "Kruskal's";
@@ -532,6 +713,11 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "worley-noise",
   "thresholded-gradient-noise",
   "domain-warped-noise",
+  "radial-symmetry",
+  "kaleidoscope",
+  "l-system-turtle",
+  "rose-curves",
+  "tileable-motif-repeater",
   "backtracking-generator",
   "growing-tree",
   "prims",
@@ -572,6 +758,30 @@ const THRESHOLDED_GRADIENT_ANGLE_VALUES = [0, 30, 45, 60, 90, 120, 135, 150];
 const THRESHOLDED_GRADIENT_ROUGHNESS_VALUES = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9];
 const DOMAIN_WARP_SCALE_VALUES = [0.75, 1, 1.5, 2, 2.5, 3.5, 5];
 const DOMAIN_WARP_STRENGTH_VALUES = [0.1, 0.2, 0.3, 0.4, 0.55, 0.7];
+const RADIAL_SYMMETRY_FOLDS_VALUES = [3, 4, 5, 6, 8, 10, 12];
+const RADIAL_SYMMETRY_RINGS_VALUES = [1, 2, 3, 4, 5, 6, 7];
+const RADIAL_SYMMETRY_TWIST_VALUES = [0, 0.15, 0.3, 0.45, 0.6, 0.8, 1];
+const RADIAL_SYMMETRY_THICKNESS_VALUES = [0.08, 0.1, 0.12, 0.16, 0.2, 0.24];
+const KALEIDOSCOPE_SEGMENT_VALUES = [3, 4, 5, 6, 8, 10, 12];
+const KALEIDOSCOPE_SCALE_VALUES = [1.25, 1.75, 2.5, 3.5, 5, 6.5, 8];
+const LSYSTEM_ITERATION_VALUES = [2, 3, 4, 5];
+const LSYSTEM_TURN_ANGLE_VALUES = [15, 30, 45, 60, 75, 90];
+const LSYSTEM_STROKE_WIDTH_VALUES = [1, 2, 3];
+const ROSE_CURVE_PETAL_VALUES = [2, 3, 4, 5, 6, 7, 8, 10, 12];
+const ROSE_CURVE_HARMONIC_VALUES = [1, 2, 3, 4, 5];
+const ROSE_CURVE_ROTATION_VALUES = [0, 30, 45, 60, 90, 120, 150, 180, 210, 240, 270, 300];
+const TILEABLE_MOTIF_SPACING_VALUES = [3, 4, 5, 6, 7, 8, 9, 10];
+const TILEABLE_MOTIF_SIZE_VALUES = [1, 2, 3, 4];
+const TILEABLE_MOTIF_JITTER_VALUES = [0, 1, 2];
+export const LSYSTEM_PRESET_OPTIONS: ReadonlyArray<LSystemPreset> = ["plant", "dragon", "bush"];
+export const TILEABLE_MOTIF_TYPE_OPTIONS: ReadonlyArray<TileableMotifType> = [
+  "cross",
+  "diamond",
+  "box",
+  "chevron",
+  "petal",
+];
+export const RIGHT_ANGLE_ROTATION_OPTIONS: ReadonlyArray<number> = [0, 90, 180, 270];
 export const BINARY_TREE_SKEW_OPTIONS: ReadonlyArray<BinaryTreeSkew> = ["NW", "NE", "SW", "SE"];
 export const HUNT_ORDER_OPTIONS: ReadonlyArray<HuntOrder> = ["random", "serpentine"];
 export const TRIVIAL_MAZE_TYPE_OPTIONS: ReadonlyArray<TrivialMazeType> = ["spiral", "serpentine"];
@@ -605,6 +815,11 @@ export function generateLayoutRecords(
     worleyNoiseControls?: WorleyNoiseControlState | null;
     thresholdedGradientNoiseControls?: ThresholdedGradientNoiseControlState | null;
     domainWarpedNoiseControls?: DomainWarpedNoiseControlState | null;
+    radialSymmetryControls?: RadialSymmetryControlState | null;
+    kaleidoscopeControls?: KaleidoscopeControlState | null;
+    lSystemTurtleControls?: LSystemTurtleControlState | null;
+    roseCurvesControls?: RoseCurvesControlState | null;
+    tileableMotifRepeaterControls?: TileableMotifRepeaterControlState | null;
     backtrackingControls?: BacktrackingControlState | null;
     primsControls?: PrimsControlState | null;
     kruskalsControls?: KruskalsControlState | null;
@@ -636,6 +851,11 @@ export function generateLayoutRecords(
       worleyNoiseControls: options.worleyNoiseControls ?? null,
       thresholdedGradientNoiseControls: options.thresholdedGradientNoiseControls ?? null,
       domainWarpedNoiseControls: options.domainWarpedNoiseControls ?? null,
+      radialSymmetryControls: options.radialSymmetryControls ?? null,
+      kaleidoscopeControls: options.kaleidoscopeControls ?? null,
+      lSystemTurtleControls: options.lSystemTurtleControls ?? null,
+      roseCurvesControls: options.roseCurvesControls ?? null,
+      tileableMotifRepeaterControls: options.tileableMotifRepeaterControls ?? null,
       backtrackingControls: options.backtrackingControls ?? null,
       primsControls: options.primsControls ?? null,
       kruskalsControls: options.kruskalsControls ?? null,
@@ -730,6 +950,66 @@ export function createDefaultDomainWarpedNoiseControlState(): DomainWarpedNoiseC
     octaves: { randomize: true, value: 3 },
     warpScale: { randomize: true, value: 1.5 },
     warpStrength: { randomize: true, value: 0.3 },
+  };
+}
+
+export function createDefaultRadialSymmetryControlState(): RadialSymmetryControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    folds: { randomize: true, value: 6 },
+    rings: { randomize: true, value: 3 },
+    twist: { randomize: true, value: 0.3 },
+    thickness: { randomize: true, value: 0.14 },
+  };
+}
+
+export function createDefaultKaleidoscopeControlState(): KaleidoscopeControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    segments: { randomize: true, value: 6 },
+    scale: { randomize: true, value: 3.5 },
+    threshold: { randomize: true, value: 0.5 },
+  };
+}
+
+export function createDefaultLSystemTurtleControlState(): LSystemTurtleControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    preset: { randomize: true, value: "plant" },
+    iterations: { randomize: true, value: 3 },
+    turnAngle: { randomize: true, value: 45 },
+    strokeWidth: { randomize: true, value: 1 },
+  };
+}
+
+export function createDefaultRoseCurvesControlState(): RoseCurvesControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    petals: { randomize: true, value: 5 },
+    harmonic: { randomize: true, value: 2 },
+    rotation: { randomize: true, value: 0 },
+    strokeWidth: { randomize: true, value: 1 },
+  };
+}
+
+export function createDefaultTileableMotifRepeaterControlState(): TileableMotifRepeaterControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    motif: { randomize: true, value: "cross" },
+    spacing: { randomize: true, value: 5 },
+    motifSize: { randomize: true, value: 2 },
+    jitter: { randomize: true, value: 1 },
+    rotation: { randomize: true, value: 0 },
   };
 }
 
@@ -868,6 +1148,11 @@ function generateRecordForAlgorithm(
     worleyNoiseControls: WorleyNoiseControlState | null;
     thresholdedGradientNoiseControls: ThresholdedGradientNoiseControlState | null;
     domainWarpedNoiseControls: DomainWarpedNoiseControlState | null;
+    radialSymmetryControls: RadialSymmetryControlState | null;
+    kaleidoscopeControls: KaleidoscopeControlState | null;
+    lSystemTurtleControls: LSystemTurtleControlState | null;
+    roseCurvesControls: RoseCurvesControlState | null;
+    tileableMotifRepeaterControls: TileableMotifRepeaterControlState | null;
     backtrackingControls: BacktrackingControlState | null;
     primsControls: PrimsControlState | null;
     kruskalsControls: KruskalsControlState | null;
@@ -897,6 +1182,16 @@ function generateRecordForAlgorithm(
       return buildThresholdedGradientNoiseRecord(rng, controls.thresholdedGradientNoiseControls);
     case "domain-warped-noise":
       return buildDomainWarpedNoiseRecord(rng, controls.domainWarpedNoiseControls);
+    case "radial-symmetry":
+      return buildRadialSymmetryRecord(rng, controls.radialSymmetryControls);
+    case "kaleidoscope":
+      return buildKaleidoscopeRecord(rng, controls.kaleidoscopeControls);
+    case "l-system-turtle":
+      return buildLSystemTurtleRecord(rng, controls.lSystemTurtleControls);
+    case "rose-curves":
+      return buildRoseCurvesRecord(rng, controls.roseCurvesControls);
+    case "tileable-motif-repeater":
+      return buildTileableMotifRepeaterRecord(rng, controls.tileableMotifRepeaterControls);
     case "backtracking-generator":
       return buildBacktrackingRecord(rng, controls.backtrackingControls);
     case "prims":
@@ -1138,6 +1433,182 @@ function buildDomainWarpedNoiseRecord(
     randomize: () => randomizeDomainWarpedNoiseParameters(rng, defaults),
     buildBytes: buildDomainWarpedNoiseMaskBytes,
     buildSummary: buildDomainWarpedNoiseSummary,
+    fallback,
+  });
+}
+
+function buildOrnamentRecord<
+  Algorithm extends
+    | "radial-symmetry"
+    | "kaleidoscope"
+    | "l-system-turtle"
+    | "rose-curves"
+    | "tileable-motif-repeater",
+  Params extends
+    | RadialSymmetryParameters
+    | KaleidoscopeParameters
+    | LSystemTurtleParameters
+    | RoseCurvesParameters
+    | TileableMotifRepeaterParameters,
+>(
+  rng: () => number,
+  options: Readonly<{
+    algorithm: Algorithm;
+    title: string;
+    randomize: () => Params;
+    buildBytes: (params: Params) => Uint8Array;
+    buildSummary: (params: Params) => string;
+    fallback: Params;
+  }>,
+): BaseGeneratedLayoutRecord<Algorithm, Params> {
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const params = options.randomize();
+    const bytes = options.buildBytes(params);
+    const wallCount = countSetBits(bytes);
+    if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
+      continue;
+
+    return {
+      wallKey: wallMaskKeyFromBytes(bytes),
+      algorithm: options.algorithm,
+      title: options.title,
+      summary: options.buildSummary(params),
+      seedLabel: `Seed ${params.seed}`,
+      params,
+    };
+  }
+
+  return {
+    wallKey: wallMaskKeyFromBytes(options.buildBytes(options.fallback)),
+    algorithm: options.algorithm,
+    title: options.title,
+    summary: options.buildSummary(options.fallback),
+    seedLabel: `Seed ${options.fallback.seed}`,
+    params: options.fallback,
+  };
+}
+
+function buildRadialSymmetryRecord(
+  rng: () => number,
+  controls: RadialSymmetryControlState | null,
+): RadialSymmetryGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultRadialSymmetryControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    folds: 6,
+    rings: 3,
+    twist: 0.3,
+    thickness: 0.14,
+  } satisfies RadialSymmetryParameters;
+
+  return buildOrnamentRecord(rng, {
+    algorithm: "radial-symmetry",
+    title: RADIAL_SYMMETRY_LABEL,
+    randomize: () => randomizeRadialSymmetryParameters(rng, defaults),
+    buildBytes: buildRadialSymmetryMaskBytes,
+    buildSummary: buildRadialSymmetrySummary,
+    fallback,
+  });
+}
+
+function buildKaleidoscopeRecord(
+  rng: () => number,
+  controls: KaleidoscopeControlState | null,
+): KaleidoscopeGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultKaleidoscopeControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    segments: 6,
+    scale: 3.5,
+    threshold: 0.5,
+  } satisfies KaleidoscopeParameters;
+
+  return buildOrnamentRecord(rng, {
+    algorithm: "kaleidoscope",
+    title: KALEIDOSCOPE_LABEL,
+    randomize: () => randomizeKaleidoscopeParameters(rng, defaults),
+    buildBytes: buildKaleidoscopeMaskBytes,
+    buildSummary: buildKaleidoscopeSummary,
+    fallback,
+  });
+}
+
+function buildLSystemTurtleRecord(
+  rng: () => number,
+  controls: LSystemTurtleControlState | null,
+): LSystemTurtleGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultLSystemTurtleControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    preset: "plant",
+    iterations: 3,
+    turnAngle: 45,
+    strokeWidth: 1,
+  } satisfies LSystemTurtleParameters;
+
+  return buildOrnamentRecord(rng, {
+    algorithm: "l-system-turtle",
+    title: LSYSTEM_TURTLE_LABEL,
+    randomize: () => randomizeLSystemTurtleParameters(rng, defaults),
+    buildBytes: buildLSystemTurtleMaskBytes,
+    buildSummary: buildLSystemTurtleSummary,
+    fallback,
+  });
+}
+
+function buildRoseCurvesRecord(
+  rng: () => number,
+  controls: RoseCurvesControlState | null,
+): RoseCurvesGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultRoseCurvesControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    petals: 5,
+    harmonic: 2,
+    rotation: 0,
+    strokeWidth: 1,
+  } satisfies RoseCurvesParameters;
+
+  return buildOrnamentRecord(rng, {
+    algorithm: "rose-curves",
+    title: ROSE_CURVES_LABEL,
+    randomize: () => randomizeRoseCurvesParameters(rng, defaults),
+    buildBytes: buildRoseCurvesMaskBytes,
+    buildSummary: buildRoseCurvesSummary,
+    fallback,
+  });
+}
+
+function buildTileableMotifRepeaterRecord(
+  rng: () => number,
+  controls: TileableMotifRepeaterControlState | null,
+): TileableMotifRepeaterGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultTileableMotifRepeaterControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    motif: "cross",
+    spacing: 5,
+    motifSize: 2,
+    jitter: 1,
+    rotation: 0,
+  } satisfies TileableMotifRepeaterParameters;
+
+  return buildOrnamentRecord(rng, {
+    algorithm: "tileable-motif-repeater",
+    title: TILEABLE_MOTIF_REPEATER_LABEL,
+    randomize: () => randomizeTileableMotifRepeaterParameters(rng, defaults),
+    buildBytes: buildTileableMotifRepeaterMaskBytes,
+    buildSummary: buildTileableMotifRepeaterSummary,
     fallback,
   });
 }
@@ -1614,6 +2085,179 @@ function randomizeDomainWarpedNoiseParameters(
   };
 }
 
+function randomizeOrnamentBaseParameters(
+  rng: () => number,
+  defaults: OrnamentBaseControlState,
+): OrnamentBaseParameters {
+  return {
+    seed: resolveRandomizableValue(
+      defaults.seed,
+      () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
+      sanitizeSeed,
+    ),
+    blockSize: resolveRandomizableValue(
+      defaults.blockSize,
+      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
+      sampleClosestNoiseBlockSize,
+    ),
+    invert: resolveRandomizableValue(
+      defaults.invert,
+      () => rng() < 0.15,
+      (value) => !!value,
+    ),
+  };
+}
+
+function randomizeRadialSymmetryParameters(
+  rng: () => number,
+  defaults: RadialSymmetryControlState,
+): RadialSymmetryParameters {
+  const base = randomizeOrnamentBaseParameters(rng, defaults);
+  return {
+    ...base,
+    folds: resolveRandomizableValue(
+      defaults.folds,
+      () => sampleOne(rng, RADIAL_SYMMETRY_FOLDS_VALUES),
+      sanitizeRadialSymmetryFolds,
+    ),
+    rings: resolveRandomizableValue(
+      defaults.rings,
+      () => sampleOne(rng, RADIAL_SYMMETRY_RINGS_VALUES),
+      sanitizeRadialSymmetryRings,
+    ),
+    twist: resolveRandomizableValue(
+      defaults.twist,
+      () => sampleOne(rng, RADIAL_SYMMETRY_TWIST_VALUES),
+      sanitizeRadialSymmetryTwist,
+    ),
+    thickness: resolveRandomizableValue(
+      defaults.thickness,
+      () => sampleOne(rng, RADIAL_SYMMETRY_THICKNESS_VALUES),
+      sanitizeRadialSymmetryThickness,
+    ),
+  };
+}
+
+function randomizeKaleidoscopeParameters(
+  rng: () => number,
+  defaults: KaleidoscopeControlState,
+): KaleidoscopeParameters {
+  const base = randomizeOrnamentBaseParameters(rng, defaults);
+  return {
+    ...base,
+    segments: resolveRandomizableValue(
+      defaults.segments,
+      () => sampleOne(rng, KALEIDOSCOPE_SEGMENT_VALUES),
+      sanitizeKaleidoscopeSegments,
+    ),
+    scale: resolveRandomizableValue(
+      defaults.scale,
+      () => sampleOne(rng, KALEIDOSCOPE_SCALE_VALUES),
+      sanitizeKaleidoscopeScale,
+    ),
+    threshold: resolveRandomizableValue(
+      defaults.threshold,
+      () => sampleOne(rng, NOISE_TERRAIN_THRESHOLD_VALUES),
+      sanitizeNoiseTerrainThreshold,
+    ),
+  };
+}
+
+function randomizeLSystemTurtleParameters(
+  rng: () => number,
+  defaults: LSystemTurtleControlState,
+): LSystemTurtleParameters {
+  const base = randomizeOrnamentBaseParameters(rng, defaults);
+  return {
+    ...base,
+    preset: resolveRandomizableValue(
+      defaults.preset,
+      () => sampleOne(rng, LSYSTEM_PRESET_OPTIONS),
+      sanitizeLSystemPreset,
+    ),
+    iterations: resolveRandomizableValue(
+      defaults.iterations,
+      () => sampleOne(rng, LSYSTEM_ITERATION_VALUES),
+      sanitizeLSystemIterations,
+    ),
+    turnAngle: resolveRandomizableValue(
+      defaults.turnAngle,
+      () => sampleOne(rng, LSYSTEM_TURN_ANGLE_VALUES),
+      sanitizeLSystemTurnAngle,
+    ),
+    strokeWidth: resolveRandomizableValue(
+      defaults.strokeWidth,
+      () => sampleOne(rng, LSYSTEM_STROKE_WIDTH_VALUES),
+      sanitizeLSystemStrokeWidth,
+    ),
+  };
+}
+
+function randomizeRoseCurvesParameters(
+  rng: () => number,
+  defaults: RoseCurvesControlState,
+): RoseCurvesParameters {
+  const base = randomizeOrnamentBaseParameters(rng, defaults);
+  return {
+    ...base,
+    petals: resolveRandomizableValue(
+      defaults.petals,
+      () => sampleOne(rng, ROSE_CURVE_PETAL_VALUES),
+      sanitizeRoseCurvePetals,
+    ),
+    harmonic: resolveRandomizableValue(
+      defaults.harmonic,
+      () => sampleOne(rng, ROSE_CURVE_HARMONIC_VALUES),
+      sanitizeRoseCurveHarmonic,
+    ),
+    rotation: resolveRandomizableValue(
+      defaults.rotation,
+      () => sampleOne(rng, ROSE_CURVE_ROTATION_VALUES),
+      sanitizeRoseCurveRotation,
+    ),
+    strokeWidth: resolveRandomizableValue(
+      defaults.strokeWidth,
+      () => sampleOne(rng, LSYSTEM_STROKE_WIDTH_VALUES),
+      sanitizeRoseCurveStrokeWidth,
+    ),
+  };
+}
+
+function randomizeTileableMotifRepeaterParameters(
+  rng: () => number,
+  defaults: TileableMotifRepeaterControlState,
+): TileableMotifRepeaterParameters {
+  const base = randomizeOrnamentBaseParameters(rng, defaults);
+  return {
+    ...base,
+    motif: resolveRandomizableValue(
+      defaults.motif,
+      () => sampleOne(rng, TILEABLE_MOTIF_TYPE_OPTIONS),
+      sanitizeTileableMotifType,
+    ),
+    spacing: resolveRandomizableValue(
+      defaults.spacing,
+      () => sampleOne(rng, TILEABLE_MOTIF_SPACING_VALUES),
+      sanitizeTileableMotifSpacing,
+    ),
+    motifSize: resolveRandomizableValue(
+      defaults.motifSize,
+      () => sampleOne(rng, TILEABLE_MOTIF_SIZE_VALUES),
+      sanitizeTileableMotifSize,
+    ),
+    jitter: resolveRandomizableValue(
+      defaults.jitter,
+      () => sampleOne(rng, TILEABLE_MOTIF_JITTER_VALUES),
+      sanitizeTileableMotifJitter,
+    ),
+    rotation: resolveRandomizableValue(
+      defaults.rotation,
+      () => sampleOne(rng, RIGHT_ANGLE_ROTATION_OPTIONS),
+      sanitizeRightAngleRotation,
+    ),
+  };
+}
+
 function randomizeMazeBaseParameters(
   rng: () => number,
   defaults: MazeBaseControlState,
@@ -1951,6 +2595,164 @@ function buildNoiseTerrainMaskBytes(
   }
 
   return bytes;
+}
+
+function buildRadialSymmetryMaskBytes(params: RadialSymmetryParameters): Uint8Array {
+  const bytes = buildScalarPatternMaskBytes(params.blockSize, (sampleX, sampleY) => {
+    const dx = sampleX * 2 - 1;
+    const dy = sampleY * 2 - 1;
+    const radius = Math.hypot(dx, dy);
+    if (radius > 1) return false;
+
+    const phase = hashFloat(params.seed, 11, 17) * Math.PI * 2;
+    const sector = (Math.PI * 2) / params.folds;
+    const angle = Math.atan2(dy, dx) + phase;
+    const folded = normalizedFoldedAngle(angle, sector);
+    const spokeWidth = params.thickness * (0.55 + (1 - radius) * 0.5);
+    const twistPhase = radius * params.twist * Math.PI * 2;
+    const ringWave = Math.abs(Math.sin(radius * params.rings * Math.PI * 2 + twistPhase + phase));
+    const rosetteWave = Math.abs(
+      Math.cos(radius * (params.rings + 1) * Math.PI + folded * params.folds * Math.PI * 0.5),
+    );
+
+    return (
+      folded < spokeWidth ||
+      ringWave > 1 - params.thickness * 2.25 ||
+      (folded < params.thickness * 1.5 && rosetteWave > 0.55)
+    );
+  });
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildKaleidoscopeMaskBytes(params: KaleidoscopeParameters): Uint8Array {
+  const bytes = buildScalarPatternMaskBytes(params.blockSize, (sampleX, sampleY) => {
+    const dx = sampleX * 2 - 1;
+    const dy = sampleY * 2 - 1;
+    const radius = Math.hypot(dx, dy);
+    if (radius > 1) return false;
+
+    const sector = (Math.PI * 2) / params.segments;
+    const angle = Math.atan2(dy, dx) + hashFloat(params.seed, 5, 9) * sector;
+    const folded = normalizedFoldedAngle(angle, sector);
+    const localX = folded * params.scale * 2.25 + radius * 0.35;
+    const localY = radius * params.scale * 3.25;
+    const primary = fractalNoise(params.seed, localX, localY, 3, 0.55, valueNoise2D);
+    const secondary = gradientNoise2D(
+      params.seed + 177,
+      localX * 1.35 + radius,
+      localY * 0.75 + folded * params.segments,
+    );
+    const field = clamp01(primary * 0.72 + secondary * 0.28);
+    return field >= params.threshold;
+  });
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildLSystemTurtleMaskBytes(params: LSystemTurtleParameters): Uint8Array {
+  const grid = createPatternSourceGrid(params.blockSize);
+  const preset = lSystemPresetConfig(params.preset);
+  const sequence = expandLSystemSequence(preset.axiom, preset.rules, params.iterations);
+  const seededAngleOffset = hashFloat(params.seed, 23, 41) * 270 - 135;
+  const traced = traceLSystemSegments(
+    sequence,
+    preset.startAngle + seededAngleOffset,
+    params.turnAngle,
+  );
+  drawScaledSegments(
+    grid.cells,
+    grid.width,
+    grid.height,
+    traced.segments,
+    params.strokeWidth,
+    1 + hashFloat(params.seed, 31, 59) * 1.5,
+  );
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildRoseCurvesMaskBytes(params: RoseCurvesParameters): Uint8Array {
+  const grid = createPatternSourceGrid(params.blockSize);
+  const centerX = (grid.width - 1) / 2;
+  const centerY = (grid.height - 1) / 2;
+  const radius =
+    Math.max(1, Math.min(grid.width, grid.height) * 0.42) *
+    (0.82 + hashFloat(params.seed, 61, 67) * 0.24);
+  const rotation = (params.rotation * Math.PI) / 180 + hashFloat(params.seed, 71, 73) * Math.PI * 2;
+  const k = params.petals / params.harmonic;
+  const maxTheta = Math.PI * 2 * params.harmonic * 2;
+  const steps = Math.max(360, params.petals * params.harmonic * 180);
+  const phase = hashFloat(params.seed, 79, 83) * Math.PI * 2;
+  const modulation = 0.82 + hashFloat(params.seed, 89, 97) * 0.28;
+  let previous: Readonly<{ x: number; y: number }> | null = null;
+
+  for (let index = 0; index <= steps; index++) {
+    const theta = (index / steps) * maxTheta;
+    const r =
+      Math.cos(k * theta + phase) *
+      radius *
+      (modulation + 0.12 * Math.sin((params.harmonic + 1) * theta + phase));
+    const point = {
+      x: centerX + Math.cos(theta + rotation) * r,
+      y: centerY + Math.sin(theta + rotation) * r,
+    };
+    if (previous) {
+      drawSourceLine(
+        grid.cells,
+        grid.width,
+        grid.height,
+        previous.x,
+        previous.y,
+        point.x,
+        point.y,
+        params.strokeWidth,
+      );
+    }
+    previous = point;
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildTileableMotifRepeaterMaskBytes(params: TileableMotifRepeaterParameters): Uint8Array {
+  const grid = createPatternSourceGrid(params.blockSize);
+
+  for (let tileY = 0; tileY < grid.height + params.spacing; tileY += params.spacing) {
+    for (let tileX = 0; tileX < grid.width + params.spacing; tileX += params.spacing) {
+      const centerX =
+        tileX + Math.round((hashFloat(params.seed, tileX, tileY) * 2 - 1) * params.jitter);
+      const centerY =
+        tileY + Math.round((hashFloat(params.seed + 29, tileX, tileY) * 2 - 1) * params.jitter);
+      drawTileableMotif(
+        grid.cells,
+        grid.width,
+        grid.height,
+        centerX,
+        centerY,
+        params.motif,
+        params.motifSize,
+        params.rotation,
+      );
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
 }
 
 function buildMazeMaskBytes(
@@ -2666,11 +3468,80 @@ function buildDomainWarpedNoiseSummary(params: DomainWarpedNoiseParameters): str
   );
 }
 
+function buildRadialSymmetrySummary(params: RadialSymmetryParameters): string {
+  return buildOrnamentSummary(
+    [
+      `${params.folds} folds`,
+      `${params.rings} rings`,
+      `${Math.round(params.twist * 100)}% twist`,
+      `${Math.round(params.thickness * 100)}% band`,
+    ],
+    params,
+  );
+}
+
+function buildKaleidoscopeSummary(params: KaleidoscopeParameters): string {
+  return buildOrnamentSummary(
+    [
+      `${params.segments} segments`,
+      `${formatNoiseScale(params.scale)} scale`,
+      `${Math.round(params.threshold * 100)}% threshold`,
+    ],
+    params,
+  );
+}
+
+function buildLSystemTurtleSummary(params: LSystemTurtleParameters): string {
+  return buildOrnamentSummary(
+    [
+      params.preset,
+      `${params.iterations} iterations`,
+      `${params.turnAngle}° turn`,
+      `${params.strokeWidth}px stroke`,
+    ],
+    params,
+  );
+}
+
+function buildRoseCurvesSummary(params: RoseCurvesParameters): string {
+  return buildOrnamentSummary(
+    [
+      `${params.petals} petals`,
+      `${params.harmonic} harmonic`,
+      `${params.rotation}° rotate`,
+      `${params.strokeWidth}px stroke`,
+    ],
+    params,
+  );
+}
+
+function buildTileableMotifRepeaterSummary(params: TileableMotifRepeaterParameters): string {
+  return buildOrnamentSummary(
+    [
+      params.motif,
+      `${params.spacing} spacing`,
+      `${params.motifSize} size`,
+      `${params.jitter} jitter`,
+    ],
+    params,
+  );
+}
+
 function buildNoiseTerrainSummary(parts: string[], params: NoiseTerrainBaseParameters): string {
   return [
     `${params.blockSize}x${params.blockSize} blocks`,
     ...parts,
     `${Math.round(params.threshold * 100)}% threshold`,
+    params.invert ? "inverted" : null,
+  ]
+    .filter((value): value is string => value !== null)
+    .join(" • ");
+}
+
+function buildOrnamentSummary(parts: string[], params: OrnamentBaseParameters): string {
+  return [
+    `${params.blockSize}x${params.blockSize} blocks`,
+    ...parts,
     params.invert ? "inverted" : null,
   ]
     .filter((value): value is string => value !== null)
@@ -2759,6 +3630,350 @@ function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
     seedLabel: "Saved locally",
     params: null,
   };
+}
+
+function buildScalarPatternMaskBytes(
+  blockSize: number,
+  isFilled: (sampleX: number, sampleY: number) => boolean,
+): Uint8Array {
+  const grid = createPatternSourceGrid(blockSize);
+
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      const sampleX = (x + 0.5) / grid.width;
+      const sampleY = (y + 0.5) / grid.height;
+      if (!isFilled(sampleX, sampleY)) continue;
+      setPatternCell(grid.cells, grid.width, grid.height, x, y, 1);
+    }
+  }
+
+  return expandPatternCellsToMaskBytes(grid.cells, grid.width, grid.height, blockSize);
+}
+
+function createPatternSourceGrid(
+  blockSize: number,
+): Readonly<{ cells: Uint8Array; width: number; height: number }> {
+  const width = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / blockSize);
+  const height = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / blockSize);
+  return {
+    cells: new Uint8Array(width * height),
+    width,
+    height,
+  };
+}
+
+function expandPatternCellsToMaskBytes(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  blockSize: number,
+): Uint8Array {
+  const bytes = new Uint8Array(128);
+  for (let y = 0; y < GENERATED_LAYOUT_GRID_SIZE; y++) {
+    for (let x = 0; x < GENERATED_LAYOUT_GRID_SIZE; x++) {
+      const sourceX = Math.min(width - 1, Math.floor(x / blockSize));
+      const sourceY = Math.min(height - 1, Math.floor(y / blockSize));
+      if (cells[sourceY * width + sourceX] !== 1) continue;
+      setMaskBit(bytes, y * GENERATED_LAYOUT_GRID_SIZE + x);
+    }
+  }
+  return bytes;
+}
+
+function setPatternCell(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  value: 0 | 1,
+): void {
+  if (x < 0 || x >= width || y < 0 || y >= height) return;
+  cells[y * width + x] = value;
+}
+
+function drawSourceLine(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  strokeWidth: number,
+): void {
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 3));
+  for (let index = 0; index <= steps; index++) {
+    const amount = index / steps;
+    const x = lerp(x0, x1, amount);
+    const y = lerp(y0, y1, amount);
+    stampSourceBrush(cells, width, height, x, y, strokeWidth);
+  }
+}
+
+function stampSourceBrush(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  strokeWidth: number,
+): void {
+  const radius = Math.max(0, Math.floor((strokeWidth - 1) / 2));
+  const roundedX = Math.round(centerX);
+  const roundedY = Math.round(centerY);
+
+  for (let offsetY = -radius; offsetY <= radius; offsetY++) {
+    for (let offsetX = -radius; offsetX <= radius; offsetX++) {
+      setPatternCell(cells, width, height, roundedX + offsetX, roundedY + offsetY, 1);
+    }
+  }
+
+  if (radius === 0) {
+    setPatternCell(cells, width, height, roundedX, roundedY, 1);
+  }
+}
+
+function invertMaskBytes(bytes: Uint8Array): Uint8Array {
+  const inverted = new Uint8Array(bytes.length);
+  for (let index = 0; index < bytes.length; index++) {
+    inverted[index] = ~bytes[index]! & 0xff;
+  }
+  return inverted;
+}
+
+function normalizedFoldedAngle(angle: number, sector: number): number {
+  const wrapped = ((angle % sector) + sector) % sector;
+  return Math.abs(wrapped - sector / 2) / (sector / 2);
+}
+
+type LSystemPresetConfig = Readonly<{
+  axiom: string;
+  rules: Readonly<Record<string, string>>;
+  startAngle: number;
+}>;
+
+function lSystemPresetConfig(preset: LSystemPreset): LSystemPresetConfig {
+  switch (preset) {
+    case "plant":
+      return {
+        axiom: "X",
+        rules: {
+          X: "F[+X][-X]FX",
+          F: "FF",
+        },
+        startAngle: -90,
+      };
+    case "dragon":
+      return {
+        axiom: "FX",
+        rules: {
+          X: "X+YF+",
+          Y: "-FX-Y",
+        },
+        startAngle: 0,
+      };
+    case "bush":
+      return {
+        axiom: "F",
+        rules: {
+          F: "FF-[-F+F+F]+[+F-F-F]",
+        },
+        startAngle: -90,
+      };
+  }
+}
+
+function expandLSystemSequence(
+  axiom: string,
+  rules: Readonly<Record<string, string>>,
+  iterations: number,
+): string {
+  let current = axiom;
+  for (let iteration = 0; iteration < iterations; iteration++) {
+    const next: string[] = [];
+    let nextLength = 0;
+    for (const token of current) {
+      const replacement = rules[token] ?? token;
+      next.push(replacement);
+      nextLength += replacement.length;
+      if (nextLength > 12000) break;
+    }
+    current = next.join("");
+    if (current.length > 12000) break;
+  }
+  return current;
+}
+
+function traceLSystemSegments(
+  sequence: string,
+  startAngle: number,
+  turnAngle: number,
+): Readonly<{
+  segments: ReadonlyArray<Readonly<{ x0: number; y0: number; x1: number; y1: number }>>;
+  bounds: Readonly<{ minX: number; minY: number; maxX: number; maxY: number }>;
+}> {
+  const segments: Array<Readonly<{ x0: number; y0: number; x1: number; y1: number }>> = [];
+  const stack: Array<Readonly<{ x: number; y: number; angle: number }>> = [];
+  const turn = (turnAngle * Math.PI) / 180;
+  let x = 0;
+  let y = 0;
+  let angle = (startAngle * Math.PI) / 180;
+  let minX = 0;
+  let minY = 0;
+  let maxX = 0;
+  let maxY = 0;
+
+  for (const token of sequence) {
+    if (token === "F" || token === "G") {
+      const nextX = x + Math.cos(angle);
+      const nextY = y + Math.sin(angle);
+      segments.push({ x0: x, y0: y, x1: nextX, y1: nextY });
+      x = nextX;
+      y = nextY;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    } else if (token === "+") {
+      angle += turn;
+    } else if (token === "-") {
+      angle -= turn;
+    } else if (token === "[") {
+      stack.push({ x, y, angle });
+    } else if (token === "]") {
+      const state = stack.pop();
+      if (state) {
+        x = state.x;
+        y = state.y;
+        angle = state.angle;
+      }
+    }
+  }
+
+  return {
+    segments,
+    bounds: { minX, minY, maxX, maxY },
+  };
+}
+
+function drawScaledSegments(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  segments: ReadonlyArray<Readonly<{ x0: number; y0: number; x1: number; y1: number }>>,
+  strokeWidth: number,
+  padding: number,
+): void {
+  if (segments.length === 0) return;
+  const bounds = segments.reduce(
+    (accumulator, segment) => ({
+      minX: Math.min(accumulator.minX, segment.x0, segment.x1),
+      minY: Math.min(accumulator.minY, segment.y0, segment.y1),
+      maxX: Math.max(accumulator.maxX, segment.x0, segment.x1),
+      maxY: Math.max(accumulator.maxY, segment.y0, segment.y1),
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY,
+    },
+  );
+  const patternWidth = Math.max(1, bounds.maxX - bounds.minX);
+  const patternHeight = Math.max(1, bounds.maxY - bounds.minY);
+  const availableWidth = Math.max(1, width - padding * 2 - 1);
+  const availableHeight = Math.max(1, height - padding * 2 - 1);
+  const scale = Math.min(availableWidth / patternWidth, availableHeight / patternHeight);
+  const offsetX = padding + (availableWidth - patternWidth * scale) / 2 - bounds.minX * scale;
+  const offsetY = padding + (availableHeight - patternHeight * scale) / 2 - bounds.minY * scale;
+
+  for (const segment of segments) {
+    drawSourceLine(
+      cells,
+      width,
+      height,
+      segment.x0 * scale + offsetX,
+      segment.y0 * scale + offsetY,
+      segment.x1 * scale + offsetX,
+      segment.y1 * scale + offsetY,
+      strokeWidth,
+    );
+  }
+}
+
+function drawTileableMotif(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  motif: TileableMotifType,
+  motifSize: number,
+  rotation: number,
+): void {
+  const drawLocalLine = (x0: number, y0: number, x1: number, y1: number, strokeWidth = 1): void => {
+    const from = rotateRightAnglePoint(x0, y0, rotation);
+    const to = rotateRightAnglePoint(x1, y1, rotation);
+    drawSourceLine(
+      cells,
+      width,
+      height,
+      centerX + from.x,
+      centerY + from.y,
+      centerX + to.x,
+      centerY + to.y,
+      strokeWidth,
+    );
+  };
+
+  switch (motif) {
+    case "cross":
+      drawLocalLine(-motifSize, 0, motifSize, 0);
+      drawLocalLine(0, -motifSize, 0, motifSize);
+      break;
+    case "diamond":
+      drawLocalLine(0, -motifSize, motifSize, 0);
+      drawLocalLine(motifSize, 0, 0, motifSize);
+      drawLocalLine(0, motifSize, -motifSize, 0);
+      drawLocalLine(-motifSize, 0, 0, -motifSize);
+      break;
+    case "box":
+      drawLocalLine(-motifSize, -motifSize, motifSize, -motifSize);
+      drawLocalLine(motifSize, -motifSize, motifSize, motifSize);
+      drawLocalLine(motifSize, motifSize, -motifSize, motifSize);
+      drawLocalLine(-motifSize, motifSize, -motifSize, -motifSize);
+      break;
+    case "chevron":
+      drawLocalLine(-motifSize, -motifSize, motifSize, 0);
+      drawLocalLine(motifSize, 0, -motifSize, motifSize);
+      break;
+    case "petal":
+      drawLocalLine(0, -motifSize, motifSize, 0);
+      drawLocalLine(motifSize, 0, 0, motifSize);
+      drawLocalLine(0, motifSize, -motifSize, 0);
+      drawLocalLine(-motifSize, 0, 0, -motifSize);
+      drawLocalLine(-motifSize, 0, motifSize, 0);
+      drawLocalLine(0, -motifSize, 0, motifSize);
+      break;
+  }
+}
+
+function rotateRightAnglePoint(
+  x: number,
+  y: number,
+  rotation: number,
+): Readonly<{ x: number; y: number }> {
+  switch ((((rotation % 360) + 360) % 360) as 0 | 90 | 180 | 270) {
+    case 90:
+      return { x: -y, y: x };
+    case 180:
+      return { x: -x, y: -y };
+    case 270:
+      return { x: y, y: -x };
+    default:
+      return { x, y };
+  }
 }
 
 function listMazeNeighbors(
@@ -3619,6 +4834,105 @@ function sanitizeDomainWarpStrength(value: number): number {
     DOMAIN_WARP_STRENGTH_MIN,
     DOMAIN_WARP_STRENGTH_MAX,
   );
+}
+
+function sanitizeRadialSymmetryFolds(value: number): number {
+  return clamp(Math.round(value), RADIAL_SYMMETRY_FOLDS_MIN, RADIAL_SYMMETRY_FOLDS_MAX);
+}
+
+function sanitizeRadialSymmetryRings(value: number): number {
+  return clamp(Math.round(value), RADIAL_SYMMETRY_RINGS_MIN, RADIAL_SYMMETRY_RINGS_MAX);
+}
+
+function sanitizeRadialSymmetryTwist(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    RADIAL_SYMMETRY_TWIST_STEP,
+    RADIAL_SYMMETRY_TWIST_MIN,
+    RADIAL_SYMMETRY_TWIST_MAX,
+  );
+}
+
+function sanitizeRadialSymmetryThickness(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    RADIAL_SYMMETRY_THICKNESS_STEP,
+    RADIAL_SYMMETRY_THICKNESS_MIN,
+    RADIAL_SYMMETRY_THICKNESS_MAX,
+  );
+}
+
+function sanitizeKaleidoscopeSegments(value: number): number {
+  return clamp(Math.round(value), KALEIDOSCOPE_SEGMENTS_MIN, KALEIDOSCOPE_SEGMENTS_MAX);
+}
+
+function sanitizeKaleidoscopeScale(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    KALEIDOSCOPE_SCALE_STEP,
+    KALEIDOSCOPE_SCALE_MIN,
+    KALEIDOSCOPE_SCALE_MAX,
+  );
+}
+
+function sanitizeLSystemPreset(value: LSystemPreset): LSystemPreset {
+  return LSYSTEM_PRESET_OPTIONS.includes(value) ? value : "plant";
+}
+
+function sanitizeLSystemIterations(value: number): number {
+  return clamp(Math.round(value), LSYSTEM_ITERATIONS_MIN, LSYSTEM_ITERATIONS_MAX);
+}
+
+function sanitizeLSystemTurnAngle(value: number): number {
+  return clamp(
+    Math.round(value / LSYSTEM_TURN_ANGLE_STEP) * LSYSTEM_TURN_ANGLE_STEP,
+    LSYSTEM_TURN_ANGLE_MIN,
+    LSYSTEM_TURN_ANGLE_MAX,
+  );
+}
+
+function sanitizeLSystemStrokeWidth(value: number): number {
+  return clamp(Math.round(value), LSYSTEM_STROKE_WIDTH_MIN, LSYSTEM_STROKE_WIDTH_MAX);
+}
+
+function sanitizeRoseCurvePetals(value: number): number {
+  return clamp(Math.round(value), ROSE_CURVE_PETALS_MIN, ROSE_CURVE_PETALS_MAX);
+}
+
+function sanitizeRoseCurveHarmonic(value: number): number {
+  return clamp(Math.round(value), ROSE_CURVE_HARMONIC_MIN, ROSE_CURVE_HARMONIC_MAX);
+}
+
+function sanitizeRoseCurveRotation(value: number): number {
+  return clamp(
+    Math.round(value / ROSE_CURVE_ROTATION_STEP) * ROSE_CURVE_ROTATION_STEP,
+    ROSE_CURVE_ROTATION_MIN,
+    ROSE_CURVE_ROTATION_MAX,
+  );
+}
+
+function sanitizeRoseCurveStrokeWidth(value: number): number {
+  return clamp(Math.round(value), ROSE_CURVE_STROKE_WIDTH_MIN, ROSE_CURVE_STROKE_WIDTH_MAX);
+}
+
+function sanitizeTileableMotifType(value: TileableMotifType): TileableMotifType {
+  return TILEABLE_MOTIF_TYPE_OPTIONS.includes(value) ? value : "cross";
+}
+
+function sanitizeTileableMotifSpacing(value: number): number {
+  return clamp(Math.round(value), TILEABLE_MOTIF_SPACING_MIN, TILEABLE_MOTIF_SPACING_MAX);
+}
+
+function sanitizeTileableMotifSize(value: number): number {
+  return clamp(Math.round(value), TILEABLE_MOTIF_SIZE_MIN, TILEABLE_MOTIF_SIZE_MAX);
+}
+
+function sanitizeTileableMotifJitter(value: number): number {
+  return clamp(Math.round(value), TILEABLE_MOTIF_JITTER_MIN, TILEABLE_MOTIF_JITTER_MAX);
+}
+
+function sanitizeRightAngleRotation(value: number): number {
+  return RIGHT_ANGLE_ROTATION_OPTIONS.includes(value) ? value : 0;
 }
 
 function resolveRandomizableValue<T>(

@@ -26,9 +26,22 @@ import {
   GROWING_TREE_BACKTRACK_CHANCE_MIN,
   GROWING_TREE_BACKTRACK_CHANCE_STEP,
   HUNT_ORDER_OPTIONS,
+  KALEIDOSCOPE_SCALE_MAX,
+  KALEIDOSCOPE_SCALE_MIN,
+  KALEIDOSCOPE_SCALE_STEP,
+  KALEIDOSCOPE_SEGMENTS_MAX,
+  KALEIDOSCOPE_SEGMENTS_MIN,
   MAZE_BLOCK_SIZE_OPTIONS,
   MAZE_SEED_MAX,
   MAZE_SEED_MIN,
+  LSYSTEM_ITERATIONS_MAX,
+  LSYSTEM_ITERATIONS_MIN,
+  LSYSTEM_PRESET_OPTIONS,
+  LSYSTEM_STROKE_WIDTH_MAX,
+  LSYSTEM_STROKE_WIDTH_MIN,
+  LSYSTEM_TURN_ANGLE_MAX,
+  LSYSTEM_TURN_ANGLE_MIN,
+  LSYSTEM_TURN_ANGLE_STEP,
   NOISE_TERRAIN_OCTAVES_MAX,
   NOISE_TERRAIN_OCTAVES_MIN,
   NOISE_TERRAIN_SCALE_MAX,
@@ -47,6 +60,26 @@ import {
   SIDEWINDER_SKEW_MAX,
   SIDEWINDER_SKEW_MIN,
   SIDEWINDER_SKEW_STEP,
+  RADIAL_SYMMETRY_FOLDS_MAX,
+  RADIAL_SYMMETRY_FOLDS_MIN,
+  RADIAL_SYMMETRY_RINGS_MAX,
+  RADIAL_SYMMETRY_RINGS_MIN,
+  RADIAL_SYMMETRY_THICKNESS_MAX,
+  RADIAL_SYMMETRY_THICKNESS_MIN,
+  RADIAL_SYMMETRY_THICKNESS_STEP,
+  RADIAL_SYMMETRY_TWIST_MAX,
+  RADIAL_SYMMETRY_TWIST_MIN,
+  RADIAL_SYMMETRY_TWIST_STEP,
+  RIGHT_ANGLE_ROTATION_OPTIONS,
+  ROSE_CURVE_HARMONIC_MAX,
+  ROSE_CURVE_HARMONIC_MIN,
+  ROSE_CURVE_PETALS_MAX,
+  ROSE_CURVE_PETALS_MIN,
+  ROSE_CURVE_ROTATION_MAX,
+  ROSE_CURVE_ROTATION_MIN,
+  ROSE_CURVE_ROTATION_STEP,
+  ROSE_CURVE_STROKE_WIDTH_MAX,
+  ROSE_CURVE_STROKE_WIDTH_MIN,
   THRESHOLDED_GRADIENT_ANGLE_MAX,
   THRESHOLDED_GRADIENT_ANGLE_MIN,
   THRESHOLDED_GRADIENT_ANGLE_STEP,
@@ -70,13 +103,18 @@ import {
   createDefaultEllersControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
+  createDefaultKaleidoscopeControlState,
   createDefaultKruskalsControlState,
+  createDefaultLSystemTurtleControlState,
   createDefaultPerlinNoiseControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
+  createDefaultRadialSymmetryControlState,
   createDefaultRecursiveDivisionControlState,
+  createDefaultRoseCurvesControlState,
   createDefaultSidewinderControlState,
   createDefaultThresholdedGradientNoiseControlState,
+  createDefaultTileableMotifRepeaterControlState,
   createDefaultTrivialMazeControlState,
   createDefaultValueFractalNoiseControlState,
   createDefaultWilsonsControlState,
@@ -100,17 +138,31 @@ import {
   type GrowingTreeControlState,
   type HuntAndKillControlState,
   type HuntOrder,
+  type KaleidoscopeControlState,
   type KruskalsControlState,
+  type LSystemPreset,
+  type LSystemTurtleControlState,
   type MazeBlockSize,
   type PerlinNoiseControlState,
   type PrimsControlState,
+  type RadialSymmetryControlState,
   type RandomNoiseControlState,
   type RandomNoiseMirrorMode,
   type RecursiveDivisionControlState,
+  type RoseCurvesControlState,
   type SidewinderControlState,
   type ThresholdedGradientNoiseControlState,
+  type TileableMotifRepeaterControlState,
+  type TileableMotifType,
   type TrivialMazeControlState,
   type TrivialMazeType,
+  TILEABLE_MOTIF_JITTER_MAX,
+  TILEABLE_MOTIF_JITTER_MIN,
+  TILEABLE_MOTIF_SIZE_MAX,
+  TILEABLE_MOTIF_SIZE_MIN,
+  TILEABLE_MOTIF_SPACING_MAX,
+  TILEABLE_MOTIF_SPACING_MIN,
+  TILEABLE_MOTIF_TYPE_OPTIONS,
   TRIVIAL_MAZE_TYPE_OPTIONS,
   type ValueFractalNoiseControlState,
   type WilsonsControlState,
@@ -183,6 +235,46 @@ type DomainWarpedNoiseSettingsPanelProps = Readonly<{
   onUpdate: <K extends keyof DomainWarpedNoiseControlState>(
     key: K,
     nextValue: Partial<DomainWarpedNoiseControlState[K]>,
+  ) => void;
+}>;
+
+type RadialSymmetrySettingsPanelProps = Readonly<{
+  controls: RadialSymmetryControlState;
+  onUpdate: <K extends keyof RadialSymmetryControlState>(
+    key: K,
+    nextValue: Partial<RadialSymmetryControlState[K]>,
+  ) => void;
+}>;
+
+type KaleidoscopeSettingsPanelProps = Readonly<{
+  controls: KaleidoscopeControlState;
+  onUpdate: <K extends keyof KaleidoscopeControlState>(
+    key: K,
+    nextValue: Partial<KaleidoscopeControlState[K]>,
+  ) => void;
+}>;
+
+type LSystemTurtleSettingsPanelProps = Readonly<{
+  controls: LSystemTurtleControlState;
+  onUpdate: <K extends keyof LSystemTurtleControlState>(
+    key: K,
+    nextValue: Partial<LSystemTurtleControlState[K]>,
+  ) => void;
+}>;
+
+type RoseCurvesSettingsPanelProps = Readonly<{
+  controls: RoseCurvesControlState;
+  onUpdate: <K extends keyof RoseCurvesControlState>(
+    key: K,
+    nextValue: Partial<RoseCurvesControlState[K]>,
+  ) => void;
+}>;
+
+type TileableMotifRepeaterSettingsPanelProps = Readonly<{
+  controls: TileableMotifRepeaterControlState;
+  onUpdate: <K extends keyof TileableMotifRepeaterControlState>(
+    key: K,
+    nextValue: Partial<TileableMotifRepeaterControlState[K]>,
   ) => void;
 }>;
 
@@ -321,6 +413,32 @@ function formatNoiseBlockSizeLabel(blockSize: number): string {
 
 function formatCompactNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function formatLSystemPresetLabel(preset: LSystemPreset): string {
+  switch (preset) {
+    case "plant":
+      return "Plant";
+    case "dragon":
+      return "Dragon";
+    case "bush":
+      return "Bush";
+  }
+}
+
+function formatTileableMotifLabel(motif: TileableMotifType): string {
+  switch (motif) {
+    case "cross":
+      return "Cross";
+    case "diamond":
+      return "Diamond";
+    case "box":
+      return "Box";
+    case "chevron":
+      return "Chevron";
+    case "petal":
+      return "Petal";
+  }
 }
 
 function formatMazeBlockSizeLabel(blockSize: MazeBlockSize): string {
@@ -1206,6 +1324,745 @@ function NoiseTerrainBaseSections<
           />
         )}
       </section>
+    </>
+  );
+}
+
+function OrnamentBaseSections<
+  T extends {
+    seed: { randomize: boolean; value: number };
+    blockSize: { randomize: boolean; value: number };
+    invert: { randomize: boolean; value: boolean };
+  },
+>({
+  controls,
+  onUpdate,
+}: Readonly<{
+  controls: T;
+  onUpdate: <K extends keyof T>(key: K, nextValue: Partial<T[K]>) => void;
+}>): JSX.Element {
+  return (
+    <>
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) =>
+              onUpdate(
+                "blockSize" as keyof T,
+                { randomize: checked } as unknown as Partial<T[keyof T]>,
+              )
+            }
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">Chooses between 1x1 and 4x4 blocks for chunkier layouts.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate(
+                "blockSize" as keyof T,
+                { value: Number(event.target.value) } as unknown as Partial<T[keyof T]>,
+              )
+            }
+          >
+            {RANDOM_NOISE_BLOCK_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {formatNoiseBlockSizeLabel(size)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Invert</span>
+          <ParameterToggle
+            checked={controls.invert.randomize}
+            onChange={(checked) =>
+              onUpdate(
+                "invert" as keyof T,
+                { randomize: checked } as unknown as Partial<T[keyof T]>,
+              )
+            }
+          />
+        </div>
+        {controls.invert.randomize ? (
+          <div className="fieldHint">Usually off, but can occasionally flip walls and floors.</div>
+        ) : (
+          <label className="generateBooleanField">
+            <input
+              type="checkbox"
+              checked={controls.invert.value}
+              onChange={(event) =>
+                onUpdate(
+                  "invert" as keyof T,
+                  { value: event.target.checked } as unknown as Partial<T[keyof T]>,
+                )
+              }
+            />
+            <span>Use inverted mask</span>
+          </label>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) =>
+              onUpdate("seed" as keyof T, { randomize: checked } as unknown as Partial<T[keyof T]>)
+            }
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={RANDOM_NOISE_SEED_MIN}
+            max={RANDOM_NOISE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) =>
+              onUpdate(
+                "seed" as keyof T,
+                { value: Number(event.target.value) } as unknown as Partial<T[keyof T]>,
+              )
+            }
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function RadialSymmetrySettingsPanel({
+  controls,
+  onUpdate,
+}: RadialSymmetrySettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Radial Symmetry</h3>
+      <div className="fieldHint">
+        Builds rings and spokes into medallion-like symmetric wall sets.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Folds</span>
+          <ParameterToggle
+            checked={controls.folds.randomize}
+            onChange={(checked) => onUpdate("folds", { randomize: checked })}
+          />
+        </div>
+        {controls.folds.randomize ? (
+          <div className="fieldHint">Varies the number of repeated spokes around the center.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={RADIAL_SYMMETRY_FOLDS_MIN}
+              max={RADIAL_SYMMETRY_FOLDS_MAX}
+              step={1}
+              value={controls.folds.value}
+              onChange={(event) => onUpdate("folds", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.folds.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Rings</span>
+          <ParameterToggle
+            checked={controls.rings.randomize}
+            onChange={(checked) => onUpdate("rings", { randomize: checked })}
+          />
+        </div>
+        {controls.rings.randomize ? (
+          <div className="fieldHint">
+            Controls how many radial bands appear from center to edge.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={RADIAL_SYMMETRY_RINGS_MIN}
+              max={RADIAL_SYMMETRY_RINGS_MAX}
+              step={1}
+              value={controls.rings.value}
+              onChange={(event) => onUpdate("rings", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.rings.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Twist</span>
+          <ParameterToggle
+            checked={controls.twist.randomize}
+            onChange={(checked) => onUpdate("twist", { randomize: checked })}
+          />
+        </div>
+        {controls.twist.randomize ? (
+          <div className="fieldHint">Rotates spoke alignment as the pattern moves outward.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={RADIAL_SYMMETRY_TWIST_MIN}
+              max={RADIAL_SYMMETRY_TWIST_MAX}
+              step={RADIAL_SYMMETRY_TWIST_STEP}
+              value={controls.twist.value}
+              onChange={(event) => onUpdate("twist", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.twist.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Band Width</span>
+          <ParameterToggle
+            checked={controls.thickness.randomize}
+            onChange={(checked) => onUpdate("thickness", { randomize: checked })}
+          />
+        </div>
+        {controls.thickness.randomize ? (
+          <div className="fieldHint">Controls how thick the rings and spokes render.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={RADIAL_SYMMETRY_THICKNESS_MIN}
+              max={RADIAL_SYMMETRY_THICKNESS_MAX}
+              step={RADIAL_SYMMETRY_THICKNESS_STEP}
+              value={controls.thickness.value}
+              onChange={(event) => onUpdate("thickness", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.thickness.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function KaleidoscopeSettingsPanel({
+  controls,
+  onUpdate,
+}: KaleidoscopeSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Kaleidoscope</h3>
+      <div className="fieldHint">
+        Samples a mirrored wedge field and repeats it around the center.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Segments</span>
+          <ParameterToggle
+            checked={controls.segments.randomize}
+            onChange={(checked) => onUpdate("segments", { randomize: checked })}
+          />
+        </div>
+        {controls.segments.randomize ? (
+          <div className="fieldHint">
+            Controls how many mirrored wedges repeat around the circle.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={KALEIDOSCOPE_SEGMENTS_MIN}
+              max={KALEIDOSCOPE_SEGMENTS_MAX}
+              step={1}
+              value={controls.segments.value}
+              onChange={(event) => onUpdate("segments", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.segments.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Scale</span>
+          <ParameterToggle
+            checked={controls.scale.randomize}
+            onChange={(checked) => onUpdate("scale", { randomize: checked })}
+          />
+        </div>
+        {controls.scale.randomize ? (
+          <div className="fieldHint">Controls how dense the mirrored motif becomes.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={KALEIDOSCOPE_SCALE_MIN}
+              max={KALEIDOSCOPE_SCALE_MAX}
+              step={KALEIDOSCOPE_SCALE_STEP}
+              value={controls.scale.value}
+              onChange={(event) => onUpdate("scale", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {formatCompactNumber(controls.scale.value)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Threshold</span>
+          <ParameterToggle
+            checked={controls.threshold.randomize}
+            onChange={(checked) => onUpdate("threshold", { randomize: checked })}
+          />
+        </div>
+        {controls.threshold.randomize ? (
+          <div className="fieldHint">
+            Adjusts how much of the mirrored field becomes solid wall.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={NOISE_TERRAIN_THRESHOLD_MIN}
+              max={NOISE_TERRAIN_THRESHOLD_MAX}
+              step={NOISE_TERRAIN_THRESHOLD_STEP}
+              value={controls.threshold.value}
+              onChange={(event) => onUpdate("threshold", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.threshold.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function LSystemTurtleSettingsPanel({
+  controls,
+  onUpdate,
+}: LSystemTurtleSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">L-System / Turtle Patterns</h3>
+      <div className="fieldHint">
+        Expands a rewrite system, then traces it with a turtle line drawer.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Preset</span>
+          <ParameterToggle
+            checked={controls.preset.randomize}
+            onChange={(checked) => onUpdate("preset", { randomize: checked })}
+          />
+        </div>
+        {controls.preset.randomize ? (
+          <div className="fieldHint">
+            Randomly switches between plant, dragon, and bush grammars.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.preset.value}
+            onChange={(event) => onUpdate("preset", { value: event.target.value as LSystemPreset })}
+          >
+            {LSYSTEM_PRESET_OPTIONS.map((preset) => (
+              <option key={preset} value={preset}>
+                {formatLSystemPresetLabel(preset)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Iterations</span>
+          <ParameterToggle
+            checked={controls.iterations.randomize}
+            onChange={(checked) => onUpdate("iterations", { randomize: checked })}
+          />
+        </div>
+        {controls.iterations.randomize ? (
+          <div className="fieldHint">Higher iterations create denser, more recursive linework.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={LSYSTEM_ITERATIONS_MIN}
+              max={LSYSTEM_ITERATIONS_MAX}
+              step={1}
+              value={controls.iterations.value}
+              onChange={(event) => onUpdate("iterations", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.iterations.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Turn Angle</span>
+          <ParameterToggle
+            checked={controls.turnAngle.randomize}
+            onChange={(checked) => onUpdate("turnAngle", { randomize: checked })}
+          />
+        </div>
+        {controls.turnAngle.randomize ? (
+          <div className="fieldHint">Controls the turtle turn used by the grammar output.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={LSYSTEM_TURN_ANGLE_MIN}
+              max={LSYSTEM_TURN_ANGLE_MAX}
+              step={LSYSTEM_TURN_ANGLE_STEP}
+              value={controls.turnAngle.value}
+              onChange={(event) => onUpdate("turnAngle", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.turnAngle.value}°</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Stroke Width</span>
+          <ParameterToggle
+            checked={controls.strokeWidth.randomize}
+            onChange={(checked) => onUpdate("strokeWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.strokeWidth.randomize ? (
+          <div className="fieldHint">Changes how thick the turtle path is drawn.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={LSYSTEM_STROKE_WIDTH_MIN}
+              max={LSYSTEM_STROKE_WIDTH_MAX}
+              step={1}
+              value={controls.strokeWidth.value}
+              onChange={(event) => onUpdate("strokeWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.strokeWidth.value}px</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function RoseCurvesSettingsPanel({
+  controls,
+  onUpdate,
+}: RoseCurvesSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Rose Curves / Polar Patterns</h3>
+      <div className="fieldHint">
+        Draws polar curves that form petals, stars, and emblem shapes.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Petals</span>
+          <ParameterToggle
+            checked={controls.petals.randomize}
+            onChange={(checked) => onUpdate("petals", { randomize: checked })}
+          />
+        </div>
+        {controls.petals.randomize ? (
+          <div className="fieldHint">Controls the primary petal count in the rose formula.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={ROSE_CURVE_PETALS_MIN}
+              max={ROSE_CURVE_PETALS_MAX}
+              step={1}
+              value={controls.petals.value}
+              onChange={(event) => onUpdate("petals", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.petals.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Harmonic</span>
+          <ParameterToggle
+            checked={controls.harmonic.randomize}
+            onChange={(checked) => onUpdate("harmonic", { randomize: checked })}
+          />
+        </div>
+        {controls.harmonic.randomize ? (
+          <div className="fieldHint">Changes how many loops the rose uses before it closes.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={ROSE_CURVE_HARMONIC_MIN}
+              max={ROSE_CURVE_HARMONIC_MAX}
+              step={1}
+              value={controls.harmonic.value}
+              onChange={(event) => onUpdate("harmonic", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.harmonic.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Rotation</span>
+          <ParameterToggle
+            checked={controls.rotation.randomize}
+            onChange={(checked) => onUpdate("rotation", { randomize: checked })}
+          />
+        </div>
+        {controls.rotation.randomize ? (
+          <div className="fieldHint">Rotates the entire curve before rasterizing it.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={ROSE_CURVE_ROTATION_MIN}
+              max={ROSE_CURVE_ROTATION_MAX}
+              step={ROSE_CURVE_ROTATION_STEP}
+              value={controls.rotation.value}
+              onChange={(event) => onUpdate("rotation", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.rotation.value}°</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Stroke Width</span>
+          <ParameterToggle
+            checked={controls.strokeWidth.randomize}
+            onChange={(checked) => onUpdate("strokeWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.strokeWidth.randomize ? (
+          <div className="fieldHint">Changes how thick the rose path is drawn.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={ROSE_CURVE_STROKE_WIDTH_MIN}
+              max={ROSE_CURVE_STROKE_WIDTH_MAX}
+              step={1}
+              value={controls.strokeWidth.value}
+              onChange={(event) => onUpdate("strokeWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.strokeWidth.value}px</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function TileableMotifRepeaterSettingsPanel({
+  controls,
+  onUpdate,
+}: TileableMotifRepeaterSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Tileable Motif Repeater</h3>
+      <div className="fieldHint">
+        Stamps a repeated motif grid with spacing, jitter, and rotation.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Motif</span>
+          <ParameterToggle
+            checked={controls.motif.randomize}
+            onChange={(checked) => onUpdate("motif", { randomize: checked })}
+          />
+        </div>
+        {controls.motif.randomize ? (
+          <div className="fieldHint">
+            Randomly switches between several simple geometric motif stamps.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.motif.value}
+            onChange={(event) =>
+              onUpdate("motif", { value: event.target.value as TileableMotifType })
+            }
+          >
+            {TILEABLE_MOTIF_TYPE_OPTIONS.map((motif) => (
+              <option key={motif} value={motif}>
+                {formatTileableMotifLabel(motif)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Spacing</span>
+          <ParameterToggle
+            checked={controls.spacing.randomize}
+            onChange={(checked) => onUpdate("spacing", { randomize: checked })}
+          />
+        </div>
+        {controls.spacing.randomize ? (
+          <div className="fieldHint">Controls the distance between motif centers.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={TILEABLE_MOTIF_SPACING_MIN}
+              max={TILEABLE_MOTIF_SPACING_MAX}
+              step={1}
+              value={controls.spacing.value}
+              onChange={(event) => onUpdate("spacing", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.spacing.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Motif Size</span>
+          <ParameterToggle
+            checked={controls.motifSize.randomize}
+            onChange={(checked) => onUpdate("motifSize", { randomize: checked })}
+          />
+        </div>
+        {controls.motifSize.randomize ? (
+          <div className="fieldHint">Changes the local size of each stamped motif.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={TILEABLE_MOTIF_SIZE_MIN}
+              max={TILEABLE_MOTIF_SIZE_MAX}
+              step={1}
+              value={controls.motifSize.value}
+              onChange={(event) => onUpdate("motifSize", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.motifSize.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Jitter</span>
+          <ParameterToggle
+            checked={controls.jitter.randomize}
+            onChange={(checked) => onUpdate("jitter", { randomize: checked })}
+          />
+        </div>
+        {controls.jitter.randomize ? (
+          <div className="fieldHint">
+            Offsets each motif center by a small deterministic amount.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={TILEABLE_MOTIF_JITTER_MIN}
+              max={TILEABLE_MOTIF_JITTER_MAX}
+              step={1}
+              value={controls.jitter.value}
+              onChange={(event) => onUpdate("jitter", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.jitter.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Rotation</span>
+          <ParameterToggle
+            checked={controls.rotation.randomize}
+            onChange={(checked) => onUpdate("rotation", { randomize: checked })}
+          />
+        </div>
+        {controls.rotation.randomize ? (
+          <div className="fieldHint">Rotates the motif stamp in 90-degree steps.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.rotation.value}
+            onChange={(event) => onUpdate("rotation", { value: Number(event.target.value) })}
+          >
+            {RIGHT_ANGLE_ROTATION_OPTIONS.map((rotation) => (
+              <option key={rotation} value={rotation}>
+                {rotation}°
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
     </>
   );
 }
@@ -2907,6 +3764,161 @@ function GeneratedRecordDetails({
             <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
+      ) : record.algorithm === "radial-symmetry" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Folds</span>
+            <div>{record.params.folds}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Rings</span>
+            <div>{record.params.rings}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Twist</span>
+            <div>{Math.round(record.params.twist * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Band Width</span>
+            <div>{Math.round(record.params.thickness * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "kaleidoscope" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Segments</span>
+            <div>{record.params.segments}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Scale</span>
+            <div>{formatCompactNumber(record.params.scale)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Threshold</span>
+            <div>{Math.round(record.params.threshold * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "l-system-turtle" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Preset</span>
+            <div>{formatLSystemPresetLabel(record.params.preset)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Iterations</span>
+            <div>{record.params.iterations}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Turn Angle</span>
+            <div>{record.params.turnAngle}°</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Stroke Width</span>
+            <div>{record.params.strokeWidth}px</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "rose-curves" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Petals</span>
+            <div>{record.params.petals}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Harmonic</span>
+            <div>{record.params.harmonic}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Rotation</span>
+            <div>{record.params.rotation}°</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Stroke Width</span>
+            <div>{record.params.strokeWidth}px</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "tileable-motif-repeater" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Motif</span>
+            <div>{formatTileableMotifLabel(record.params.motif)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Spacing</span>
+            <div>{record.params.spacing}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Motif Size</span>
+            <div>{record.params.motifSize}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Jitter</span>
+            <div>{record.params.jitter}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Rotation</span>
+            <div>{record.params.rotation}°</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
       ) : record.algorithm === "backtracking-generator" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -3183,6 +4195,22 @@ export function GenerateBrowserDialog({
     );
   const [domainWarpedNoiseControls, setDomainWarpedNoiseControls] =
     useState<DomainWarpedNoiseControlState>(() => createDefaultDomainWarpedNoiseControlState());
+  const [radialSymmetryControls, setRadialSymmetryControls] = useState<RadialSymmetryControlState>(
+    () => createDefaultRadialSymmetryControlState(),
+  );
+  const [kaleidoscopeControls, setKaleidoscopeControls] = useState<KaleidoscopeControlState>(() =>
+    createDefaultKaleidoscopeControlState(),
+  );
+  const [lSystemTurtleControls, setLSystemTurtleControls] = useState<LSystemTurtleControlState>(
+    () => createDefaultLSystemTurtleControlState(),
+  );
+  const [roseCurvesControls, setRoseCurvesControls] = useState<RoseCurvesControlState>(() =>
+    createDefaultRoseCurvesControlState(),
+  );
+  const [tileableMotifRepeaterControls, setTileableMotifRepeaterControls] =
+    useState<TileableMotifRepeaterControlState>(() =>
+      createDefaultTileableMotifRepeaterControlState(),
+    );
   const [backtrackingControls, setBacktrackingControls] = useState<BacktrackingControlState>(() =>
     createDefaultBacktrackingControlState(),
   );
@@ -3244,6 +4272,17 @@ export function GenerateBrowserDialog({
                 : null,
             domainWarpedNoiseControls:
               selectedAlgorithm === "domain-warped-noise" ? domainWarpedNoiseControls : null,
+            radialSymmetryControls:
+              selectedAlgorithm === "radial-symmetry" ? radialSymmetryControls : null,
+            kaleidoscopeControls:
+              selectedAlgorithm === "kaleidoscope" ? kaleidoscopeControls : null,
+            lSystemTurtleControls:
+              selectedAlgorithm === "l-system-turtle" ? lSystemTurtleControls : null,
+            roseCurvesControls: selectedAlgorithm === "rose-curves" ? roseCurvesControls : null,
+            tileableMotifRepeaterControls:
+              selectedAlgorithm === "tileable-motif-repeater"
+                ? tileableMotifRepeaterControls
+                : null,
             backtrackingControls:
               selectedAlgorithm === "backtracking-generator" ? backtrackingControls : null,
             primsControls: selectedAlgorithm === "prims" ? primsControls : null,
@@ -3274,17 +4313,22 @@ export function GenerateBrowserDialog({
       ellersControls,
       growingTreeControls,
       huntAndKillControls,
+      kaleidoscopeControls,
       kruskalsControls,
+      lSystemTurtleControls,
       perlinNoiseControls,
       primsControls,
       randomNoiseControls,
       randomSeed,
+      radialSymmetryControls,
       recursiveDivisionControls,
+      roseCurvesControls,
       selectedAlgorithm,
       sidewinderControls,
       starredKeys,
       starredOnly,
       thresholdedGradientNoiseControls,
+      tileableMotifRepeaterControls,
       trivialMazeControls,
       valueFractalNoiseControls,
       wilsonsControls,
@@ -3376,6 +4420,71 @@ export function GenerateBrowserDialog({
     nextValue: Partial<DomainWarpedNoiseControlState[K]>,
   ): void {
     setDomainWarpedNoiseControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateRadialSymmetryControl<K extends keyof RadialSymmetryControlState>(
+    key: K,
+    nextValue: Partial<RadialSymmetryControlState[K]>,
+  ): void {
+    setRadialSymmetryControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateKaleidoscopeControl<K extends keyof KaleidoscopeControlState>(
+    key: K,
+    nextValue: Partial<KaleidoscopeControlState[K]>,
+  ): void {
+    setKaleidoscopeControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateLSystemTurtleControl<K extends keyof LSystemTurtleControlState>(
+    key: K,
+    nextValue: Partial<LSystemTurtleControlState[K]>,
+  ): void {
+    setLSystemTurtleControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateRoseCurvesControl<K extends keyof RoseCurvesControlState>(
+    key: K,
+    nextValue: Partial<RoseCurvesControlState[K]>,
+  ): void {
+    setRoseCurvesControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateTileableMotifRepeaterControl<K extends keyof TileableMotifRepeaterControlState>(
+    key: K,
+    nextValue: Partial<TileableMotifRepeaterControlState[K]>,
+  ): void {
+    setTileableMotifRepeaterControls((current) => ({
       ...current,
       [key]: {
         ...current[key],
@@ -3635,6 +4744,61 @@ export function GenerateBrowserDialog({
         warpScale: { randomize: false, value: record.params.warpScale },
         warpStrength: { randomize: false, value: record.params.warpStrength },
       });
+    } else if (record.algorithm === "radial-symmetry") {
+      setSelectedAlgorithm("radial-symmetry");
+      setRadialSymmetryControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        folds: { randomize: false, value: record.params.folds },
+        rings: { randomize: false, value: record.params.rings },
+        twist: { randomize: false, value: record.params.twist },
+        thickness: { randomize: false, value: record.params.thickness },
+      });
+    } else if (record.algorithm === "kaleidoscope") {
+      setSelectedAlgorithm("kaleidoscope");
+      setKaleidoscopeControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        segments: { randomize: false, value: record.params.segments },
+        scale: { randomize: false, value: record.params.scale },
+        threshold: { randomize: false, value: record.params.threshold },
+      });
+    } else if (record.algorithm === "l-system-turtle") {
+      setSelectedAlgorithm("l-system-turtle");
+      setLSystemTurtleControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        preset: { randomize: false, value: record.params.preset },
+        iterations: { randomize: false, value: record.params.iterations },
+        turnAngle: { randomize: false, value: record.params.turnAngle },
+        strokeWidth: { randomize: false, value: record.params.strokeWidth },
+      });
+    } else if (record.algorithm === "rose-curves") {
+      setSelectedAlgorithm("rose-curves");
+      setRoseCurvesControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        petals: { randomize: false, value: record.params.petals },
+        harmonic: { randomize: false, value: record.params.harmonic },
+        rotation: { randomize: false, value: record.params.rotation },
+        strokeWidth: { randomize: false, value: record.params.strokeWidth },
+      });
+    } else if (record.algorithm === "tileable-motif-repeater") {
+      setSelectedAlgorithm("tileable-motif-repeater");
+      setTileableMotifRepeaterControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        motif: { randomize: false, value: record.params.motif },
+        spacing: { randomize: false, value: record.params.spacing },
+        motifSize: { randomize: false, value: record.params.motifSize },
+        jitter: { randomize: false, value: record.params.jitter },
+        rotation: { randomize: false, value: record.params.rotation },
+      });
     } else if (record.algorithm === "backtracking-generator") {
       setSelectedAlgorithm("backtracking-generator");
       setBacktrackingControls({
@@ -3839,6 +5003,31 @@ export function GenerateBrowserDialog({
                   <DomainWarpedNoiseSettingsPanel
                     controls={domainWarpedNoiseControls}
                     onUpdate={updateDomainWarpedNoiseControl}
+                  />
+                ) : selectedAlgorithm === "radial-symmetry" ? (
+                  <RadialSymmetrySettingsPanel
+                    controls={radialSymmetryControls}
+                    onUpdate={updateRadialSymmetryControl}
+                  />
+                ) : selectedAlgorithm === "kaleidoscope" ? (
+                  <KaleidoscopeSettingsPanel
+                    controls={kaleidoscopeControls}
+                    onUpdate={updateKaleidoscopeControl}
+                  />
+                ) : selectedAlgorithm === "l-system-turtle" ? (
+                  <LSystemTurtleSettingsPanel
+                    controls={lSystemTurtleControls}
+                    onUpdate={updateLSystemTurtleControl}
+                  />
+                ) : selectedAlgorithm === "rose-curves" ? (
+                  <RoseCurvesSettingsPanel
+                    controls={roseCurvesControls}
+                    onUpdate={updateRoseCurvesControl}
+                  />
+                ) : selectedAlgorithm === "tileable-motif-repeater" ? (
+                  <TileableMotifRepeaterSettingsPanel
+                    controls={tileableMotifRepeaterControls}
+                    onUpdate={updateTileableMotifRepeaterControl}
                   />
                 ) : selectedAlgorithm === "backtracking-generator" ? (
                   <BacktrackingSettingsPanel
