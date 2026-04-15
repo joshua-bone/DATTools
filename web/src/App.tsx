@@ -5978,7 +5978,6 @@ export default function App() {
 
       {openDialog === "wallsBrowser" ? (
         <WallsBrowserDialog
-          spriteCache={canvasSpriteCache}
           wallsBank={wallsBank}
           wallsBankLoadState={wallsBankLoadState}
           wallsBankError={wallsBankError}

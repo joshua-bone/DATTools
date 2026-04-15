@@ -8,9 +8,7 @@ import {
   type SyntheticEvent,
 } from "react";
 
-import { createWallsPreviewLevel } from "@/src/dat/wallsBank";
-import { drawCc1LevelToCanvas } from "@/web/src/canvasLevelRenderer";
-import type { CanvasSpriteCache } from "@/web/src/canvasSpriteCache";
+import { wallMaskBytesFromKey } from "@/src/dat/wallsBank";
 import {
   filterWallsBankRecords,
   findWallsBankRecord,
@@ -20,11 +18,15 @@ import {
 } from "@/web/src/wallsBank";
 
 const WALLS_BROWSER_CARD_COUNT = 18;
+const WALLS_PREVIEW_GRID_SIZE = 32;
+const WALLS_PREVIEW_CELL_SIZE = 4;
+const WALLS_PREVIEW_PIXEL_SIZE = WALLS_PREVIEW_GRID_SIZE * WALLS_PREVIEW_CELL_SIZE;
+const WALLS_PREVIEW_FLOOR_FILL = "#d8d8d8";
+const WALLS_PREVIEW_WALL_FILL = "#4e4e4e";
 
 type WallsBankLoadState = "idle" | "loading" | "ready" | "error";
 
 type WallsBrowserDialogProps = Readonly<{
-  spriteCache: CanvasSpriteCache | null;
   wallsBank: LoadedWallsBank | null;
   wallsBankLoadState: WallsBankLoadState;
   wallsBankError: string | null;
@@ -38,7 +40,6 @@ type WallsBrowserDialogProps = Readonly<{
 
 type WallsRecordCardProps = Readonly<{
   record: WallsBankRecord;
-  spriteCache: CanvasSpriteCache | null;
   selected: boolean;
   starred: boolean;
   hidden: boolean;
@@ -56,35 +57,40 @@ function stopEvent(event: SyntheticEvent): void {
   event.stopPropagation();
 }
 
-function WallsPreviewCanvas({
-  record,
-  spriteCache,
-}: Readonly<{
-  record: WallsBankRecord;
-  spriteCache: CanvasSpriteCache | null;
-}>): JSX.Element {
+function WallsMaskPreview({ wallKey }: Readonly<{ wallKey: string }>): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const maskBytes = useMemo(() => wallMaskBytesFromKey(wallKey), [wallKey]);
 
   useEffect(() => {
-    if (!spriteCache || !canvasRef.current) return;
-    drawCc1LevelToCanvas(
-      canvasRef.current,
-      createWallsPreviewLevel(record.wallKey, { title: record.primaryEntry.levelTitle }),
-      spriteCache,
-      { showSecrets: false },
-    );
-  }, [record.primaryEntry.levelTitle, record.wallKey, spriteCache]);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  if (!spriteCache) {
-    return <div className="wallsPreviewPlaceholder">Loading tiles...</div>;
-  }
+    canvas.width = WALLS_PREVIEW_PIXEL_SIZE;
+    canvas.height = WALLS_PREVIEW_PIXEL_SIZE;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.fillStyle = WALLS_PREVIEW_FLOOR_FILL;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    context.fillStyle = WALLS_PREVIEW_WALL_FILL;
+    for (let index = 0; index < WALLS_PREVIEW_GRID_SIZE * WALLS_PREVIEW_GRID_SIZE; index++) {
+      const byteIndex = Math.floor(index / 8);
+      const bitIndex = 7 - (index % 8);
+      if (((maskBytes[byteIndex] ?? 0) & (1 << bitIndex)) === 0) continue;
+
+      const x = (index % WALLS_PREVIEW_GRID_SIZE) * WALLS_PREVIEW_CELL_SIZE;
+      const y = Math.floor(index / WALLS_PREVIEW_GRID_SIZE) * WALLS_PREVIEW_CELL_SIZE;
+      context.fillRect(x, y, WALLS_PREVIEW_CELL_SIZE, WALLS_PREVIEW_CELL_SIZE);
+    }
+  }, [maskBytes]);
 
   return <canvas ref={canvasRef} className="wallsPreviewCanvas" aria-hidden="true" />;
 }
 
 function WallsRecordCard({
   record,
-  spriteCache,
   selected,
   starred,
   hidden,
@@ -103,7 +109,7 @@ function WallsRecordCard({
       onPointerDown={stopEvent}
     >
       <div className="wallsCardPreview">
-        <WallsPreviewCanvas record={record} spriteCache={spriteCache} />
+        <WallsMaskPreview wallKey={record.wallKey} />
       </div>
       <div className="wallsCardBody">
         <div className="wallsCardHeader">
@@ -155,7 +161,6 @@ function WallsRecordCard({
 }
 
 export function WallsBrowserDialog({
-  spriteCache,
   wallsBank,
   wallsBankLoadState,
   wallsBankError,
@@ -250,27 +255,29 @@ export function WallsBrowserDialog({
                   onChange={(event) => setQuery(event.target.value)}
                 />
               </label>
-              <label className="wallsToggle">
-                <input
-                  type="checkbox"
-                  checked={starredOnly}
-                  onChange={(event) => setStarredOnly(event.target.checked)}
-                />
-                <span>Starred only</span>
-              </label>
-              <label className="wallsToggle">
-                <input
-                  type="checkbox"
-                  checked={includeHidden}
-                  onChange={(event) => setIncludeHidden(event.target.checked)}
-                />
-                <span>Show hidden</span>
-              </label>
-              <div className="statusBadge">
-                {matchingCount} match{matchingCount === 1 ? "" : "es"}
-              </div>
-              <div className="statusBadge">
-                {totalCount} total wall layout{totalCount === 1 ? "" : "s"}
+              <div className="wallsToolbarFilters">
+                <label className="wallsToggle">
+                  <input
+                    type="checkbox"
+                    checked={starredOnly}
+                    onChange={(event) => setStarredOnly(event.target.checked)}
+                  />
+                  <span>Starred only</span>
+                </label>
+                <label className="wallsToggle">
+                  <input
+                    type="checkbox"
+                    checked={includeHidden}
+                    onChange={(event) => setIncludeHidden(event.target.checked)}
+                  />
+                  <span>Show hidden</span>
+                </label>
+                <div className="statusBadge wallsStatusBadge">
+                  {matchingCount} match{matchingCount === 1 ? "" : "es"}
+                </div>
+                <div className="statusBadge wallsStatusBadge">
+                  {totalCount} total wall layout{totalCount === 1 ? "" : "s"}
+                </div>
               </div>
             </div>
 
@@ -291,7 +298,6 @@ export function WallsBrowserDialog({
                   <WallsRecordCard
                     key={record.wallKey}
                     record={record}
-                    spriteCache={spriteCache}
                     selected={record.wallKey === selectedRecord?.wallKey}
                     starred={starredKeys.has(record.wallKey)}
                     hidden={hiddenKeys.has(record.wallKey)}
@@ -311,7 +317,7 @@ export function WallsBrowserDialog({
               disabled={matchingCount <= 1}
               onClick={() => setRandomSeed(nextRandomSeed())}
             >
-              Random
+              Randomize
             </button>
             <button
               type="button"
@@ -364,7 +370,7 @@ export function WallsBrowserDialog({
             </div>
             <div className="modalBody wallsDetailBody">
               <div className="wallsDetailPreview">
-                <WallsPreviewCanvas record={detailsRecord} spriteCache={spriteCache} />
+                <WallsMaskPreview wallKey={detailsRecord.wallKey} />
               </div>
               <div className="wallsDetailList">
                 {detailsRecord.entries.map((entry) => (
