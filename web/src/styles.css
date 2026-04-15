@@ -1574,20 +1574,22 @@ button:disabled {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 8px;
   overflow: auto;
   padding: 2px;
 }
 
 .wallsCard {
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
   min-width: 0;
   border: 1px solid rgba(47, 70, 81, 0.12);
-  border-radius: 14px;
+  border-radius: 12px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 248, 250, 0.96));
-  box-shadow: 0 8px 22px rgba(23, 34, 41, 0.1);
+  box-shadow: 0 6px 16px rgba(23, 34, 41, 0.08);
   cursor: pointer;
   overflow: hidden;
   transition:
@@ -1606,14 +1608,15 @@ button:disabled {
   border-color: rgba(35, 95, 122, 0.58);
   box-shadow:
     0 0 0 2px rgba(35, 95, 122, 0.14),
-    0 12px 26px rgba(23, 34, 41, 0.16);
+    0 8px 20px rgba(23, 34, 41, 0.14);
 }
 
 .wallsCardPreview {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
   padding: 14px;
-  border-bottom: 1px solid rgba(47, 70, 81, 0.08);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0)),
     linear-gradient(135deg, rgba(221, 229, 234, 0.6), rgba(236, 240, 243, 0.9));
@@ -1646,65 +1649,51 @@ button:disabled {
   background: #4e4e4e;
 }
 
-.wallsCardBody {
+.wallsCardControls {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
   display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-}
-
-.wallsCardHeader {
-  display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  align-items: flex-start;
 }
 
-.wallsCardCopy {
-  min-width: 0;
-}
-
-.wallsCardTitle {
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.wallsCardMeta {
-  margin-top: 4px;
+.wallsMiniButton {
+  min-width: 30px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 2px 8px rgba(23, 34, 41, 0.08);
   color: var(--muted);
   font-size: 11px;
-  line-height: 1.35;
-  word-break: break-word;
-}
-
-.wallsStarButton {
-  flex: 0 0 auto;
-  min-width: 34px;
-  height: 34px;
-  padding: 0;
-  border-radius: 999px;
-  font-size: 18px;
   line-height: 1;
 }
 
-.wallsStarButton.active {
+.wallsMiniButton.active {
   border-color: rgba(175, 133, 40, 0.34);
   background: linear-gradient(180deg, rgba(255, 251, 236, 0.98), rgba(248, 242, 206, 0.98));
   color: #8a6a16;
 }
 
-.wallsCardActions {
-  display: flex;
-  gap: 8px;
-  margin-top: auto;
+.wallsStarButton {
+  width: 30px;
+  padding: 0;
+  font-size: 17px;
 }
 
-.wallsInlineButton {
-  flex: 1 1 0;
-  min-height: 30px;
-  padding: 4px 8px;
+.wallsCountBadge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 2px 8px rgba(23, 34, 41, 0.08);
+  color: var(--muted);
   font-size: 11px;
 }
 

@@ -87,62 +87,57 @@ function WallsRecordCard({
   onOpenDetails,
 }: WallsRecordCardProps): JSX.Element {
   const authorLabel = record.primaryEntry.author?.trim() || "Unknown author";
-  const levelCountLabel = `${record.occurrenceCount} level${record.occurrenceCount === 1 ? "" : "s"}`;
+  const setLabel = `${record.primaryEntry.setName} #${record.primaryEntry.levelNumber}`;
+  const cardTitle = `${setLabel}: ${record.primaryEntry.levelTitle} (${authorLabel})`;
 
   return (
     <article
       className={`wallsCard ${selected ? "selected" : ""}`}
+      title={cardTitle}
       onClick={() => onSelect(record.wallKey)}
       onPointerDown={stopEvent}
     >
       <div className="wallsCardPreview">
         <WallsMaskPreview wallKey={record.wallKey} />
       </div>
-      <div className="wallsCardBody">
-        <div className="wallsCardHeader">
-          <div className="wallsCardCopy">
-            <div className="wallsCardTitle">{record.primaryEntry.levelTitle}</div>
-            <div className="wallsCardMeta">
-              {record.primaryEntry.setName} #{record.primaryEntry.levelNumber}
-            </div>
-            <div className="wallsCardMeta">{authorLabel}</div>
-          </div>
-          <button
-            type="button"
-            className={`wallsStarButton ${starred ? "active" : ""}`}
-            aria-label={starred ? "Remove star" : "Star wall layout"}
-            title={starred ? "Remove star" : "Star wall layout"}
-            onClick={(event) => {
-              stopEvent(event);
-              onToggleStar(record.wallKey);
-            }}
-          >
-            {starred ? "★" : "☆"}
-          </button>
-        </div>
-        <div className="wallsCardActions">
-          <button
-            type="button"
-            className="secondaryButton wallsInlineButton"
-            onClick={(event) => {
-              stopEvent(event);
-              onOpenDetails(record.wallKey);
-            }}
-          >
-            {levelCountLabel}
-          </button>
-          <button
-            type="button"
-            className="secondaryButton wallsInlineButton"
-            onClick={(event) => {
-              stopEvent(event);
-              onToggleHidden(record.wallKey);
-            }}
-          >
-            {hidden ? "Unhide" : "Hide"}
-          </button>
-        </div>
+      <div className="wallsCardControls">
+        <button
+          type="button"
+          className={`wallsMiniButton ${hidden ? "active" : ""}`}
+          aria-label={hidden ? "Unhide wall layout" : "Hide wall layout"}
+          title={hidden ? "Unhide wall layout" : "Hide wall layout"}
+          onClick={(event) => {
+            stopEvent(event);
+            onToggleHidden(record.wallKey);
+          }}
+        >
+          {hidden ? "Show" : "Hide"}
+        </button>
+        <button
+          type="button"
+          className={`wallsMiniButton wallsStarButton ${starred ? "active" : ""}`}
+          aria-label={starred ? "Remove star" : "Star wall layout"}
+          title={starred ? "Remove star" : "Star wall layout"}
+          onClick={(event) => {
+            stopEvent(event);
+            onToggleStar(record.wallKey);
+          }}
+        >
+          {starred ? "★" : "☆"}
+        </button>
       </div>
+      <button
+        type="button"
+        className="wallsCountBadge"
+        aria-label={`Show ${record.occurrenceCount} matching levels`}
+        title={setLabel}
+        onClick={(event) => {
+          stopEvent(event);
+          onOpenDetails(record.wallKey);
+        }}
+      >
+        {record.occurrenceCount}
+      </button>
     </article>
   );
 }
