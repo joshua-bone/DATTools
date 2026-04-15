@@ -1574,7 +1574,8 @@ button:disabled {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(136px, 136px));
+  justify-content: start;
   gap: 6px;
   overflow: auto;
   padding: 1px;
@@ -1583,6 +1584,7 @@ button:disabled {
 .wallsCard {
   display: flex;
   flex-direction: column;
+  width: 136px;
   min-width: 0;
   border: 1px solid rgba(47, 70, 81, 0.12);
   border-radius: 12px;
@@ -1614,7 +1616,7 @@ button:disabled {
   display: grid;
   place-items: center;
   aspect-ratio: 1;
-  padding: 4px 4px 2px;
+  padding: 2px 2px 0;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0)),
     linear-gradient(135deg, rgba(221, 229, 234, 0.6), rgba(236, 240, 243, 0.9));
@@ -1651,7 +1653,9 @@ button:disabled {
   display: flex;
   gap: 4px;
   align-items: center;
-  padding: 0 4px 4px;
+  min-height: 28px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .wallsMiniButton {
