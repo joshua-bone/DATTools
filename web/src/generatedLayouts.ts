@@ -17,15 +17,24 @@ export const RANDOM_NOISE_MIRROR_OPTIONS: ReadonlyArray<RandomNoiseMirrorMode> =
   "quad",
 ];
 
-export const BACKTRACKING_SEED_MIN = 1;
-export const BACKTRACKING_SEED_MAX = 0x7ffffffe;
-export const BACKTRACKING_START_MIN = 1;
-export const BACKTRACKING_START_MAX = 15;
+export const MAZE_SEED_MIN = 1;
+export const MAZE_SEED_MAX = 0x7ffffffe;
+export const MAZE_START_MIN = 1;
+export const MAZE_BLOCK_SIZE_OPTIONS = [
+  { value: "1x1", label: "1x1", width: 1, height: 1 },
+  { value: "2x2", label: "2x2", width: 2, height: 2 },
+  { value: "1x2", label: "1x2", width: 1, height: 2 },
+  { value: "2x1", label: "2x1", width: 2, height: 1 },
+] as const;
+export const GROWING_TREE_BACKTRACK_CHANCE_MIN = 0;
+export const GROWING_TREE_BACKTRACK_CHANCE_MAX = 1;
+export const GROWING_TREE_BACKTRACK_CHANCE_STEP = 0.05;
 
-export type GenerateAlgorithmId = "random-noise" | "backtracking-generator";
+export type GenerateAlgorithmId = "random-noise" | "backtracking-generator" | "growing-tree";
 export type GenerateAlgorithmChoice = GenerateAlgorithmId | "any";
 export type GenerateRecordAlgorithm = GenerateAlgorithmId | "starred";
 export type RandomNoiseMirrorMode = "none" | "horizontal" | "vertical" | "quad";
+export type MazeBlockSize = (typeof MAZE_BLOCK_SIZE_OPTIONS)[number]["value"];
 
 export type RandomizableValue<T> = Readonly<{
   randomize: boolean;
@@ -40,11 +49,19 @@ export type RandomNoiseParameters = Readonly<{
   invert: boolean;
 }>;
 
-export type BacktrackingParameters = Readonly<{
+export type MazeAlgorithmParameters = Readonly<{
   seed: number;
+  blockSize: MazeBlockSize;
   startColumn: number;
   startRow: number;
 }>;
+
+export type BacktrackingParameters = MazeAlgorithmParameters;
+
+export type GrowingTreeParameters = MazeAlgorithmParameters &
+  Readonly<{
+    backtrackChance: number;
+  }>;
 
 export type RandomNoiseControlState = Readonly<{
   seed: RandomizableValue<number>;
@@ -54,15 +71,23 @@ export type RandomNoiseControlState = Readonly<{
   invert: RandomizableValue<boolean>;
 }>;
 
-export type BacktrackingControlState = Readonly<{
+type MazeBaseControlState = Readonly<{
   seed: RandomizableValue<number>;
+  blockSize: RandomizableValue<MazeBlockSize>;
   startColumn: RandomizableValue<number>;
   startRow: RandomizableValue<number>;
 }>;
 
+export type BacktrackingControlState = MazeBaseControlState;
+
+export type GrowingTreeControlState = MazeBaseControlState &
+  Readonly<{
+    backtrackChance: RandomizableValue<number>;
+  }>;
+
 type BaseGeneratedLayoutRecord<
   Algorithm extends GenerateRecordAlgorithm,
-  Params extends RandomNoiseParameters | BacktrackingParameters | null,
+  Params extends RandomNoiseParameters | BacktrackingParameters | GrowingTreeParameters | null,
 > = Readonly<{
   wallKey: string;
   algorithm: Algorithm;
@@ -82,11 +107,17 @@ export type BacktrackingGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   BacktrackingParameters
 >;
 
+export type GrowingTreeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "growing-tree",
+  GrowingTreeParameters
+>;
+
 export type StarredGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"starred", null>;
 
 export type GeneratedLayoutRecord =
   | RandomNoiseGeneratedLayoutRecord
   | BacktrackingGeneratedLayoutRecord
+  | GrowingTreeGeneratedLayoutRecord
   | StarredGeneratedLayoutRecord;
 
 export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
@@ -95,16 +126,20 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "any", label: "Any" },
   { value: "random-noise", label: "Random Noise" },
   { value: "backtracking-generator", label: "Backtracking Generator" },
+  { value: "growing-tree", label: "Growing Tree" },
 ];
 
 const RANDOM_NOISE_LABEL = "Random Noise";
 const BACKTRACKING_LABEL = "Backtracking Generator";
+const GROWING_TREE_LABEL = "Growing Tree";
 const GENERATED_LAYOUT_MIN_WALL_COUNT = 24;
 const GENERATED_LAYOUT_MAX_WALL_COUNT = 1000;
 const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "random-noise",
   "backtracking-generator",
+  "growing-tree",
 ];
+const GROWING_TREE_BACKTRACK_CHANCE_VALUES = [0, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
 
 export function randomSeedFromClock(): number {
   return Date.now() & 0x7fffffff;
@@ -114,6 +149,16 @@ export function nextRandomSeed(): number {
   return Math.floor(Math.random() * 0x7fffffff);
 }
 
+export function mazeGridDimensionsForBlockSize(
+  blockSize: MazeBlockSize,
+): Readonly<{ columns: number; rows: number }> {
+  const dims = mazeBlockDimensions(blockSize);
+  return {
+    columns: Math.floor((GENERATED_LAYOUT_GRID_SIZE - 1) / (dims.width + 1)),
+    rows: Math.floor((GENERATED_LAYOUT_GRID_SIZE - 1) / (dims.height + 1)),
+  };
+}
+
 export function generateLayoutRecords(
   options: Readonly<{
     algorithm: GenerateAlgorithmChoice;
@@ -121,6 +166,7 @@ export function generateLayoutRecords(
     seed: number;
     randomNoiseControls?: RandomNoiseControlState | null;
     backtrackingControls?: BacktrackingControlState | null;
+    growingTreeControls?: GrowingTreeControlState | null;
   }>,
 ): GeneratedLayoutRecord[] {
   const count = Math.max(1, options.count ?? GENERATED_LAYOUT_CARD_COUNT);
@@ -134,6 +180,7 @@ export function generateLayoutRecords(
     const record = generateRecordForAlgorithm(algorithm, rng, {
       randomNoiseControls: options.randomNoiseControls ?? null,
       backtrackingControls: options.backtrackingControls ?? null,
+      growingTreeControls: options.growingTreeControls ?? null,
     });
     if (seen.has(record.wallKey)) continue;
     seen.add(record.wallKey);
@@ -161,8 +208,19 @@ export function createDefaultRandomNoiseControlState(): RandomNoiseControlState 
 export function createDefaultBacktrackingControlState(): BacktrackingControlState {
   return {
     seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
     startColumn: { randomize: true, value: 8 },
     startRow: { randomize: true, value: 8 },
+  };
+}
+
+export function createDefaultGrowingTreeControlState(): GrowingTreeControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    startColumn: { randomize: true, value: 8 },
+    startRow: { randomize: true, value: 8 },
+    backtrackChance: { randomize: true, value: 1 },
   };
 }
 
@@ -180,6 +238,7 @@ function generateRecordForAlgorithm(
   controls: Readonly<{
     randomNoiseControls: RandomNoiseControlState | null;
     backtrackingControls: BacktrackingControlState | null;
+    growingTreeControls: GrowingTreeControlState | null;
   }>,
 ): GeneratedLayoutRecord {
   switch (algorithm) {
@@ -187,6 +246,8 @@ function generateRecordForAlgorithm(
       return buildRandomNoiseRecord(rng, controls.randomNoiseControls);
     case "backtracking-generator":
       return buildBacktrackingRecord(rng, controls.backtrackingControls);
+    case "growing-tree":
+      return buildGrowingTreeRecord(rng, controls.growingTreeControls);
   }
 }
 
@@ -233,12 +294,30 @@ function buildBacktrackingRecord(
   rng: () => number,
   controls: BacktrackingControlState | null,
 ): BacktrackingGeneratedLayoutRecord {
-  const params = randomizeBacktrackingParameters(rng, controls);
+  const params = randomizeMazeBaseParameters(
+    rng,
+    controls ?? createDefaultBacktrackingControlState(),
+  );
   return {
-    wallKey: wallMaskKeyFromBytes(buildBacktrackingMaskBytes(params)),
+    wallKey: wallMaskKeyFromBytes(buildMazeMaskBytes(params, "backtracking", rng)),
     algorithm: "backtracking-generator",
     title: BACKTRACKING_LABEL,
     summary: buildBacktrackingSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildGrowingTreeRecord(
+  rng: () => number,
+  controls: GrowingTreeControlState | null,
+): GrowingTreeGeneratedLayoutRecord {
+  const params = randomizeGrowingTreeParameters(rng, controls);
+  return {
+    wallKey: wallMaskKeyFromBytes(buildMazeMaskBytes(params, "growing-tree", rng)),
+    algorithm: "growing-tree",
+    title: GROWING_TREE_LABEL,
+    summary: buildGrowingTreeSummary(params),
     seedLabel: `Seed ${params.seed}`,
     params,
   };
@@ -268,7 +347,7 @@ function randomizeRandomNoiseParameters(
     blockSize: resolveRandomizableValue(
       defaults.blockSize,
       () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
-      sampleClosestBlockSize,
+      sampleClosestNoiseBlockSize,
     ),
     mirror: resolveRandomizableValue(
       defaults.mirror,
@@ -283,26 +362,58 @@ function randomizeRandomNoiseParameters(
   };
 }
 
-function randomizeBacktrackingParameters(
+function randomizeMazeBaseParameters(
   rng: () => number,
-  controls: BacktrackingControlState | null,
-): BacktrackingParameters {
-  const defaults = controls ?? createDefaultBacktrackingControlState();
+  defaults: MazeBaseControlState,
+): MazeAlgorithmParameters {
+  const blockSize = resolveRandomizableValue(
+    defaults.blockSize,
+    () =>
+      sampleOne(
+        rng,
+        MAZE_BLOCK_SIZE_OPTIONS.map((option) => option.value),
+      ),
+    sanitizeMazeBlockSize,
+  );
+  const dims = mazeGridDimensionsForBlockSize(blockSize);
   return {
     seed: resolveRandomizableValue(
       defaults.seed,
-      () => randomInt(rng, BACKTRACKING_SEED_MIN, BACKTRACKING_SEED_MAX),
-      (value) => clamp(Math.round(value), BACKTRACKING_SEED_MIN, BACKTRACKING_SEED_MAX),
+      () => randomInt(rng, MAZE_SEED_MIN, MAZE_SEED_MAX),
+      (value) => clamp(Math.round(value), MAZE_SEED_MIN, MAZE_SEED_MAX),
     ),
+    blockSize,
     startColumn: resolveRandomizableValue(
       defaults.startColumn,
-      () => randomInt(rng, BACKTRACKING_START_MIN, BACKTRACKING_START_MAX),
-      (value) => clamp(Math.round(value), BACKTRACKING_START_MIN, BACKTRACKING_START_MAX),
+      () => randomInt(rng, MAZE_START_MIN, dims.columns),
+      (value) => clamp(Math.round(value), MAZE_START_MIN, dims.columns),
     ),
     startRow: resolveRandomizableValue(
       defaults.startRow,
-      () => randomInt(rng, BACKTRACKING_START_MIN, BACKTRACKING_START_MAX),
-      (value) => clamp(Math.round(value), BACKTRACKING_START_MIN, BACKTRACKING_START_MAX),
+      () => randomInt(rng, MAZE_START_MIN, dims.rows),
+      (value) => clamp(Math.round(value), MAZE_START_MIN, dims.rows),
+    ),
+  };
+}
+
+function randomizeGrowingTreeParameters(
+  rng: () => number,
+  controls: GrowingTreeControlState | null,
+): GrowingTreeParameters {
+  const defaults = controls ?? createDefaultGrowingTreeControlState();
+  const base = randomizeMazeBaseParameters(rng, defaults);
+  return {
+    ...base,
+    backtrackChance: resolveRandomizableValue(
+      defaults.backtrackChance,
+      () => sampleOne(rng, GROWING_TREE_BACKTRACK_CHANCE_VALUES),
+      (value) =>
+        clamp(
+          Math.round(value / GROWING_TREE_BACKTRACK_CHANCE_STEP) *
+            GROWING_TREE_BACKTRACK_CHANCE_STEP,
+          GROWING_TREE_BACKTRACK_CHANCE_MIN,
+          GROWING_TREE_BACKTRACK_CHANCE_MAX,
+        ),
     ),
   };
 }
@@ -339,34 +450,70 @@ function buildRandomNoiseMaskBytes(params: RandomNoiseParameters): Uint8Array {
   return bytes;
 }
 
-function buildBacktrackingMaskBytes(params: BacktrackingParameters): Uint8Array {
+function buildMazeMaskBytes(
+  params: MazeAlgorithmParameters | GrowingTreeParameters,
+  algorithm: "backtracking" | "growing-tree",
+  rng: () => number,
+): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
   const walls = new Uint8Array(GENERATED_LAYOUT_GRID_SIZE * GENERATED_LAYOUT_GRID_SIZE);
   walls.fill(1);
-
-  const logicalSize = BACKTRACKING_START_MAX;
-  const visited = new Uint8Array(logicalSize * logicalSize);
-  const rng = createSeededRandom(params.seed);
+  const visited = new Uint8Array(metrics.columns * metrics.rows);
   const start = {
-    x: params.startColumn - 1,
-    y: params.startRow - 1,
+    x: clamp(params.startColumn, MAZE_START_MIN, metrics.columns) - 1,
+    y: clamp(params.startRow, MAZE_START_MIN, metrics.rows) - 1,
   };
-  const stack: Array<Readonly<{ x: number; y: number }>> = [start];
 
-  markVisited(visited, logicalSize, start.x, start.y);
-  carveBacktrackingCell(walls, start.x, start.y);
+  markVisited(visited, metrics.columns, start.x, start.y);
+  carveMazeCell(walls, metrics, start.x, start.y);
 
-  while (stack.length > 0) {
-    const current = stack[stack.length - 1]!;
-    const neighbors = listBacktrackingNeighbors(current.x, current.y, visited, logicalSize);
-    if (neighbors.length === 0) {
-      stack.pop();
-      continue;
+  if (algorithm === "backtracking") {
+    const stack: Array<Readonly<{ x: number; y: number }>> = [start];
+
+    while (stack.length > 0) {
+      const current = stack[stack.length - 1]!;
+      const neighbors = listMazeNeighbors(
+        current.x,
+        current.y,
+        visited,
+        metrics.columns,
+        metrics.rows,
+      );
+      if (neighbors.length === 0) {
+        stack.pop();
+        continue;
+      }
+
+      const next = sampleOne(rng, neighbors);
+      carveMazePassage(walls, metrics, current, next);
+      markVisited(visited, metrics.columns, next.x, next.y);
+      stack.push(next);
     }
+  } else {
+    const active: Array<Readonly<{ x: number; y: number }>> = [start];
+    const backtrackChance = (params as GrowingTreeParameters).backtrackChance;
 
-    const next = sampleOne(rng, neighbors);
-    carveBacktrackingPassage(walls, current, next);
-    markVisited(visited, logicalSize, next.x, next.y);
-    stack.push(next);
+    while (active.length > 0) {
+      const currentIndex =
+        rng() < backtrackChance ? active.length - 1 : randomInt(rng, 0, active.length - 1);
+      const current = active[currentIndex]!;
+      const neighbors = listMazeNeighbors(
+        current.x,
+        current.y,
+        visited,
+        metrics.columns,
+        metrics.rows,
+      );
+      if (neighbors.length === 0) {
+        active.splice(currentIndex, 1);
+        continue;
+      }
+
+      const next = sampleOne(rng, neighbors);
+      carveMazePassage(walls, metrics, current, next);
+      markVisited(visited, metrics.columns, next.x, next.y);
+      active.push(next);
+    }
   }
 
   const bytes = new Uint8Array(128);
@@ -426,7 +573,15 @@ function buildRandomNoiseSummary(params: RandomNoiseParameters): string {
 }
 
 function buildBacktrackingSummary(params: BacktrackingParameters): string {
-  return `Start column ${params.startColumn}, row ${params.startRow}`;
+  return `${params.blockSize} blocks • start ${params.startColumn}, ${params.startRow}`;
+}
+
+function buildGrowingTreeSummary(params: GrowingTreeParameters): string {
+  return [
+    `${params.blockSize} blocks`,
+    `start ${params.startColumn}, ${params.startRow}`,
+    `${Math.round(params.backtrackChance * 100)}% backtrack`,
+  ].join(" • ");
 }
 
 function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
@@ -440,11 +595,12 @@ function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
   };
 }
 
-function listBacktrackingNeighbors(
+function listMazeNeighbors(
   x: number,
   y: number,
   visited: Uint8Array,
-  size: number,
+  columns: number,
+  rows: number,
 ): Array<Readonly<{ x: number; y: number }>> {
   const neighbors: Array<Readonly<{ x: number; y: number }>> = [];
   const candidates = [
@@ -455,40 +611,93 @@ function listBacktrackingNeighbors(
   ];
 
   for (const candidate of candidates) {
-    if (candidate.x < 0 || candidate.x >= size || candidate.y < 0 || candidate.y >= size) {
+    if (candidate.x < 0 || candidate.x >= columns || candidate.y < 0 || candidate.y >= rows) {
       continue;
     }
-    if (visited[candidate.y * size + candidate.x] === 1) continue;
+    if (visited[candidate.y * columns + candidate.x] === 1) continue;
     neighbors.push(candidate);
   }
 
   return neighbors;
 }
 
-function carveBacktrackingCell(walls: Uint8Array, cellX: number, cellY: number): void {
-  walls[mazeTileIndex(cellX * 2 + 1, cellY * 2 + 1)] = 0;
+function resolveMazeMetrics(blockSize: MazeBlockSize): Readonly<{
+  blockWidth: number;
+  blockHeight: number;
+  columns: number;
+  rows: number;
+}> {
+  const dims = mazeBlockDimensions(blockSize);
+  const grid = mazeGridDimensionsForBlockSize(blockSize);
+  return {
+    blockWidth: dims.width,
+    blockHeight: dims.height,
+    columns: grid.columns,
+    rows: grid.rows,
+  };
 }
 
-function carveBacktrackingPassage(
+function mazeBlockDimensions(
+  blockSize: MazeBlockSize,
+): Readonly<{ width: number; height: number }> {
+  const option = MAZE_BLOCK_SIZE_OPTIONS.find((entry) => entry.value === blockSize);
+  return option ?? MAZE_BLOCK_SIZE_OPTIONS[0];
+}
+
+function carveMazeCell(
   walls: Uint8Array,
+  metrics: Readonly<{ blockWidth: number; blockHeight: number }>,
+  cellX: number,
+  cellY: number,
+): void {
+  carveRect(
+    walls,
+    cellX * (metrics.blockWidth + 1) + 1,
+    cellY * (metrics.blockHeight + 1) + 1,
+    metrics.blockWidth,
+    metrics.blockHeight,
+  );
+}
+
+function carveMazePassage(
+  walls: Uint8Array,
+  metrics: Readonly<{ blockWidth: number; blockHeight: number }>,
   from: Readonly<{ x: number; y: number }>,
   to: Readonly<{ x: number; y: number }>,
 ): void {
-  const fromTileX = from.x * 2 + 1;
-  const fromTileY = from.y * 2 + 1;
-  const toTileX = to.x * 2 + 1;
-  const toTileY = to.y * 2 + 1;
-  walls[mazeTileIndex(fromTileX, fromTileY)] = 0;
-  walls[mazeTileIndex((fromTileX + toTileX) / 2, (fromTileY + toTileY) / 2)] = 0;
-  walls[mazeTileIndex(toTileX, toTileY)] = 0;
+  carveMazeCell(walls, metrics, to.x, to.y);
+
+  const fromX = from.x * (metrics.blockWidth + 1) + 1;
+  const fromY = from.y * (metrics.blockHeight + 1) + 1;
+
+  if (to.x !== from.x) {
+    const connectorX = fromX + (to.x > from.x ? metrics.blockWidth : -1);
+    carveRect(walls, connectorX, fromY, 1, metrics.blockHeight);
+    return;
+  }
+
+  const connectorY = fromY + (to.y > from.y ? metrics.blockHeight : -1);
+  carveRect(walls, fromX, connectorY, metrics.blockWidth, 1);
+}
+
+function carveRect(walls: Uint8Array, x: number, y: number, width: number, height: number): void {
+  for (let dy = 0; dy < height; dy++) {
+    for (let dx = 0; dx < width; dx++) {
+      walls[mazeTileIndex(x + dx, y + dy)] = 0;
+    }
+  }
 }
 
 function mazeTileIndex(x: number, y: number): number {
   return y * GENERATED_LAYOUT_GRID_SIZE + x;
 }
 
-function markVisited(visited: Uint8Array, size: number, x: number, y: number): void {
-  visited[y * size + x] = 1;
+function markVisited(visited: Uint8Array, width: number, x: number, y: number): void {
+  visited[y * width + x] = 1;
+}
+
+function sanitizeMazeBlockSize(value: MazeBlockSize): MazeBlockSize {
+  return MAZE_BLOCK_SIZE_OPTIONS.some((option) => option.value === value) ? value : "1x1";
 }
 
 function setMaskBit(bytes: Uint8Array, index: number): void {
@@ -510,7 +719,7 @@ function sampleOne<T>(rng: () => number, options: ReadonlyArray<T>): T {
   return options[index]!;
 }
 
-function sampleClosestBlockSize(value: number): number {
+function sampleClosestNoiseBlockSize(value: number): number {
   return RANDOM_NOISE_BLOCK_SIZE_OPTIONS.reduce((closest, current) =>
     Math.abs(current - value) < Math.abs(closest - value) ? current : closest,
   );

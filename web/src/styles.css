@@ -1963,6 +1963,12 @@ button:disabled {
   line-height: 1.5;
 }
 
+.generateDetailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .generateDetailImportButton {
   margin-top: auto;
 }

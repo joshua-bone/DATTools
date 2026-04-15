@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createDefaultBacktrackingControlState,
+  createDefaultGrowingTreeControlState,
   createDefaultRandomNoiseControlState,
   generateLayoutRecords,
   recordsFromStarredKeys,
@@ -26,7 +27,9 @@ describe("generated layouts", () => {
     expect(
       first.every(
         (record) =>
-          record.algorithm === "random-noise" || record.algorithm === "backtracking-generator",
+          record.algorithm === "random-noise" ||
+          record.algorithm === "backtracking-generator" ||
+          record.algorithm === "growing-tree",
       ),
     ).toBe(true);
   });
@@ -93,6 +96,7 @@ describe("generated layouts", () => {
       seed: 13579,
       backtrackingControls: {
         ...controls,
+        blockSize: { randomize: false, value: "2x1" },
         startColumn: { randomize: false, value: 3 },
         startRow: { randomize: false, value: 11 },
       },
@@ -103,8 +107,54 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "backtracking-generator" &&
+          record.params.blockSize === "2x1" &&
           record.params.startColumn === 3 &&
           record.params.startRow === 11,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic growing-tree layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "growing-tree",
+      count: 6,
+      seed: 98765,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "growing-tree",
+      count: 6,
+      seed: 98765,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "growing-tree")).toBe(true);
+  });
+
+  it("keeps locked growing-tree parameters fixed across generated cards", () => {
+    const controls = createDefaultGrowingTreeControlState();
+    const records = generateLayoutRecords({
+      algorithm: "growing-tree",
+      count: 6,
+      seed: 24601,
+      growingTreeControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "1x2" },
+        startColumn: { randomize: false, value: 4 },
+        startRow: { randomize: false, value: 7 },
+        backtrackChance: { randomize: false, value: 0.65 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "growing-tree" &&
+          record.params.blockSize === "1x2" &&
+          record.params.startColumn === 4 &&
+          record.params.startRow === 7 &&
+          record.params.backtrackChance === 0.65,
       ),
     ).toBe(true);
   });

@@ -2,13 +2,15 @@ import { useEffect, useMemo, useState, type JSX, type SyntheticEvent } from "rea
 
 import { wallMaskBytesFromKey } from "@/src/dat/wallsBank";
 import {
-  BACKTRACKING_SEED_MAX,
-  BACKTRACKING_SEED_MIN,
-  BACKTRACKING_START_MAX,
-  BACKTRACKING_START_MIN,
   GENERATE_ALGORITHM_OPTIONS,
   GENERATED_LAYOUT_CARD_COUNT,
   GENERATED_LAYOUT_GRID_SIZE,
+  GROWING_TREE_BACKTRACK_CHANCE_MAX,
+  GROWING_TREE_BACKTRACK_CHANCE_MIN,
+  GROWING_TREE_BACKTRACK_CHANCE_STEP,
+  MAZE_BLOCK_SIZE_OPTIONS,
+  MAZE_SEED_MAX,
+  MAZE_SEED_MIN,
   RANDOM_NOISE_BLOCK_SIZE_OPTIONS,
   RANDOM_NOISE_DENSITY_MAX,
   RANDOM_NOISE_DENSITY_MIN,
@@ -17,14 +19,18 @@ import {
   RANDOM_NOISE_SEED_MAX,
   RANDOM_NOISE_SEED_MIN,
   createDefaultBacktrackingControlState,
+  createDefaultGrowingTreeControlState,
   createDefaultRandomNoiseControlState,
   generateLayoutRecords,
+  mazeGridDimensionsForBlockSize,
   nextRandomSeed,
   randomSeedFromClock,
   recordsFromStarredKeys,
   type BacktrackingControlState,
   type GeneratedLayoutRecord,
   type GenerateAlgorithmChoice,
+  type GrowingTreeControlState,
+  type MazeBlockSize,
   type RandomNoiseControlState,
   type RandomNoiseMirrorMode,
 } from "@/web/src/generatedLayouts";
@@ -66,6 +72,14 @@ type BacktrackingSettingsPanelProps = Readonly<{
   ) => void;
 }>;
 
+type GrowingTreeSettingsPanelProps = Readonly<{
+  controls: GrowingTreeControlState;
+  onUpdate: <K extends keyof GrowingTreeControlState>(
+    key: K,
+    nextValue: Partial<GrowingTreeControlState[K]>,
+  ) => void;
+}>;
+
 function stopEvent(event: SyntheticEvent): void {
   event.stopPropagation();
 }
@@ -81,6 +95,10 @@ function formatMirrorLabel(mirror: RandomNoiseMirrorMode): string {
     case "none":
       return "None";
   }
+}
+
+function formatMazeBlockSizeLabel(blockSize: MazeBlockSize): string {
+  return MAZE_BLOCK_SIZE_OPTIONS.find((option) => option.value === blockSize)?.label ?? "1x1";
 }
 
 function GeneratedMaskPreview({ wallKey }: Readonly<{ wallKey: string }>): JSX.Element {
@@ -310,6 +328,11 @@ function BacktrackingSettingsPanel({
   controls,
   onUpdate,
 }: BacktrackingSettingsPanelProps): JSX.Element {
+  const fixedBlockSize = controls.blockSize.randomize ? null : controls.blockSize.value;
+  const dims = mazeGridDimensionsForBlockSize(fixedBlockSize ?? "1x1");
+  const maxColumns = fixedBlockSize ? dims.columns : mazeGridDimensionsForBlockSize("1x1").columns;
+  const maxRows = fixedBlockSize ? dims.rows : mazeGridDimensionsForBlockSize("1x1").rows;
+
   return (
     <>
       <div className="sectionEyebrow">Parameters</div>
@@ -320,6 +343,33 @@ function BacktrackingSettingsPanel({
 
       <section className="generateSettingCard">
         <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">Chooses between 1x1, 2x2, 1x2, and 2x1 blocks.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
           <span className="fieldLabel">Start Column</span>
           <ParameterToggle
             checked={controls.startColumn.randomize}
@@ -327,19 +377,21 @@ function BacktrackingSettingsPanel({
           />
         </div>
         {controls.startColumn.randomize ? (
-          <div className="fieldHint">Random starting column from 1 to 15.</div>
+          <div className="fieldHint">Random starting column within the current maze width.</div>
         ) : (
           <div className="generateSettingBody">
             <input
               type="range"
               className="generateRangeInput"
-              min={BACKTRACKING_START_MIN}
-              max={BACKTRACKING_START_MAX}
+              min={1}
+              max={maxColumns}
               step={1}
-              value={controls.startColumn.value}
+              value={Math.min(controls.startColumn.value, maxColumns)}
               onChange={(event) => onUpdate("startColumn", { value: Number(event.target.value) })}
             />
-            <div className="statusBadge generateValueBadge">{controls.startColumn.value}</div>
+            <div className="statusBadge generateValueBadge">
+              {Math.min(controls.startColumn.value, maxColumns)}
+            </div>
           </div>
         )}
       </section>
@@ -353,19 +405,21 @@ function BacktrackingSettingsPanel({
           />
         </div>
         {controls.startRow.randomize ? (
-          <div className="fieldHint">Random starting row from 1 to 15.</div>
+          <div className="fieldHint">Random starting row within the current maze height.</div>
         ) : (
           <div className="generateSettingBody">
             <input
               type="range"
               className="generateRangeInput"
-              min={BACKTRACKING_START_MIN}
-              max={BACKTRACKING_START_MAX}
+              min={1}
+              max={maxRows}
               step={1}
-              value={controls.startRow.value}
+              value={Math.min(controls.startRow.value, maxRows)}
               onChange={(event) => onUpdate("startRow", { value: Number(event.target.value) })}
             />
-            <div className="statusBadge generateValueBadge">{controls.startRow.value}</div>
+            <div className="statusBadge generateValueBadge">
+              {Math.min(controls.startRow.value, maxRows)}
+            </div>
           </div>
         )}
       </section>
@@ -384,8 +438,162 @@ function BacktrackingSettingsPanel({
           <input
             type="number"
             className="textInput"
-            min={BACKTRACKING_SEED_MIN}
-            max={BACKTRACKING_SEED_MAX}
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function GrowingTreeSettingsPanel({
+  controls,
+  onUpdate,
+}: GrowingTreeSettingsPanelProps): JSX.Element {
+  const fixedBlockSize = controls.blockSize.randomize ? null : controls.blockSize.value;
+  const dims = mazeGridDimensionsForBlockSize(fixedBlockSize ?? "1x1");
+  const maxColumns = fixedBlockSize ? dims.columns : mazeGridDimensionsForBlockSize("1x1").columns;
+  const maxRows = fixedBlockSize ? dims.rows : mazeGridDimensionsForBlockSize("1x1").rows;
+
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Growing Tree</h3>
+      <div className="fieldHint">Switches between backtracking and random active-cell picks.</div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">Chooses between 1x1, 2x2, 1x2, and 2x1 blocks.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Start Column</span>
+          <ParameterToggle
+            checked={controls.startColumn.randomize}
+            onChange={(checked) => onUpdate("startColumn", { randomize: checked })}
+          />
+        </div>
+        {controls.startColumn.randomize ? (
+          <div className="fieldHint">Random starting column within the current maze width.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={1}
+              max={maxColumns}
+              step={1}
+              value={Math.min(controls.startColumn.value, maxColumns)}
+              onChange={(event) => onUpdate("startColumn", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.min(controls.startColumn.value, maxColumns)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Start Row</span>
+          <ParameterToggle
+            checked={controls.startRow.randomize}
+            onChange={(checked) => onUpdate("startRow", { randomize: checked })}
+          />
+        </div>
+        {controls.startRow.randomize ? (
+          <div className="fieldHint">Random starting row within the current maze height.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={1}
+              max={maxRows}
+              step={1}
+              value={Math.min(controls.startRow.value, maxRows)}
+              onChange={(event) => onUpdate("startRow", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.min(controls.startRow.value, maxRows)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Backtrack Chance</span>
+          <ParameterToggle
+            checked={controls.backtrackChance.randomize}
+            onChange={(checked) => onUpdate("backtrackChance", { randomize: checked })}
+          />
+        </div>
+        {controls.backtrackChance.randomize ? (
+          <div className="fieldHint">Blends recursive backtracking with Prim-like picks.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={GROWING_TREE_BACKTRACK_CHANCE_MIN}
+              max={GROWING_TREE_BACKTRACK_CHANCE_MAX}
+              step={GROWING_TREE_BACKTRACK_CHANCE_STEP}
+              value={controls.backtrackChance.value}
+              onChange={(event) =>
+                onUpdate("backtrackChance", { value: Number(event.target.value) })
+              }
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.backtrackChance.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
             step={1}
             value={controls.seed.value}
             onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
@@ -398,10 +606,16 @@ function BacktrackingSettingsPanel({
 
 function GeneratedRecordDetails({
   record,
+  starred,
   onImport,
+  onToggleStar,
+  onMoreLikeThis,
 }: Readonly<{
   record: GeneratedLayoutRecord | null;
+  starred: boolean;
   onImport: (wallKey: string) => void;
+  onToggleStar: (wallKey: string) => void;
+  onMoreLikeThis: (record: GeneratedLayoutRecord) => void;
 }>): JSX.Element {
   if (!record) {
     return (
@@ -422,6 +636,23 @@ function GeneratedRecordDetails({
       <div className="fieldHint">{record.summary}</div>
       <div className="generateSidebarPreview">
         <GeneratedMaskPreview wallKey={record.wallKey} />
+      </div>
+      <div className="generateDetailActions">
+        <button
+          type="button"
+          className="secondaryButton"
+          onClick={() => onToggleStar(record.wallKey)}
+        >
+          {starred ? "Unstar Selected" : "Star Selected"}
+        </button>
+        <button
+          type="button"
+          className="secondaryButton"
+          disabled={record.algorithm === "starred"}
+          onClick={() => onMoreLikeThis(record)}
+        >
+          More like this
+        </button>
       </div>
       {record.algorithm === "random-noise" ? (
         <div className="generateDetailList">
@@ -455,12 +686,39 @@ function GeneratedRecordDetails({
             <div>{record.params.seed}</div>
           </div>
           <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
             <span className="fieldLabel">Start Column</span>
             <div>{record.params.startColumn}</div>
           </div>
           <div className="generateDetailRow">
             <span className="fieldLabel">Start Row</span>
             <div>{record.params.startRow}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "growing-tree" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Start Column</span>
+            <div>{record.params.startColumn}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Start Row</span>
+            <div>{record.params.startRow}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Backtrack Chance</span>
+            <div>{Math.round(record.params.backtrackChance * 100)}%</div>
           </div>
         </div>
       ) : (
@@ -496,6 +754,9 @@ export function GenerateBrowserDialog({
   const [backtrackingControls, setBacktrackingControls] = useState<BacktrackingControlState>(() =>
     createDefaultBacktrackingControlState(),
   );
+  const [growingTreeControls, setGrowingTreeControls] = useState<GrowingTreeControlState>(() =>
+    createDefaultGrowingTreeControlState(),
+  );
 
   const showParameterSidebar = !starredOnly && selectedAlgorithm !== "any";
   const visibleRecords = useMemo(
@@ -509,9 +770,11 @@ export function GenerateBrowserDialog({
             randomNoiseControls: selectedAlgorithm === "random-noise" ? randomNoiseControls : null,
             backtrackingControls:
               selectedAlgorithm === "backtracking-generator" ? backtrackingControls : null,
+            growingTreeControls: selectedAlgorithm === "growing-tree" ? growingTreeControls : null,
           }),
     [
       backtrackingControls,
+      growingTreeControls,
       randomNoiseControls,
       randomSeed,
       selectedAlgorithm,
@@ -559,6 +822,56 @@ export function GenerateBrowserDialog({
         ...nextValue,
       },
     }));
+  }
+
+  function updateGrowingTreeControl<K extends keyof GrowingTreeControlState>(
+    key: K,
+    nextValue: Partial<GrowingTreeControlState[K]>,
+  ): void {
+    setGrowingTreeControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function applyMoreLikeThis(record: GeneratedLayoutRecord): void {
+    if (record.algorithm === "starred") return;
+
+    setStarredOnly(false);
+    setSelectedWallKey(null);
+
+    if (record.algorithm === "random-noise") {
+      setSelectedAlgorithm("random-noise");
+      setRandomNoiseControls({
+        seed: { randomize: true, value: record.params.seed },
+        density: { randomize: false, value: record.params.density },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        mirror: { randomize: false, value: record.params.mirror },
+        invert: { randomize: false, value: record.params.invert },
+      });
+    } else if (record.algorithm === "backtracking-generator") {
+      setSelectedAlgorithm("backtracking-generator");
+      setBacktrackingControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        startColumn: { randomize: false, value: record.params.startColumn },
+        startRow: { randomize: false, value: record.params.startRow },
+      });
+    } else if (record.algorithm === "growing-tree") {
+      setSelectedAlgorithm("growing-tree");
+      setGrowingTreeControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        startColumn: { randomize: false, value: record.params.startColumn },
+        startRow: { randomize: false, value: record.params.startRow },
+        backtrackChance: { randomize: false, value: record.params.backtrackChance },
+      });
+    }
+
+    setRandomSeed(nextRandomSeed());
   }
 
   return (
@@ -638,6 +951,11 @@ export function GenerateBrowserDialog({
                     controls={backtrackingControls}
                     onUpdate={updateBacktrackingControl}
                   />
+                ) : selectedAlgorithm === "growing-tree" ? (
+                  <GrowingTreeSettingsPanel
+                    controls={growingTreeControls}
+                    onUpdate={updateGrowingTreeControl}
+                  />
                 ) : null}
               </aside>
             ) : null}
@@ -667,7 +985,13 @@ export function GenerateBrowserDialog({
             </div>
 
             <aside className="generateSidebar generateDetailSidebar">
-              <GeneratedRecordDetails record={selectedRecord} onImport={onImport} />
+              <GeneratedRecordDetails
+                record={selectedRecord}
+                starred={selectedRecord ? starredKeys.has(selectedRecord.wallKey) : false}
+                onImport={onImport}
+                onToggleStar={onToggleStar}
+                onMoreLikeThis={applyMoreLikeThis}
+              />
             </aside>
           </div>
         </div>
