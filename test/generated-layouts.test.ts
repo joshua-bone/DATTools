@@ -4,6 +4,8 @@ import {
   createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
+  createDefaultCellularAutomatonControlState,
+  createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
@@ -12,6 +14,7 @@ import {
   createDefaultRandomNoiseControlState,
   createDefaultRecursiveDivisionControlState,
   createDefaultSidewinderControlState,
+  createDefaultTrivialMazeControlState,
   createDefaultWilsonsControlState,
   generateLayoutRecords,
   recordsFromStarredKeys,
@@ -47,7 +50,10 @@ describe("generated layouts", () => {
           record.algorithm === "hunt-and-kill" ||
           record.algorithm === "wilsons" ||
           record.algorithm === "aldous-broder" ||
-          record.algorithm === "ellers",
+          record.algorithm === "ellers" ||
+          record.algorithm === "cellular-automaton" ||
+          record.algorithm === "dungeon-rooms" ||
+          record.algorithm === "trivial-maze",
       ),
     ).toBe(true);
   });
@@ -497,6 +503,135 @@ describe("generated layouts", () => {
           record.params.blockSize === "1x2" &&
           record.params.xskew === 0.3 &&
           record.params.yskew === 0.7,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic cellular-automaton layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "cellular-automaton",
+      count: 6,
+      seed: 91919,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "cellular-automaton",
+      count: 6,
+      seed: 91919,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "cellular-automaton")).toBe(true);
+  });
+
+  it("keeps locked cellular-automaton parameters fixed across generated cards", () => {
+    const controls = createDefaultCellularAutomatonControlState();
+    const records = generateLayoutRecords({
+      algorithm: "cellular-automaton",
+      count: 6,
+      seed: 62626,
+      cellularAutomatonControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "2x2" },
+        complexity: { randomize: false, value: 0.45 },
+        density: { randomize: false, value: 0.7 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "cellular-automaton" &&
+          record.params.blockSize === "2x2" &&
+          record.params.complexity === 0.45 &&
+          record.params.density === 0.7,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic dungeon-rooms layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "dungeon-rooms",
+      count: 6,
+      seed: 71717,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "dungeon-rooms",
+      count: 6,
+      seed: 71717,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "dungeon-rooms")).toBe(true);
+  });
+
+  it("keeps locked dungeon-rooms parameters fixed across generated cards", () => {
+    const controls = createDefaultDungeonRoomsControlState();
+    const records = generateLayoutRecords({
+      algorithm: "dungeon-rooms",
+      count: 6,
+      seed: 81818,
+      dungeonRoomsControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "1x2" },
+        huntOrder: { randomize: false, value: "serpentine" },
+        roomCount: { randomize: false, value: 2 },
+        roomSize: { randomize: false, value: 3 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "dungeon-rooms" &&
+          record.params.blockSize === "1x2" &&
+          record.params.huntOrder === "serpentine" &&
+          record.params.roomCount === 2 &&
+          record.params.roomSize === 3,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic trivial-maze layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "trivial-maze",
+      count: 6,
+      seed: 92929,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "trivial-maze",
+      count: 6,
+      seed: 92929,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "trivial-maze")).toBe(true);
+  });
+
+  it("keeps locked trivial-maze parameters fixed across generated cards", () => {
+    const controls = createDefaultTrivialMazeControlState();
+    const records = generateLayoutRecords({
+      algorithm: "trivial-maze",
+      count: 6,
+      seed: 30303,
+      trivialMazeControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "2x1" },
+        mazeType: { randomize: false, value: "serpentine" },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "trivial-maze" &&
+          record.params.blockSize === "2x1" &&
+          record.params.mazeType === "serpentine",
       ),
     ).toBe(true);
   });

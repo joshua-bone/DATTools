@@ -32,6 +32,16 @@ export const GROWING_TREE_BACKTRACK_CHANCE_STEP = 0.05;
 export const SIDEWINDER_SKEW_MIN = 0;
 export const SIDEWINDER_SKEW_MAX = 1;
 export const SIDEWINDER_SKEW_STEP = 0.05;
+export const CELLULAR_AUTOMATON_COMPLEXITY_MIN = 0.1;
+export const CELLULAR_AUTOMATON_COMPLEXITY_MAX = 1;
+export const CELLULAR_AUTOMATON_COMPLEXITY_STEP = 0.05;
+export const CELLULAR_AUTOMATON_DENSITY_MIN = 0.1;
+export const CELLULAR_AUTOMATON_DENSITY_MAX = 1;
+export const CELLULAR_AUTOMATON_DENSITY_STEP = 0.05;
+export const DUNGEON_ROOM_COUNT_MIN = 1;
+export const DUNGEON_ROOM_COUNT_MAX = 6;
+export const DUNGEON_ROOM_SIZE_MIN = 1;
+export const DUNGEON_ROOM_SIZE_MAX = 5;
 
 export type GenerateAlgorithmId =
   | "random-noise"
@@ -45,13 +55,17 @@ export type GenerateAlgorithmId =
   | "hunt-and-kill"
   | "wilsons"
   | "aldous-broder"
-  | "ellers";
+  | "ellers"
+  | "cellular-automaton"
+  | "dungeon-rooms"
+  | "trivial-maze";
 export type GenerateAlgorithmChoice = GenerateAlgorithmId | "any";
 export type GenerateRecordAlgorithm = GenerateAlgorithmId | "starred";
 export type RandomNoiseMirrorMode = "none" | "horizontal" | "vertical" | "quad";
 export type MazeBlockSize = (typeof MAZE_BLOCK_SIZE_OPTIONS)[number]["value"];
 export type BinaryTreeSkew = "NW" | "NE" | "SW" | "SE";
 export type HuntOrder = "random" | "serpentine";
+export type TrivialMazeType = "spiral" | "serpentine";
 
 export type RandomizableValue<T> = Readonly<{
   randomize: boolean;
@@ -109,6 +123,24 @@ export type EllersParameters = Readonly<{
   xskew: number;
   yskew: number;
 }>;
+export type CellularAutomatonParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+  complexity: number;
+  density: number;
+}>;
+export type DungeonRoomsParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+  huntOrder: HuntOrder;
+  roomCount: number;
+  roomSize: number;
+}>;
+export type TrivialMazeParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+  mazeType: TrivialMazeType;
+}>;
 
 export type GrowingTreeParameters = MazeAlgorithmParameters &
   Readonly<{
@@ -165,6 +197,21 @@ export type EllersControlState = MazeSeedBlockControlState &
     xskew: RandomizableValue<number>;
     yskew: RandomizableValue<number>;
   }>;
+export type CellularAutomatonControlState = MazeSeedBlockControlState &
+  Readonly<{
+    complexity: RandomizableValue<number>;
+    density: RandomizableValue<number>;
+  }>;
+export type DungeonRoomsControlState = MazeSeedBlockControlState &
+  Readonly<{
+    huntOrder: RandomizableValue<HuntOrder>;
+    roomCount: RandomizableValue<number>;
+    roomSize: RandomizableValue<number>;
+  }>;
+export type TrivialMazeControlState = MazeSeedBlockControlState &
+  Readonly<{
+    mazeType: RandomizableValue<TrivialMazeType>;
+  }>;
 
 export type GrowingTreeControlState = MazeBaseControlState &
   Readonly<{
@@ -186,6 +233,9 @@ type BaseGeneratedLayoutRecord<
     | WilsonsParameters
     | AldousBroderParameters
     | EllersParameters
+    | CellularAutomatonParameters
+    | DungeonRoomsParameters
+    | TrivialMazeParameters
     | GrowingTreeParameters
     | RecursiveDivisionParameters
     | null,
@@ -234,6 +284,18 @@ export type AldousBroderGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   AldousBroderParameters
 >;
 export type EllersGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"ellers", EllersParameters>;
+export type CellularAutomatonGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "cellular-automaton",
+  CellularAutomatonParameters
+>;
+export type DungeonRoomsGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "dungeon-rooms",
+  DungeonRoomsParameters
+>;
+export type TrivialMazeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "trivial-maze",
+  TrivialMazeParameters
+>;
 
 export type GrowingTreeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "growing-tree",
@@ -258,6 +320,9 @@ export type GeneratedLayoutRecord =
   | WilsonsGeneratedLayoutRecord
   | AldousBroderGeneratedLayoutRecord
   | EllersGeneratedLayoutRecord
+  | CellularAutomatonGeneratedLayoutRecord
+  | DungeonRoomsGeneratedLayoutRecord
+  | TrivialMazeGeneratedLayoutRecord
   | GrowingTreeGeneratedLayoutRecord
   | RecursiveDivisionGeneratedLayoutRecord
   | StarredGeneratedLayoutRecord;
@@ -278,6 +343,9 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "wilsons", label: "Wilson's" },
   { value: "aldous-broder", label: "Aldous-Broder" },
   { value: "ellers", label: "Eller's" },
+  { value: "cellular-automaton", label: "Cellular Automaton" },
+  { value: "dungeon-rooms", label: "Dungeon Rooms" },
+  { value: "trivial-maze", label: "Trivial Maze" },
 ];
 
 const RANDOM_NOISE_LABEL = "Random Noise";
@@ -290,6 +358,9 @@ const HUNT_AND_KILL_LABEL = "Hunt-and-Kill";
 const WILSONS_LABEL = "Wilson's";
 const ALDOUS_BRODER_LABEL = "Aldous-Broder";
 const ELLERS_LABEL = "Eller's";
+const CELLULAR_AUTOMATON_LABEL = "Cellular Automaton";
+const DUNGEON_ROOMS_LABEL = "Dungeon Rooms";
+const TRIVIAL_MAZE_LABEL = "Trivial Maze";
 const GROWING_TREE_LABEL = "Growing Tree";
 const RECURSIVE_DIVISION_LABEL = "Recursive Division";
 const GENERATED_LAYOUT_MIN_WALL_COUNT = 24;
@@ -307,6 +378,9 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "wilsons",
   "aldous-broder",
   "ellers",
+  "cellular-automaton",
+  "dungeon-rooms",
+  "trivial-maze",
 ];
 const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = [
   "1x1",
@@ -319,8 +393,13 @@ const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = [
 const GROWING_TREE_BACKTRACK_CHANCE_VALUES = [0, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
 const SIDEWINDER_SKEW_VALUES = [0.15, 0.3, 0.5, 0.7, 0.85];
 const ELLERS_SKEW_VALUES = [0.15, 0.3, 0.5, 0.7, 0.85];
+const CELLULAR_AUTOMATON_COMPLEXITY_VALUES = [0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1];
+const CELLULAR_AUTOMATON_DENSITY_VALUES = [0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1];
+const DUNGEON_ROOM_COUNT_VALUES = [1, 2, 3, 4, 5, 6];
+const DUNGEON_ROOM_SIZE_VALUES = [1, 2, 3, 4, 5];
 export const BINARY_TREE_SKEW_OPTIONS: ReadonlyArray<BinaryTreeSkew> = ["NW", "NE", "SW", "SE"];
 export const HUNT_ORDER_OPTIONS: ReadonlyArray<HuntOrder> = ["random", "serpentine"];
+export const TRIVIAL_MAZE_TYPE_OPTIONS: ReadonlyArray<TrivialMazeType> = ["spiral", "serpentine"];
 
 export function randomSeedFromClock(): number {
   return Date.now() & 0x7fffffff;
@@ -355,6 +434,9 @@ export function generateLayoutRecords(
     wilsonsControls?: WilsonsControlState | null;
     aldousBroderControls?: AldousBroderControlState | null;
     ellersControls?: EllersControlState | null;
+    cellularAutomatonControls?: CellularAutomatonControlState | null;
+    dungeonRoomsControls?: DungeonRoomsControlState | null;
+    trivialMazeControls?: TrivialMazeControlState | null;
     growingTreeControls?: GrowingTreeControlState | null;
     recursiveDivisionControls?: RecursiveDivisionControlState | null;
   }>,
@@ -378,6 +460,9 @@ export function generateLayoutRecords(
       wilsonsControls: options.wilsonsControls ?? null,
       aldousBroderControls: options.aldousBroderControls ?? null,
       ellersControls: options.ellersControls ?? null,
+      cellularAutomatonControls: options.cellularAutomatonControls ?? null,
+      dungeonRoomsControls: options.dungeonRoomsControls ?? null,
+      trivialMazeControls: options.trivialMazeControls ?? null,
       growingTreeControls: options.growingTreeControls ?? null,
       recursiveDivisionControls: options.recursiveDivisionControls ?? null,
     });
@@ -477,6 +562,33 @@ export function createDefaultEllersControlState(): EllersControlState {
   };
 }
 
+export function createDefaultCellularAutomatonControlState(): CellularAutomatonControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    complexity: { randomize: true, value: 0.75 },
+    density: { randomize: true, value: 0.6 },
+  };
+}
+
+export function createDefaultDungeonRoomsControlState(): DungeonRoomsControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    huntOrder: { randomize: true, value: "random" },
+    roomCount: { randomize: true, value: 3 },
+    roomSize: { randomize: true, value: 3 },
+  };
+}
+
+export function createDefaultTrivialMazeControlState(): TrivialMazeControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    mazeType: { randomize: true, value: "spiral" },
+  };
+}
+
 export function createDefaultGrowingTreeControlState(): GrowingTreeControlState {
   return {
     seed: { randomize: true, value: 1 },
@@ -516,6 +628,9 @@ function generateRecordForAlgorithm(
     wilsonsControls: WilsonsControlState | null;
     aldousBroderControls: AldousBroderControlState | null;
     ellersControls: EllersControlState | null;
+    cellularAutomatonControls: CellularAutomatonControlState | null;
+    dungeonRoomsControls: DungeonRoomsControlState | null;
+    trivialMazeControls: TrivialMazeControlState | null;
     growingTreeControls: GrowingTreeControlState | null;
     recursiveDivisionControls: RecursiveDivisionControlState | null;
   }>,
@@ -541,6 +656,12 @@ function generateRecordForAlgorithm(
       return buildAldousBroderRecord(rng, controls.aldousBroderControls);
     case "ellers":
       return buildEllersRecord(rng, controls.ellersControls);
+    case "cellular-automaton":
+      return buildCellularAutomatonRecord(rng, controls.cellularAutomatonControls);
+    case "dungeon-rooms":
+      return buildDungeonRoomsRecord(rng, controls.dungeonRoomsControls);
+    case "trivial-maze":
+      return buildTrivialMazeRecord(rng, controls.trivialMazeControls);
     case "growing-tree":
       return buildGrowingTreeRecord(rng, controls.growingTreeControls);
     case "recursive-division":
@@ -752,6 +873,89 @@ function buildEllersRecord(
   };
 }
 
+function buildCellularAutomatonRecord(
+  rng: () => number,
+  controls: CellularAutomatonControlState | null,
+): CellularAutomatonGeneratedLayoutRecord {
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const params = randomizeCellularAutomatonParameters(
+      rng,
+      controls ?? createDefaultCellularAutomatonControlState(),
+    );
+    const bytes = buildCellularAutomatonMaskBytes(params, createSeededRandom(params.seed));
+    const wallCount = countSetBits(bytes);
+    if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
+      continue;
+
+    return {
+      wallKey: wallMaskKeyFromBytes(bytes),
+      algorithm: "cellular-automaton",
+      title: CELLULAR_AUTOMATON_LABEL,
+      summary: buildCellularAutomatonSummary(params),
+      seedLabel: `Seed ${params.seed}`,
+      params,
+    };
+  }
+
+  const fallback = {
+    seed: 1,
+    blockSize: "1x1",
+    complexity: 0.75,
+    density: 0.6,
+  } satisfies CellularAutomatonParameters;
+
+  return {
+    wallKey: wallMaskKeyFromBytes(
+      buildCellularAutomatonMaskBytes(fallback, createSeededRandom(fallback.seed)),
+    ),
+    algorithm: "cellular-automaton",
+    title: CELLULAR_AUTOMATON_LABEL,
+    summary: buildCellularAutomatonSummary(fallback),
+    seedLabel: `Seed ${fallback.seed}`,
+    params: fallback,
+  };
+}
+
+function buildDungeonRoomsRecord(
+  rng: () => number,
+  controls: DungeonRoomsControlState | null,
+): DungeonRoomsGeneratedLayoutRecord {
+  const params = randomizeDungeonRoomsParameters(
+    rng,
+    controls ?? createDefaultDungeonRoomsControlState(),
+  );
+  return {
+    wallKey: wallMaskKeyFromBytes(
+      buildDungeonRoomsMaskBytes(params, createSeededRandom(params.seed)),
+    ),
+    algorithm: "dungeon-rooms",
+    title: DUNGEON_ROOMS_LABEL,
+    summary: buildDungeonRoomsSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildTrivialMazeRecord(
+  rng: () => number,
+  controls: TrivialMazeControlState | null,
+): TrivialMazeGeneratedLayoutRecord {
+  const params = randomizeTrivialMazeParameters(
+    rng,
+    controls ?? createDefaultTrivialMazeControlState(),
+  );
+  return {
+    wallKey: wallMaskKeyFromBytes(
+      buildTrivialMazeMaskBytes(params, createSeededRandom(params.seed)),
+    ),
+    algorithm: "trivial-maze",
+    title: TRIVIAL_MAZE_LABEL,
+    summary: buildTrivialMazeSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
 function buildGrowingTreeRecord(
   rng: () => number,
   controls: GrowingTreeControlState | null,
@@ -951,6 +1155,87 @@ function randomizeEllersParameters(
       defaults.yskew,
       () => sampleOne(rng, ELLERS_SKEW_VALUES),
       (value) => clamp(value, SIDEWINDER_SKEW_MIN, SIDEWINDER_SKEW_MAX),
+    ),
+  };
+}
+
+function randomizeCellularAutomatonParameters(
+  rng: () => number,
+  defaults: CellularAutomatonControlState,
+): CellularAutomatonParameters {
+  const base = randomizeMazeSeedBlockParameters(rng, defaults);
+  return {
+    ...base,
+    complexity: resolveRandomizableValue(
+      defaults.complexity,
+      () => sampleOne(rng, CELLULAR_AUTOMATON_COMPLEXITY_VALUES),
+      (value) =>
+        normalizeSteppedValue(
+          value,
+          CELLULAR_AUTOMATON_COMPLEXITY_STEP,
+          CELLULAR_AUTOMATON_COMPLEXITY_MIN,
+          CELLULAR_AUTOMATON_COMPLEXITY_MAX,
+        ),
+    ),
+    density: resolveRandomizableValue(
+      defaults.density,
+      () => sampleOne(rng, CELLULAR_AUTOMATON_DENSITY_VALUES),
+      (value) =>
+        normalizeSteppedValue(
+          value,
+          CELLULAR_AUTOMATON_DENSITY_STEP,
+          CELLULAR_AUTOMATON_DENSITY_MIN,
+          CELLULAR_AUTOMATON_DENSITY_MAX,
+        ),
+    ),
+  };
+}
+
+function randomizeDungeonRoomsParameters(
+  rng: () => number,
+  defaults: DungeonRoomsControlState,
+): DungeonRoomsParameters {
+  const base = randomizeMazeSeedBlockParameters(rng, defaults);
+  const limits = dungeonRoomParameterLimits(base.blockSize);
+  return {
+    ...base,
+    huntOrder: resolveRandomizableValue(
+      defaults.huntOrder,
+      () => sampleOne(rng, HUNT_ORDER_OPTIONS),
+      sanitizeHuntOrder,
+    ),
+    roomCount: resolveRandomizableValue(
+      defaults.roomCount,
+      () =>
+        sampleOne(
+          rng,
+          DUNGEON_ROOM_COUNT_VALUES.filter((value) => value <= limits.roomCountMax),
+        ),
+      (value) => clamp(Math.round(value), DUNGEON_ROOM_COUNT_MIN, limits.roomCountMax),
+    ),
+    roomSize: resolveRandomizableValue(
+      defaults.roomSize,
+      () =>
+        sampleOne(
+          rng,
+          DUNGEON_ROOM_SIZE_VALUES.filter((value) => value <= limits.roomSizeMax),
+        ),
+      (value) => clamp(Math.round(value), DUNGEON_ROOM_SIZE_MIN, limits.roomSizeMax),
+    ),
+  };
+}
+
+function randomizeTrivialMazeParameters(
+  rng: () => number,
+  defaults: TrivialMazeControlState,
+): TrivialMazeParameters {
+  const base = randomizeMazeSeedBlockParameters(rng, defaults);
+  return {
+    ...base,
+    mazeType: resolveRandomizableValue(
+      defaults.mazeType,
+      () => sampleOne(rng, TRIVIAL_MAZE_TYPE_OPTIONS),
+      sanitizeTrivialMazeType,
     ),
   };
 }
@@ -1377,6 +1662,151 @@ function buildEllersMaskBytes(params: EllersParameters, rng: () => number): Uint
   return wallsToMaskBytes(walls);
 }
 
+function buildCellularAutomatonMaskBytes(
+  params: CellularAutomatonParameters,
+  rng: () => number,
+): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const { grid, width, height } = createSourceMazeGrid(metrics, 0);
+  const logicalDensity = Math.max(1, Math.round(params.density * (metrics.columns * metrics.rows)));
+  const logicalComplexity = Math.max(
+    1,
+    Math.round(params.complexity * (metrics.columns + metrics.rows)),
+  );
+
+  for (let x = 0; x < width; x++) {
+    setSourceGridValue(grid, width, x, 0, 1);
+    setSourceGridValue(grid, width, x, height - 1, 1);
+  }
+  for (let y = 0; y < height; y++) {
+    setSourceGridValue(grid, width, 0, y, 1);
+    setSourceGridValue(grid, width, width - 1, y, 1);
+  }
+
+  for (let index = 0; index < logicalDensity * 2; index++) {
+    let current =
+      index < logicalDensity
+        ? randomBoundarySourcePoint(width, height, rng)
+        : randomEvenSourcePoint(width, height, rng);
+    setSourceGridValue(grid, width, current.x, current.y, 1);
+
+    for (let step = 0; step < logicalComplexity; step++) {
+      const wallNeighbors = listSourceGridNeighbors(current.x, current.y, grid, width, height, 1);
+      if (wallNeighbors.length === 0 || wallNeighbors.length >= 4) continue;
+
+      const openNeighbors = listSourceGridNeighbors(current.x, current.y, grid, width, height, 0);
+      if (openNeighbors.length === 0) continue;
+
+      const next = sampleOne(rng, openNeighbors);
+      if (sourceGridValue(grid, width, next.x, next.y) !== 0) continue;
+      setSourceGridValue(grid, width, next.x, next.y, 1);
+      setSourceGridValue(
+        grid,
+        width,
+        current.x + Math.trunc((next.x - current.x) / 2),
+        current.y + Math.trunc((next.y - current.y) / 2),
+        1,
+      );
+      current = next;
+    }
+  }
+
+  return sourceGridToMaskBytes(grid, metrics);
+}
+
+function buildDungeonRoomsMaskBytes(params: DungeonRoomsParameters, rng: () => number): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const { grid, width, height } = createSourceMazeGrid(metrics, 1);
+  const rooms = placeDungeonRooms(metrics, params.roomCount, params.roomSize, rng);
+
+  for (const room of rooms) {
+    carveDungeonRoom(grid, width, height, room);
+    carveDungeonDoor(grid, width, height, room, rng);
+  }
+
+  let current = chooseDungeonStartCell(grid, width, height, rng);
+  if (current) {
+    setSourceGridValue(grid, width, current.x, current.y, 0);
+  } else {
+    current = huntSourceOpenCellWithWalls(params.huntOrder, grid, width, height, rng);
+  }
+
+  while (current) {
+    current = walkDungeonSourceGrid(current, grid, width, height, rng);
+    current = huntSourceOpenCellWithWalls(params.huntOrder, grid, width, height, rng);
+  }
+
+  reconnectDungeonSourceGrid(grid, width, height, rng);
+  return sourceGridToMaskBytes(grid, metrics);
+}
+
+function buildTrivialMazeMaskBytes(params: TrivialMazeParameters, rng: () => number): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const { grid, width, height } = createSourceMazeGrid(metrics, 1);
+
+  if (params.mazeType === "serpentine") {
+    const verticalSkew = rng() < 0.5;
+    if (verticalSkew) {
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x += 2) {
+          setSourceGridValue(grid, width, x, y, 0);
+        }
+      }
+      for (let x = 2; x < width - 1; x += 4) setSourceGridValue(grid, width, x, 1, 0);
+      for (let x = 4; x < width - 1; x += 4) setSourceGridValue(grid, width, x, height - 2, 0);
+    } else {
+      for (let y = 1; y < height - 1; y += 2) {
+        for (let x = 1; x < width - 1; x++) {
+          setSourceGridValue(grid, width, x, y, 0);
+        }
+      }
+      for (let y = 2; y < height - 1; y += 4) setSourceGridValue(grid, width, 1, y, 0);
+      for (let y = 4; y < height - 1; y += 4) setSourceGridValue(grid, width, width - 2, y, 0);
+    }
+  } else {
+    const clockwise = rng() < 0.5;
+    const directions = clockwise
+      ? [
+          { x: 0, y: -2 },
+          { x: 2, y: 0 },
+          { x: 0, y: 2 },
+          { x: -2, y: 0 },
+        ]
+      : [
+          { x: -2, y: 0 },
+          { x: 0, y: 2 },
+          { x: 2, y: 0 },
+          { x: 0, y: -2 },
+        ];
+
+    let current = { x: 1, y: 1 };
+    let directionIndex = 0;
+    setSourceGridValue(grid, width, current.x, current.y, 0);
+
+    while (true) {
+      const next = {
+        x: current.x + directions[directionIndex]!.x,
+        y: current.y + directions[directionIndex]!.y,
+      };
+      const wallNeighbors = listSourceGridNeighbors(current.x, current.y, grid, width, height, 1);
+      if (wallNeighbors.some((candidate) => candidate.x === next.x && candidate.y === next.y)) {
+        openSourcePassage(grid, width, current, next);
+        current = next;
+      } else if (wallNeighbors.length === 0) {
+        break;
+      } else {
+        directionIndex = (directionIndex + 1) % directions.length;
+      }
+    }
+  }
+
+  if (rng() < 0.5) flipSourceGridHorizontally(grid, width, height);
+  if (rng() < 0.5) flipSourceGridVertically(grid, width, height);
+  openRandomSourceBoundary(grid, width, height, rng);
+
+  return sourceGridToMaskBytes(grid, metrics);
+}
+
 function buildRecursiveDivisionMaskBytes(
   params: RecursiveDivisionParameters,
   rng: () => number,
@@ -1552,6 +1982,27 @@ function buildEllersSummary(params: EllersParameters): string {
     `${Math.round(params.xskew * 100)}% horizontal merge`,
     `${Math.round(params.yskew * 100)}% extra drops`,
   ].join(" • ");
+}
+
+function buildCellularAutomatonSummary(params: CellularAutomatonParameters): string {
+  return [
+    `${params.blockSize} blocks`,
+    `${Math.round(params.complexity * 100)}% complexity`,
+    `${Math.round(params.density * 100)}% density`,
+  ].join(" • ");
+}
+
+function buildDungeonRoomsSummary(params: DungeonRoomsParameters): string {
+  return [
+    `${params.blockSize} blocks`,
+    `${params.roomCount} rooms`,
+    `up to ${params.roomSize}x${params.roomSize}`,
+    `${params.huntOrder} hunt`,
+  ].join(" • ");
+}
+
+function buildTrivialMazeSummary(params: TrivialMazeParameters): string {
+  return `${params.blockSize} blocks • ${params.mazeType}`;
 }
 
 function buildGrowingTreeSummary(params: GrowingTreeParameters): string {
@@ -1750,6 +2201,26 @@ function sanitizeHuntOrder(value: HuntOrder): HuntOrder {
   return HUNT_ORDER_OPTIONS.includes(value) ? value : "random";
 }
 
+function sanitizeTrivialMazeType(value: TrivialMazeType): TrivialMazeType {
+  return TRIVIAL_MAZE_TYPE_OPTIONS.includes(value) ? value : "spiral";
+}
+
+export function dungeonRoomParameterLimits(
+  blockSize: MazeBlockSize,
+): Readonly<{ roomCountMax: number; roomSizeMax: number }> {
+  const dims = mazeGridDimensionsForBlockSize(blockSize);
+  return {
+    roomCountMax: Math.max(
+      DUNGEON_ROOM_COUNT_MIN,
+      Math.min(DUNGEON_ROOM_COUNT_MAX, Math.max(1, Math.floor((dims.columns * dims.rows) / 16))),
+    ),
+    roomSizeMax: Math.max(
+      DUNGEON_ROOM_SIZE_MIN,
+      Math.min(DUNGEON_ROOM_SIZE_MAX, dims.columns, dims.rows),
+    ),
+  };
+}
+
 function resolveBinaryTreeDirectionOffsets(
   skew: BinaryTreeSkew,
 ): ReadonlyArray<Readonly<{ x: number; y: number }>> {
@@ -1861,6 +2332,423 @@ function mergeEllersRowSets(
   }
 }
 
+function createSourceMazeGrid(
+  metrics: Readonly<{ columns: number; rows: number }>,
+  fillValue: 0 | 1,
+): Readonly<{ grid: Uint8Array; width: number; height: number }> {
+  const width = metrics.columns * 2 + 1;
+  const height = metrics.rows * 2 + 1;
+  const grid = new Uint8Array(width * height);
+  if (fillValue === 1) grid.fill(1);
+  return { grid, width, height };
+}
+
+function sourceGridIndex(width: number, x: number, y: number): number {
+  return y * width + x;
+}
+
+function sourceGridValue(grid: Uint8Array, width: number, x: number, y: number): number {
+  return grid[sourceGridIndex(width, x, y)] ?? 0;
+}
+
+function setSourceGridValue(
+  grid: Uint8Array,
+  width: number,
+  x: number,
+  y: number,
+  value: 0 | 1,
+): void {
+  grid[sourceGridIndex(width, x, y)] = value;
+}
+
+function listSourceGridNeighbors(
+  x: number,
+  y: number,
+  grid: Uint8Array,
+  width: number,
+  height: number,
+  targetValue: 0 | 1,
+): Array<Readonly<{ x: number; y: number }>> {
+  return [
+    { x: x + 2, y },
+    { x: x - 2, y },
+    { x, y: y + 2 },
+    { x, y: y - 2 },
+  ].filter(
+    (candidate) =>
+      candidate.x >= 0 &&
+      candidate.x < width &&
+      candidate.y >= 0 &&
+      candidate.y < height &&
+      sourceGridValue(grid, width, candidate.x, candidate.y) === targetValue,
+  );
+}
+
+function openSourcePassage(
+  grid: Uint8Array,
+  width: number,
+  from: Readonly<{ x: number; y: number }>,
+  to: Readonly<{ x: number; y: number }>,
+): void {
+  setSourceGridValue(grid, width, from.x, from.y, 0);
+  setSourceGridValue(grid, width, (from.x + to.x) / 2, (from.y + to.y) / 2, 0);
+  setSourceGridValue(grid, width, to.x, to.y, 0);
+}
+
+function randomEvenSourcePoint(
+  width: number,
+  height: number,
+  rng: () => number,
+): Readonly<{ x: number; y: number }> {
+  return {
+    x: randomInt(rng, 0, Math.floor((width - 1) / 2)) * 2,
+    y: randomInt(rng, 0, Math.floor((height - 1) / 2)) * 2,
+  };
+}
+
+function randomBoundarySourcePoint(
+  width: number,
+  height: number,
+  rng: () => number,
+): Readonly<{ x: number; y: number }> {
+  if (rng() < 0.5) {
+    return {
+      x: randomInt(rng, 0, Math.floor((width - 1) / 2)) * 2,
+      y: rng() < 0.5 ? 0 : height - 1,
+    };
+  }
+
+  return {
+    x: rng() < 0.5 ? 0 : width - 1,
+    y: randomInt(rng, 0, Math.floor((height - 1) / 2)) * 2,
+  };
+}
+
+function sourceGridToMaskBytes(
+  sourceGrid: Uint8Array,
+  metrics: Readonly<{ blockWidth: number; blockHeight: number; columns: number; rows: number }>,
+): Uint8Array {
+  const walls = createFilledMazeWalls();
+  const width = metrics.columns * 2 + 1;
+  const height = metrics.rows * 2 + 1;
+
+  for (let sourceY = 0; sourceY < height; sourceY++) {
+    for (let sourceX = 0; sourceX < width; sourceX++) {
+      if (sourceGridValue(sourceGrid, width, sourceX, sourceY) !== 0) continue;
+      const rect = sourceGridRect(metrics, sourceX, sourceY);
+      carveRect(walls, rect.x, rect.y, rect.width, rect.height);
+    }
+  }
+
+  return wallsToMaskBytes(walls);
+}
+
+function sourceGridRect(
+  metrics: Readonly<{ blockWidth: number; blockHeight: number }>,
+  sourceX: number,
+  sourceY: number,
+): Readonly<{ x: number; y: number; width: number; height: number }> {
+  return {
+    x:
+      sourceX % 2 === 0
+        ? (sourceX / 2) * (metrics.blockWidth + 1)
+        : Math.floor(sourceX / 2) * (metrics.blockWidth + 1) + 1,
+    y:
+      sourceY % 2 === 0
+        ? (sourceY / 2) * (metrics.blockHeight + 1)
+        : Math.floor(sourceY / 2) * (metrics.blockHeight + 1) + 1,
+    width: sourceX % 2 === 0 ? 1 : metrics.blockWidth,
+    height: sourceY % 2 === 0 ? 1 : metrics.blockHeight,
+  };
+}
+
+type DungeonRoomPlacement = Readonly<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
+function placeDungeonRooms(
+  metrics: Readonly<{ columns: number; rows: number }>,
+  targetRoomCount: number,
+  targetRoomSize: number,
+  rng: () => number,
+): DungeonRoomPlacement[] {
+  const roomCountMax = Math.max(
+    DUNGEON_ROOM_COUNT_MIN,
+    Math.min(
+      DUNGEON_ROOM_COUNT_MAX,
+      Math.max(1, Math.floor((metrics.columns * metrics.rows) / 16)),
+    ),
+  );
+  const roomSizeMax = Math.max(
+    DUNGEON_ROOM_SIZE_MIN,
+    Math.min(DUNGEON_ROOM_SIZE_MAX, metrics.columns, metrics.rows),
+  );
+  const roomCount = clamp(Math.round(targetRoomCount), DUNGEON_ROOM_COUNT_MIN, roomCountMax);
+  const roomSize = clamp(Math.round(targetRoomSize), DUNGEON_ROOM_SIZE_MIN, roomSizeMax);
+  const rooms: DungeonRoomPlacement[] = [];
+
+  for (let attempt = 0; attempt < roomCount * 24 && rooms.length < roomCount; attempt++) {
+    const width = randomInt(rng, 1, Math.min(roomSize, metrics.columns));
+    const height = randomInt(rng, 1, Math.min(roomSize, metrics.rows));
+    const x = randomInt(rng, 0, metrics.columns - width);
+    const y = randomInt(rng, 0, metrics.rows - height);
+    const room = { x, y, width, height } satisfies DungeonRoomPlacement;
+    if (rooms.some((existing) => dungeonRoomsOverlap(existing, room))) continue;
+    rooms.push(room);
+  }
+
+  return rooms;
+}
+
+function dungeonRoomsOverlap(a: DungeonRoomPlacement, b: DungeonRoomPlacement): boolean {
+  return !(
+    a.x + a.width + 1 <= b.x ||
+    b.x + b.width + 1 <= a.x ||
+    a.y + a.height + 1 <= b.y ||
+    b.y + b.height + 1 <= a.y
+  );
+}
+
+function carveDungeonRoom(
+  grid: Uint8Array,
+  width: number,
+  height: number,
+  room: DungeonRoomPlacement,
+): void {
+  const left = room.x * 2 + 1;
+  const top = room.y * 2 + 1;
+  const right = left + (room.width - 1) * 2;
+  const bottom = top + (room.height - 1) * 2;
+
+  for (let y = top; y <= bottom; y++) {
+    for (let x = left; x <= right; x++) {
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      setSourceGridValue(grid, width, x, y, 0);
+    }
+  }
+}
+
+function carveDungeonDoor(
+  grid: Uint8Array,
+  width: number,
+  height: number,
+  room: DungeonRoomPlacement,
+  rng: () => number,
+): void {
+  const left = room.x * 2 + 1;
+  const top = room.y * 2 + 1;
+  const right = left + (room.width - 1) * 2;
+  const bottom = top + (room.height - 1) * 2;
+  const possibleDoors: Array<Readonly<{ x: number; y: number }>> = [];
+
+  if (top > 1) {
+    for (let x = left; x <= right; x += 2) possibleDoors.push({ x, y: top - 1 });
+  }
+  if (left > 1) {
+    for (let y = top; y <= bottom; y += 2) possibleDoors.push({ x: left - 1, y });
+  }
+  if (bottom < height - 2) {
+    for (let x = left; x <= right; x += 2) possibleDoors.push({ x, y: bottom + 1 });
+  }
+  if (right < width - 2) {
+    for (let y = top; y <= bottom; y += 2) possibleDoors.push({ x: right + 1, y });
+  }
+
+  if (possibleDoors.length === 0) return;
+  const door = sampleOne(rng, possibleDoors);
+  setSourceGridValue(grid, width, door.x, door.y, 0);
+}
+
+function chooseDungeonStartCell(
+  grid: Uint8Array,
+  width: number,
+  height: number,
+  rng: () => number,
+): Readonly<{ x: number; y: number }> | null {
+  const candidates = listSourceOddCellsMatching(grid, width, height, (x, y) => {
+    return sourceGridValue(grid, width, x, y) === 1;
+  });
+  return candidates.length > 0 ? sampleOne(rng, candidates) : null;
+}
+
+function walkDungeonSourceGrid(
+  start: Readonly<{ x: number; y: number }>,
+  grid: Uint8Array,
+  width: number,
+  height: number,
+  rng: () => number,
+): Readonly<{ x: number; y: number }> {
+  let current = start;
+  while (true) {
+    const wallNeighbors = listSourceGridNeighbors(current.x, current.y, grid, width, height, 1);
+    if (wallNeighbors.length === 0) return current;
+    const next = sampleOne(rng, wallNeighbors);
+    openSourcePassage(grid, width, current, next);
+    current = next;
+  }
+}
+
+function huntSourceOpenCellWithWalls(
+  huntOrder: HuntOrder,
+  grid: Uint8Array,
+  width: number,
+  height: number,
+  rng: () => number,
+): Readonly<{ x: number; y: number }> | null {
+  const predicate = (x: number, y: number): boolean =>
+    sourceGridValue(grid, width, x, y) === 0 &&
+    listSourceGridNeighbors(x, y, grid, width, height, 1).length > 0;
+
+  if (huntOrder === "random") {
+    const candidates = listSourceOddCellsMatching(grid, width, height, predicate);
+    return candidates.length > 0 ? sampleOne(rng, candidates) : null;
+  }
+
+  for (let y = 1; y < height; y += 2) {
+    for (let x = 1; x < width; x += 2) {
+      if (predicate(x, y)) return { x, y };
+    }
+  }
+
+  return null;
+}
+
+function listSourceOddCellsMatching(
+  grid: Uint8Array,
+  width: number,
+  height: number,
+  predicate: (x: number, y: number) => boolean,
+): Array<Readonly<{ x: number; y: number }>> {
+  const matches: Array<Readonly<{ x: number; y: number }>> = [];
+  for (let y = 1; y < height; y += 2) {
+    for (let x = 1; x < width; x += 2) {
+      if (!predicate(x, y)) continue;
+      matches.push({ x, y });
+    }
+  }
+  return matches;
+}
+
+function reconnectDungeonSourceGrid(
+  grid: Uint8Array,
+  width: number,
+  height: number,
+  rng: () => number,
+): void {
+  while (true) {
+    const componentIds = new Int32Array(width * height);
+    componentIds.fill(-1);
+    let componentCount = 0;
+
+    for (let y = 1; y < height; y += 2) {
+      for (let x = 1; x < width; x += 2) {
+        if (sourceGridValue(grid, width, x, y) !== 0) continue;
+        const startIndex = sourceGridIndex(width, x, y);
+        if (componentIds[startIndex] !== -1) continue;
+
+        const stack = [{ x, y }];
+        componentIds[startIndex] = componentCount;
+
+        while (stack.length > 0) {
+          const current = stack.pop()!;
+          const neighbors = listSourceGridNeighbors(
+            current.x,
+            current.y,
+            grid,
+            width,
+            height,
+            0,
+          ).filter((neighbor) => {
+            const midpointX = (current.x + neighbor.x) / 2;
+            const midpointY = (current.y + neighbor.y) / 2;
+            return sourceGridValue(grid, width, midpointX, midpointY) === 0;
+          });
+
+          for (const neighbor of neighbors) {
+            const neighborIndex = sourceGridIndex(width, neighbor.x, neighbor.y);
+            if (componentIds[neighborIndex] !== -1) continue;
+            componentIds[neighborIndex] = componentCount;
+            stack.push(neighbor);
+          }
+        }
+
+        componentCount += 1;
+      }
+    }
+
+    if (componentCount <= 1) return;
+
+    const candidateDoors: Array<Readonly<{ x: number; y: number }>> = [];
+    for (let y = 1; y < height; y += 2) {
+      for (let x = 1; x < width; x += 2) {
+        if (sourceGridValue(grid, width, x, y) !== 0) continue;
+        const currentId = componentIds[sourceGridIndex(width, x, y)];
+        for (const neighbor of listSourceGridNeighbors(x, y, grid, width, height, 0)) {
+          const neighborId = componentIds[sourceGridIndex(width, neighbor.x, neighbor.y)];
+          if (neighborId === currentId || neighborId === -1 || currentId === -1) continue;
+          const midpoint = { x: (x + neighbor.x) / 2, y: (y + neighbor.y) / 2 };
+          if (sourceGridValue(grid, width, midpoint.x, midpoint.y) !== 1) continue;
+          candidateDoors.push(midpoint);
+        }
+      }
+    }
+
+    if (candidateDoors.length === 0) return;
+    const door = sampleOne(rng, candidateDoors);
+    setSourceGridValue(grid, width, door.x, door.y, 0);
+  }
+}
+
+function flipSourceGridHorizontally(grid: Uint8Array, width: number, height: number): void {
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < Math.floor(width / 2); x++) {
+      const leftIndex = sourceGridIndex(width, x, y);
+      const rightIndex = sourceGridIndex(width, width - 1 - x, y);
+      const current = grid[leftIndex]!;
+      grid[leftIndex] = grid[rightIndex]!;
+      grid[rightIndex] = current;
+    }
+  }
+}
+
+function flipSourceGridVertically(grid: Uint8Array, width: number, height: number): void {
+  for (let y = 0; y < Math.floor(height / 2); y++) {
+    for (let x = 0; x < width; x++) {
+      const topIndex = sourceGridIndex(width, x, y);
+      const bottomIndex = sourceGridIndex(width, x, height - 1 - y);
+      const current = grid[topIndex]!;
+      grid[topIndex] = grid[bottomIndex]!;
+      grid[bottomIndex] = current;
+    }
+  }
+}
+
+function openRandomSourceBoundary(
+  grid: Uint8Array,
+  width: number,
+  height: number,
+  rng: () => number,
+): void {
+  const candidates: Array<Readonly<{ x: number; y: number }>> = [];
+
+  for (let x = 1; x < width - 1; x++) {
+    if (sourceGridValue(grid, width, x, 1) === 0) candidates.push({ x, y: 0 });
+    if (sourceGridValue(grid, width, x, height - 2) === 0) candidates.push({ x, y: height - 1 });
+  }
+
+  for (let y = 1; y < height - 1; y++) {
+    if (sourceGridValue(grid, width, 1, y) === 0) candidates.push({ x: 0, y });
+    if (sourceGridValue(grid, width, width - 2, y) === 0) candidates.push({ x: width - 1, y });
+  }
+
+  if (candidates.length === 0) return;
+  const opening = sampleOne(rng, candidates);
+  setSourceGridValue(grid, width, opening.x, opening.y, 0);
+}
+
 function shuffleInPlace<T>(items: T[], rng: () => number): void {
   for (let index = items.length - 1; index > 0; index--) {
     const swapIndex = randomInt(rng, 0, index);
@@ -1937,6 +2825,10 @@ function randomInt(rng: () => number, min: number, max: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function normalizeSteppedValue(value: number, step: number, min: number, max: number): number {
+  return Number(clamp(Math.round(value / step) * step, min, max).toFixed(2));
 }
 
 function createSeededRandom(seed: number): () => number {

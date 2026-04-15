@@ -3,6 +3,16 @@ import { useEffect, useMemo, useState, type JSX, type SyntheticEvent } from "rea
 import { wallMaskBytesFromKey } from "@/src/dat/wallsBank";
 import {
   BINARY_TREE_SKEW_OPTIONS,
+  CELLULAR_AUTOMATON_COMPLEXITY_MAX,
+  CELLULAR_AUTOMATON_COMPLEXITY_MIN,
+  CELLULAR_AUTOMATON_COMPLEXITY_STEP,
+  CELLULAR_AUTOMATON_DENSITY_MAX,
+  CELLULAR_AUTOMATON_DENSITY_MIN,
+  CELLULAR_AUTOMATON_DENSITY_STEP,
+  DUNGEON_ROOM_COUNT_MAX,
+  DUNGEON_ROOM_COUNT_MIN,
+  DUNGEON_ROOM_SIZE_MAX,
+  DUNGEON_ROOM_SIZE_MIN,
   GENERATE_ALGORITHM_OPTIONS,
   GENERATED_LAYOUT_CARD_COUNT,
   GENERATED_LAYOUT_GRID_SIZE,
@@ -26,6 +36,8 @@ import {
   createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
+  createDefaultCellularAutomatonControlState,
+  createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
@@ -34,7 +46,9 @@ import {
   createDefaultRandomNoiseControlState,
   createDefaultRecursiveDivisionControlState,
   createDefaultSidewinderControlState,
+  createDefaultTrivialMazeControlState,
   createDefaultWilsonsControlState,
+  dungeonRoomParameterLimits,
   generateLayoutRecords,
   mazeGridDimensionsForBlockSize,
   nextRandomSeed,
@@ -44,6 +58,8 @@ import {
   type BacktrackingControlState,
   type BinaryTreeControlState,
   type BinaryTreeSkew,
+  type CellularAutomatonControlState,
+  type DungeonRoomsControlState,
   type EllersControlState,
   type GeneratedLayoutRecord,
   type GenerateAlgorithmChoice,
@@ -57,6 +73,9 @@ import {
   type RandomNoiseMirrorMode,
   type RecursiveDivisionControlState,
   type SidewinderControlState,
+  type TrivialMazeControlState,
+  type TrivialMazeType,
+  TRIVIAL_MAZE_TYPE_OPTIONS,
   type WilsonsControlState,
 } from "@/web/src/generatedLayouts";
 
@@ -177,6 +196,30 @@ type EllersSettingsPanelProps = Readonly<{
   ) => void;
 }>;
 
+type CellularAutomatonSettingsPanelProps = Readonly<{
+  controls: CellularAutomatonControlState;
+  onUpdate: <K extends keyof CellularAutomatonControlState>(
+    key: K,
+    nextValue: Partial<CellularAutomatonControlState[K]>,
+  ) => void;
+}>;
+
+type DungeonRoomsSettingsPanelProps = Readonly<{
+  controls: DungeonRoomsControlState;
+  onUpdate: <K extends keyof DungeonRoomsControlState>(
+    key: K,
+    nextValue: Partial<DungeonRoomsControlState[K]>,
+  ) => void;
+}>;
+
+type TrivialMazeSettingsPanelProps = Readonly<{
+  controls: TrivialMazeControlState;
+  onUpdate: <K extends keyof TrivialMazeControlState>(
+    key: K,
+    nextValue: Partial<TrivialMazeControlState[K]>,
+  ) => void;
+}>;
+
 function stopEvent(event: SyntheticEvent): void {
   event.stopPropagation();
 }
@@ -215,6 +258,15 @@ function formatHuntOrderLabel(huntOrder: HuntOrder): string {
   switch (huntOrder) {
     case "random":
       return "Random";
+    case "serpentine":
+      return "Serpentine";
+  }
+}
+
+function formatTrivialMazeTypeLabel(mazeType: TrivialMazeType): string {
+  switch (mazeType) {
+    case "spiral":
+      return "Spiral";
     case "serpentine":
       return "Serpentine";
   }
@@ -1321,6 +1373,376 @@ function EllersSettingsPanel({ controls, onUpdate }: EllersSettingsPanelProps): 
   );
 }
 
+function CellularAutomatonSettingsPanel({
+  controls,
+  onUpdate,
+}: CellularAutomatonSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Cellular Automaton</h3>
+      <div className="fieldHint">
+        Grows wall systems from seeded border and interior points using the mazelib automaton rules.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Complexity</span>
+          <ParameterToggle
+            checked={controls.complexity.randomize}
+            onChange={(checked) => onUpdate("complexity", { randomize: checked })}
+          />
+        </div>
+        {controls.complexity.randomize ? (
+          <div className="fieldHint">Controls how long each seeded wall keeps spreading.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CELLULAR_AUTOMATON_COMPLEXITY_MIN}
+              max={CELLULAR_AUTOMATON_COMPLEXITY_MAX}
+              step={CELLULAR_AUTOMATON_COMPLEXITY_STEP}
+              value={controls.complexity.value}
+              onChange={(event) => onUpdate("complexity", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.complexity.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Density</span>
+          <ParameterToggle
+            checked={controls.density.randomize}
+            onChange={(checked) => onUpdate("density", { randomize: checked })}
+          />
+        </div>
+        {controls.density.randomize ? (
+          <div className="fieldHint">Controls how many distinct wall systems get seeded.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CELLULAR_AUTOMATON_DENSITY_MIN}
+              max={CELLULAR_AUTOMATON_DENSITY_MAX}
+              step={CELLULAR_AUTOMATON_DENSITY_STEP}
+              value={controls.density.value}
+              onChange={(event) => onUpdate("density", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.density.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function DungeonRoomsSettingsPanel({
+  controls,
+  onUpdate,
+}: DungeonRoomsSettingsPanelProps): JSX.Element {
+  const fixedBlockSize = controls.blockSize.randomize ? null : controls.blockSize.value;
+  const limits = dungeonRoomParameterLimits(fixedBlockSize ?? "1x1");
+
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Dungeon Rooms</h3>
+      <div className="fieldHint">
+        Randomizes room placement first, then fills the remaining space with hunt-and-kill walks.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Room Count</span>
+          <ParameterToggle
+            checked={controls.roomCount.randomize}
+            onChange={(checked) => onUpdate("roomCount", { randomize: checked })}
+          />
+        </div>
+        {controls.roomCount.randomize ? (
+          <div className="fieldHint">Varies how many rooms are placed before corridor carving.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DUNGEON_ROOM_COUNT_MIN}
+              max={limits.roomCountMax}
+              step={1}
+              value={Math.min(controls.roomCount.value, limits.roomCountMax)}
+              onChange={(event) => onUpdate("roomCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.min(controls.roomCount.value, limits.roomCountMax)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Room Size</span>
+          <ParameterToggle
+            checked={controls.roomSize.randomize}
+            onChange={(checked) => onUpdate("roomSize", { randomize: checked })}
+          />
+        </div>
+        {controls.roomSize.randomize ? (
+          <div className="fieldHint">Caps the width and height of each randomized room.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DUNGEON_ROOM_SIZE_MIN}
+              max={limits.roomSizeMax}
+              step={1}
+              value={Math.min(controls.roomSize.value, limits.roomSizeMax)}
+              onChange={(event) => onUpdate("roomSize", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.min(controls.roomSize.value, limits.roomSizeMax)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Hunt Order</span>
+          <ParameterToggle
+            checked={controls.huntOrder.randomize}
+            onChange={(checked) => onUpdate("huntOrder", { randomize: checked })}
+          />
+        </div>
+        {controls.huntOrder.randomize ? (
+          <div className="fieldHint">
+            Randomly switches between random and serpentine room-to-room hunts.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.huntOrder.value}
+            onChange={(event) => onUpdate("huntOrder", { value: event.target.value as HuntOrder })}
+          >
+            {HUNT_ORDER_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {formatHuntOrderLabel(option)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function TrivialMazeSettingsPanel({
+  controls,
+  onUpdate,
+}: TrivialMazeSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Trivial Maze</h3>
+      <div className="fieldHint">
+        Generates simple unicursal patterns using the upstream spiral and serpentine modes.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Maze Type</span>
+          <ParameterToggle
+            checked={controls.mazeType.randomize}
+            onChange={(checked) => onUpdate("mazeType", { randomize: checked })}
+          />
+        </div>
+        {controls.mazeType.randomize ? (
+          <div className="fieldHint">Randomly switches between spiral and serpentine layouts.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.mazeType.value}
+            onChange={(event) =>
+              onUpdate("mazeType", { value: event.target.value as TrivialMazeType })
+            }
+          >
+            {TRIVIAL_MAZE_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {formatTrivialMazeTypeLabel(option)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
 function GrowingTreeSettingsPanel({
   controls,
   onUpdate,
@@ -1758,6 +2180,65 @@ function GeneratedRecordDetails({
             <div>{Math.round(record.params.yskew * 100)}%</div>
           </div>
         </div>
+      ) : record.algorithm === "cellular-automaton" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Complexity</span>
+            <div>{Math.round(record.params.complexity * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Density</span>
+            <div>{Math.round(record.params.density * 100)}%</div>
+          </div>
+        </div>
+      ) : record.algorithm === "dungeon-rooms" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Room Count</span>
+            <div>{record.params.roomCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Room Size</span>
+            <div>
+              Up to {record.params.roomSize}x{record.params.roomSize}
+            </div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Hunt Order</span>
+            <div>{formatHuntOrderLabel(record.params.huntOrder)}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "trivial-maze" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Maze Type</span>
+            <div>{formatTrivialMazeTypeLabel(record.params.mazeType)}</div>
+          </div>
+        </div>
       ) : record.algorithm === "growing-tree" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -1849,6 +2330,14 @@ export function GenerateBrowserDialog({
   const [ellersControls, setEllersControls] = useState<EllersControlState>(() =>
     createDefaultEllersControlState(),
   );
+  const [cellularAutomatonControls, setCellularAutomatonControls] =
+    useState<CellularAutomatonControlState>(() => createDefaultCellularAutomatonControlState());
+  const [dungeonRoomsControls, setDungeonRoomsControls] = useState<DungeonRoomsControlState>(() =>
+    createDefaultDungeonRoomsControlState(),
+  );
+  const [trivialMazeControls, setTrivialMazeControls] = useState<TrivialMazeControlState>(() =>
+    createDefaultTrivialMazeControlState(),
+  );
   const [growingTreeControls, setGrowingTreeControls] = useState<GrowingTreeControlState>(() =>
     createDefaultGrowingTreeControlState(),
   );
@@ -1876,6 +2365,11 @@ export function GenerateBrowserDialog({
             aldousBroderControls:
               selectedAlgorithm === "aldous-broder" ? aldousBroderControls : null,
             ellersControls: selectedAlgorithm === "ellers" ? ellersControls : null,
+            cellularAutomatonControls:
+              selectedAlgorithm === "cellular-automaton" ? cellularAutomatonControls : null,
+            dungeonRoomsControls:
+              selectedAlgorithm === "dungeon-rooms" ? dungeonRoomsControls : null,
+            trivialMazeControls: selectedAlgorithm === "trivial-maze" ? trivialMazeControls : null,
             growingTreeControls: selectedAlgorithm === "growing-tree" ? growingTreeControls : null,
             recursiveDivisionControls:
               selectedAlgorithm === "recursive-division" ? recursiveDivisionControls : null,
@@ -1884,6 +2378,8 @@ export function GenerateBrowserDialog({
       aldousBroderControls,
       backtrackingControls,
       binaryTreeControls,
+      cellularAutomatonControls,
+      dungeonRoomsControls,
       ellersControls,
       growingTreeControls,
       huntAndKillControls,
@@ -1896,6 +2392,7 @@ export function GenerateBrowserDialog({
       sidewinderControls,
       starredKeys,
       starredOnly,
+      trivialMazeControls,
       wilsonsControls,
     ],
   );
@@ -2045,6 +2542,45 @@ export function GenerateBrowserDialog({
     }));
   }
 
+  function updateCellularAutomatonControl<K extends keyof CellularAutomatonControlState>(
+    key: K,
+    nextValue: Partial<CellularAutomatonControlState[K]>,
+  ): void {
+    setCellularAutomatonControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateDungeonRoomsControl<K extends keyof DungeonRoomsControlState>(
+    key: K,
+    nextValue: Partial<DungeonRoomsControlState[K]>,
+  ): void {
+    setDungeonRoomsControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateTrivialMazeControl<K extends keyof TrivialMazeControlState>(
+    key: K,
+    nextValue: Partial<TrivialMazeControlState[K]>,
+  ): void {
+    setTrivialMazeControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
   function updatePrimsControl<K extends keyof PrimsControlState>(
     key: K,
     nextValue: Partial<PrimsControlState[K]>,
@@ -2149,6 +2685,30 @@ export function GenerateBrowserDialog({
         blockSize: { randomize: false, value: record.params.blockSize },
         xskew: { randomize: false, value: record.params.xskew },
         yskew: { randomize: false, value: record.params.yskew },
+      });
+    } else if (record.algorithm === "cellular-automaton") {
+      setSelectedAlgorithm("cellular-automaton");
+      setCellularAutomatonControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        complexity: { randomize: false, value: record.params.complexity },
+        density: { randomize: false, value: record.params.density },
+      });
+    } else if (record.algorithm === "dungeon-rooms") {
+      setSelectedAlgorithm("dungeon-rooms");
+      setDungeonRoomsControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        huntOrder: { randomize: false, value: record.params.huntOrder },
+        roomCount: { randomize: false, value: record.params.roomCount },
+        roomSize: { randomize: false, value: record.params.roomSize },
+      });
+    } else if (record.algorithm === "trivial-maze") {
+      setSelectedAlgorithm("trivial-maze");
+      setTrivialMazeControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        mazeType: { randomize: false, value: record.params.mazeType },
       });
     } else if (record.algorithm === "growing-tree") {
       setSelectedAlgorithm("growing-tree");
@@ -2281,6 +2841,21 @@ export function GenerateBrowserDialog({
                   />
                 ) : selectedAlgorithm === "ellers" ? (
                   <EllersSettingsPanel controls={ellersControls} onUpdate={updateEllersControl} />
+                ) : selectedAlgorithm === "cellular-automaton" ? (
+                  <CellularAutomatonSettingsPanel
+                    controls={cellularAutomatonControls}
+                    onUpdate={updateCellularAutomatonControl}
+                  />
+                ) : selectedAlgorithm === "dungeon-rooms" ? (
+                  <DungeonRoomsSettingsPanel
+                    controls={dungeonRoomsControls}
+                    onUpdate={updateDungeonRoomsControl}
+                  />
+                ) : selectedAlgorithm === "trivial-maze" ? (
+                  <TrivialMazeSettingsPanel
+                    controls={trivialMazeControls}
+                    onUpdate={updateTrivialMazeControl}
+                  />
                 ) : selectedAlgorithm === "growing-tree" ? (
                   <GrowingTreeSettingsPanel
                     controls={growingTreeControls}

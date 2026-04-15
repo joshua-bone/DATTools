@@ -33,32 +33,35 @@ Currently implemented in the modal:
 - `Wilson's`
 - `Aldous-Broder`
 - `Eller's`
+- `Cellular Automaton`
+- `Dungeon Rooms`
+- `Trivial Maze`
 
 ## Generators To Implement
 
 These are the upstream generation algorithms from `mazelib` that fit this modal.
 
-| Priority | Algorithm              | Upstream params to expose             | Notes                                                                                                                |
-| -------- | ---------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Done     | Backtracking Generator | start seed only                       | Implemented with seed, block size, and explicit start cell controls.                                                 |
-| Done     | Growing Tree           | `backtrack_chance`                    | Implemented with seed, block size, explicit start cell controls, and backtrack chance.                               |
-| Done     | Prim's                 | start seed only                       | Implemented with seed, block size, and explicit start cell controls.                                                 |
-| Done     | Recursive Division     | bias mode / cut strategy              | Implemented with seed and block size. Bias/cut-strategy controls can still be added later if we want more variety.   |
-| Done     | Kruskal's              | start seed only                       | Implemented with seed and block size.                                                                                |
-| Done     | Sidewinder             | `skew`                                | Implemented with seed, block size, and skew.                                                                         |
-| Done     | Binary Tree            | `skew` (`NW`, `NE`, `SE`, `SW`)       | Implemented with seed, block size, and directional skew.                                                             |
-| Done     | Hunt-and-Kill          | `hunt_order` (`random`, `serpentine`) | Implemented with seed, block size, and hunt order.                                                                   |
-| Done     | Wilson's               | `hunt_order` (`random`, `serpentine`) | Implemented with seed, block size, and hunt order.                                                                   |
-| Done     | Aldous-Broder          | start seed only                       | Implemented with seed and block size.                                                                                |
-| Done     | Eller's                | `xskew`, `yskew`                      | Implemented with seed, block size, horizontal-merge skew, and vertical-carry skew.                                   |
-| 3        | Cellular Automaton     | `complexity`, `density`               | Imperfect mazes are still valuable here because the modal is for harvesting wall patterns, not only “perfect” mazes. |
-| 3        | Dungeon Rooms          | `rooms`, `grid`, `hunt_order`         | High-value once we define a local room-layout randomizer.                                                            |
-| 3        | Trivial Maze           | `maze_type` (`spiral`, `serpentine`)  | Present in source, not in the main generator doc page. Good for iconic simple patterns.                              |
+| Priority | Algorithm              | Upstream params to expose             | Notes                                                                                                              |
+| -------- | ---------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Done     | Backtracking Generator | start seed only                       | Implemented with seed, block size, and explicit start cell controls.                                               |
+| Done     | Growing Tree           | `backtrack_chance`                    | Implemented with seed, block size, explicit start cell controls, and backtrack chance.                             |
+| Done     | Prim's                 | start seed only                       | Implemented with seed, block size, and explicit start cell controls.                                               |
+| Done     | Recursive Division     | bias mode / cut strategy              | Implemented with seed and block size. Bias/cut-strategy controls can still be added later if we want more variety. |
+| Done     | Kruskal's              | start seed only                       | Implemented with seed and block size.                                                                              |
+| Done     | Sidewinder             | `skew`                                | Implemented with seed, block size, and skew.                                                                       |
+| Done     | Binary Tree            | `skew` (`NW`, `NE`, `SE`, `SW`)       | Implemented with seed, block size, and directional skew.                                                           |
+| Done     | Hunt-and-Kill          | `hunt_order` (`random`, `serpentine`) | Implemented with seed, block size, and hunt order.                                                                 |
+| Done     | Wilson's               | `hunt_order` (`random`, `serpentine`) | Implemented with seed, block size, and hunt order.                                                                 |
+| Done     | Aldous-Broder          | start seed only                       | Implemented with seed and block size.                                                                              |
+| Done     | Eller's                | `xskew`, `yskew`                      | Implemented with seed, block size, horizontal-merge skew, and vertical-carry skew.                                 |
+| Done     | Cellular Automaton     | `complexity`, `density`               | Implemented with seed, block size, complexity, and density.                                                        |
+| Done     | Dungeon Rooms          | `rooms`, `grid`, `hunt_order`         | Implemented with seed, block size, hunt order, randomized room count, and randomized room size.                    |
+| Done     | Trivial Maze           | `maze_type` (`spiral`, `serpentine`)  | Implemented with seed, block size, and maze type.                                                                  |
 
 ## Recommended Implementation Order
 
 1. Keep `Random Noise` as the fast fallback and test harness.
-2. Add the imperfect/specialized set: `Cellular Automaton`, `Dungeon Rooms`, `Trivial Maze`.
+2. Add transmuters or generator-specific refinements only if we want more parameter depth later.
 
 ## Modal Mapping Rules
 
