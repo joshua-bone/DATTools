@@ -4,11 +4,13 @@ import {
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
   createDefaultGrowingTreeControlState,
+  createDefaultHuntAndKillControlState,
   createDefaultKruskalsControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
   createDefaultRecursiveDivisionControlState,
   createDefaultSidewinderControlState,
+  createDefaultWilsonsControlState,
   generateLayoutRecords,
   recordsFromStarredKeys,
 } from "@/web/src/generatedLayouts";
@@ -39,7 +41,9 @@ describe("generated layouts", () => {
           record.algorithm === "recursive-division" ||
           record.algorithm === "kruskals" ||
           record.algorithm === "sidewinder" ||
-          record.algorithm === "binary-tree",
+          record.algorithm === "binary-tree" ||
+          record.algorithm === "hunt-and-kill" ||
+          record.algorithm === "wilsons",
       ),
     ).toBe(true);
   });
@@ -327,6 +331,88 @@ describe("generated layouts", () => {
           record.algorithm === "binary-tree" &&
           record.params.blockSize === "2x1" &&
           record.params.skew === "SE",
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic hunt-and-kill layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "hunt-and-kill",
+      count: 6,
+      seed: 41357,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "hunt-and-kill",
+      count: 6,
+      seed: 41357,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "hunt-and-kill")).toBe(true);
+  });
+
+  it("keeps locked hunt-and-kill parameters fixed across generated cards", () => {
+    const controls = createDefaultHuntAndKillControlState();
+    const records = generateLayoutRecords({
+      algorithm: "hunt-and-kill",
+      count: 6,
+      seed: 91357,
+      huntAndKillControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "2x2" },
+        huntOrder: { randomize: false, value: "serpentine" },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "hunt-and-kill" &&
+          record.params.blockSize === "2x2" &&
+          record.params.huntOrder === "serpentine",
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic wilson's layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "wilsons",
+      count: 6,
+      seed: 77125,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "wilsons",
+      count: 6,
+      seed: 77125,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "wilsons")).toBe(true);
+  });
+
+  it("keeps locked wilson's parameters fixed across generated cards", () => {
+    const controls = createDefaultWilsonsControlState();
+    const records = generateLayoutRecords({
+      algorithm: "wilsons",
+      count: 6,
+      seed: 88125,
+      wilsonsControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "1x2" },
+        huntOrder: { randomize: false, value: "random" },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "wilsons" &&
+          record.params.blockSize === "1x2" &&
+          record.params.huntOrder === "random",
       ),
     ).toBe(true);
   });

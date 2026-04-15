@@ -9,6 +9,7 @@ import {
   GROWING_TREE_BACKTRACK_CHANCE_MAX,
   GROWING_TREE_BACKTRACK_CHANCE_MIN,
   GROWING_TREE_BACKTRACK_CHANCE_STEP,
+  HUNT_ORDER_OPTIONS,
   MAZE_BLOCK_SIZE_OPTIONS,
   MAZE_SEED_MAX,
   MAZE_SEED_MIN,
@@ -25,11 +26,13 @@ import {
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
   createDefaultGrowingTreeControlState,
+  createDefaultHuntAndKillControlState,
   createDefaultKruskalsControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
   createDefaultRecursiveDivisionControlState,
   createDefaultSidewinderControlState,
+  createDefaultWilsonsControlState,
   generateLayoutRecords,
   mazeGridDimensionsForBlockSize,
   nextRandomSeed,
@@ -41,6 +44,8 @@ import {
   type GeneratedLayoutRecord,
   type GenerateAlgorithmChoice,
   type GrowingTreeControlState,
+  type HuntAndKillControlState,
+  type HuntOrder,
   type KruskalsControlState,
   type MazeBlockSize,
   type PrimsControlState,
@@ -48,6 +53,7 @@ import {
   type RandomNoiseMirrorMode,
   type RecursiveDivisionControlState,
   type SidewinderControlState,
+  type WilsonsControlState,
 } from "@/web/src/generatedLayouts";
 
 type GenerateBrowserDialogProps = Readonly<{
@@ -135,6 +141,22 @@ type BinaryTreeSettingsPanelProps = Readonly<{
   ) => void;
 }>;
 
+type HuntAndKillSettingsPanelProps = Readonly<{
+  controls: HuntAndKillControlState;
+  onUpdate: <K extends keyof HuntAndKillControlState>(
+    key: K,
+    nextValue: Partial<HuntAndKillControlState[K]>,
+  ) => void;
+}>;
+
+type WilsonsSettingsPanelProps = Readonly<{
+  controls: WilsonsControlState;
+  onUpdate: <K extends keyof WilsonsControlState>(
+    key: K,
+    nextValue: Partial<WilsonsControlState[K]>,
+  ) => void;
+}>;
+
 function stopEvent(event: SyntheticEvent): void {
   event.stopPropagation();
 }
@@ -166,6 +188,15 @@ function formatBinaryTreeSkewLabel(skew: BinaryTreeSkew): string {
       return "South-West";
     case "SE":
       return "South-East";
+  }
+}
+
+function formatHuntOrderLabel(huntOrder: HuntOrder): string {
+  switch (huntOrder) {
+    case "random":
+      return "Random";
+    case "serpentine":
+      return "Serpentine";
   }
 }
 
@@ -896,6 +927,191 @@ function BinaryTreeSettingsPanel({
   );
 }
 
+function HuntAndKillSettingsPanel({
+  controls,
+  onUpdate,
+}: HuntAndKillSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Hunt-and-Kill</h3>
+      <div className="fieldHint">
+        Alternates random carving walks with hunts for the next usable starting cell.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Hunt Order</span>
+          <ParameterToggle
+            checked={controls.huntOrder.randomize}
+            onChange={(checked) => onUpdate("huntOrder", { randomize: checked })}
+          />
+        </div>
+        {controls.huntOrder.randomize ? (
+          <div className="fieldHint">
+            Randomly switches between random and serpentine hunt order.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.huntOrder.value}
+            onChange={(event) => onUpdate("huntOrder", { value: event.target.value as HuntOrder })}
+          >
+            {HUNT_ORDER_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {formatHuntOrderLabel(option)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function WilsonsSettingsPanel({ controls, onUpdate }: WilsonsSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Wilson&apos;s</h3>
+      <div className="fieldHint">
+        Uses loop-erased random walks to grow a uniform spanning tree.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Hunt Order</span>
+          <ParameterToggle
+            checked={controls.huntOrder.randomize}
+            onChange={(checked) => onUpdate("huntOrder", { randomize: checked })}
+          />
+        </div>
+        {controls.huntOrder.randomize ? (
+          <div className="fieldHint">
+            Randomly switches between random and serpentine hunt order.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.huntOrder.value}
+            onChange={(event) => onUpdate("huntOrder", { value: event.target.value as HuntOrder })}
+          >
+            {HUNT_ORDER_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {formatHuntOrderLabel(option)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
 function GrowingTreeSettingsPanel({
   controls,
   onUpdate,
@@ -1273,6 +1489,36 @@ function GeneratedRecordDetails({
             <div>{formatBinaryTreeSkewLabel(record.params.skew)}</div>
           </div>
         </div>
+      ) : record.algorithm === "hunt-and-kill" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Hunt Order</span>
+            <div>{formatHuntOrderLabel(record.params.huntOrder)}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "wilsons" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Hunt Order</span>
+            <div>{formatHuntOrderLabel(record.params.huntOrder)}</div>
+          </div>
+        </div>
       ) : record.algorithm === "growing-tree" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -1352,6 +1598,12 @@ export function GenerateBrowserDialog({
   const [binaryTreeControls, setBinaryTreeControls] = useState<BinaryTreeControlState>(() =>
     createDefaultBinaryTreeControlState(),
   );
+  const [huntAndKillControls, setHuntAndKillControls] = useState<HuntAndKillControlState>(() =>
+    createDefaultHuntAndKillControlState(),
+  );
+  const [wilsonsControls, setWilsonsControls] = useState<WilsonsControlState>(() =>
+    createDefaultWilsonsControlState(),
+  );
   const [growingTreeControls, setGrowingTreeControls] = useState<GrowingTreeControlState>(() =>
     createDefaultGrowingTreeControlState(),
   );
@@ -1374,6 +1626,8 @@ export function GenerateBrowserDialog({
             kruskalsControls: selectedAlgorithm === "kruskals" ? kruskalsControls : null,
             sidewinderControls: selectedAlgorithm === "sidewinder" ? sidewinderControls : null,
             binaryTreeControls: selectedAlgorithm === "binary-tree" ? binaryTreeControls : null,
+            huntAndKillControls: selectedAlgorithm === "hunt-and-kill" ? huntAndKillControls : null,
+            wilsonsControls: selectedAlgorithm === "wilsons" ? wilsonsControls : null,
             growingTreeControls: selectedAlgorithm === "growing-tree" ? growingTreeControls : null,
             recursiveDivisionControls:
               selectedAlgorithm === "recursive-division" ? recursiveDivisionControls : null,
@@ -1382,6 +1636,7 @@ export function GenerateBrowserDialog({
       backtrackingControls,
       binaryTreeControls,
       growingTreeControls,
+      huntAndKillControls,
       kruskalsControls,
       primsControls,
       randomNoiseControls,
@@ -1391,6 +1646,7 @@ export function GenerateBrowserDialog({
       sidewinderControls,
       starredKeys,
       starredOnly,
+      wilsonsControls,
     ],
   );
   const selectedRecord =
@@ -1487,6 +1743,32 @@ export function GenerateBrowserDialog({
     }));
   }
 
+  function updateHuntAndKillControl<K extends keyof HuntAndKillControlState>(
+    key: K,
+    nextValue: Partial<HuntAndKillControlState[K]>,
+  ): void {
+    setHuntAndKillControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateWilsonsControl<K extends keyof WilsonsControlState>(
+    key: K,
+    nextValue: Partial<WilsonsControlState[K]>,
+  ): void {
+    setWilsonsControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
   function updatePrimsControl<K extends keyof PrimsControlState>(
     key: K,
     nextValue: Partial<PrimsControlState[K]>,
@@ -1563,6 +1845,20 @@ export function GenerateBrowserDialog({
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
         skew: { randomize: false, value: record.params.skew },
+      });
+    } else if (record.algorithm === "hunt-and-kill") {
+      setSelectedAlgorithm("hunt-and-kill");
+      setHuntAndKillControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        huntOrder: { randomize: false, value: record.params.huntOrder },
+      });
+    } else if (record.algorithm === "wilsons") {
+      setSelectedAlgorithm("wilsons");
+      setWilsonsControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        huntOrder: { randomize: false, value: record.params.huntOrder },
       });
     } else if (record.algorithm === "growing-tree") {
       setSelectedAlgorithm("growing-tree");
@@ -1677,6 +1973,16 @@ export function GenerateBrowserDialog({
                   <BinaryTreeSettingsPanel
                     controls={binaryTreeControls}
                     onUpdate={updateBinaryTreeControl}
+                  />
+                ) : selectedAlgorithm === "hunt-and-kill" ? (
+                  <HuntAndKillSettingsPanel
+                    controls={huntAndKillControls}
+                    onUpdate={updateHuntAndKillControl}
+                  />
+                ) : selectedAlgorithm === "wilsons" ? (
+                  <WilsonsSettingsPanel
+                    controls={wilsonsControls}
+                    onUpdate={updateWilsonsControl}
                   />
                 ) : selectedAlgorithm === "growing-tree" ? (
                   <GrowingTreeSettingsPanel

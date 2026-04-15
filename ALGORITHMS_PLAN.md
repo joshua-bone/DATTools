@@ -29,6 +29,8 @@ Currently implemented in the modal:
 - `Kruskal's`
 - `Sidewinder`
 - `Binary Tree`
+- `Hunt-and-Kill`
+- `Wilson's`
 
 ## Generators To Implement
 
@@ -43,8 +45,8 @@ These are the upstream generation algorithms from `mazelib` that fit this modal.
 | Done     | Kruskal's              | start seed only                       | Implemented with seed and block size.                                                                                |
 | Done     | Sidewinder             | `skew`                                | Implemented with seed, block size, and skew.                                                                         |
 | Done     | Binary Tree            | `skew` (`NW`, `NE`, `SE`, `SW`)       | Implemented with seed, block size, and directional skew.                                                             |
-| 2        | Hunt-and-Kill          | `hunt_order` (`random`, `serpentine`) | Good variety and fits the modal well.                                                                                |
-| 2        | Wilson's               | `hunt_order` (`random`, `serpentine`) | Important unbiased generator, slower but high value.                                                                 |
+| Done     | Hunt-and-Kill          | `hunt_order` (`random`, `serpentine`) | Implemented with seed, block size, and hunt order.                                                                   |
+| Done     | Wilson's               | `hunt_order` (`random`, `serpentine`) | Implemented with seed, block size, and hunt order.                                                                   |
 | 3        | Aldous-Broder          | start seed only                       | Also unbiased, but slower; still worth having for completeness.                                                      |
 | 3        | Eller's                | `xskew`, `yskew`                      | Good row-wise texture and useful for directional variation.                                                          |
 | 3        | Cellular Automaton     | `complexity`, `density`               | Imperfect mazes are still valuable here because the modal is for harvesting wall patterns, not only “perfect” mazes. |
@@ -54,7 +56,7 @@ These are the upstream generation algorithms from `mazelib` that fit this modal.
 ## Recommended Implementation Order
 
 1. Keep `Random Noise` as the fast fallback and test harness.
-2. Add the next spanning-tree set: `Hunt-and-Kill`, `Wilson's`, `Aldous-Broder`.
+2. Add the next spanning-tree follow-up: `Aldous-Broder`.
 3. Add the row-wise follow-up: `Eller's`.
 4. Add the imperfect/specialized set: `Cellular Automaton`, `Dungeon Rooms`, `Trivial Maze`.
 

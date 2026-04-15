@@ -41,12 +41,15 @@ export type GenerateAlgorithmId =
   | "recursive-division"
   | "kruskals"
   | "sidewinder"
-  | "binary-tree";
+  | "binary-tree"
+  | "hunt-and-kill"
+  | "wilsons";
 export type GenerateAlgorithmChoice = GenerateAlgorithmId | "any";
 export type GenerateRecordAlgorithm = GenerateAlgorithmId | "starred";
 export type RandomNoiseMirrorMode = "none" | "horizontal" | "vertical" | "quad";
 export type MazeBlockSize = (typeof MAZE_BLOCK_SIZE_OPTIONS)[number]["value"];
 export type BinaryTreeSkew = "NW" | "NE" | "SW" | "SE";
+export type HuntOrder = "random" | "serpentine";
 
 export type RandomizableValue<T> = Readonly<{
   randomize: boolean;
@@ -83,6 +86,16 @@ export type BinaryTreeParameters = Readonly<{
   seed: number;
   blockSize: MazeBlockSize;
   skew: BinaryTreeSkew;
+}>;
+export type HuntAndKillParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+  huntOrder: HuntOrder;
+}>;
+export type WilsonsParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+  huntOrder: HuntOrder;
 }>;
 
 export type GrowingTreeParameters = MazeAlgorithmParameters &
@@ -126,6 +139,14 @@ export type BinaryTreeControlState = MazeSeedBlockControlState &
   Readonly<{
     skew: RandomizableValue<BinaryTreeSkew>;
   }>;
+export type HuntAndKillControlState = MazeSeedBlockControlState &
+  Readonly<{
+    huntOrder: RandomizableValue<HuntOrder>;
+  }>;
+export type WilsonsControlState = MazeSeedBlockControlState &
+  Readonly<{
+    huntOrder: RandomizableValue<HuntOrder>;
+  }>;
 
 export type GrowingTreeControlState = MazeBaseControlState &
   Readonly<{
@@ -143,6 +164,8 @@ type BaseGeneratedLayoutRecord<
     | KruskalsParameters
     | SidewinderParameters
     | BinaryTreeParameters
+    | HuntAndKillParameters
+    | WilsonsParameters
     | GrowingTreeParameters
     | RecursiveDivisionParameters
     | null,
@@ -181,6 +204,11 @@ export type BinaryTreeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "binary-tree",
   BinaryTreeParameters
 >;
+export type HuntAndKillGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "hunt-and-kill",
+  HuntAndKillParameters
+>;
+export type WilsonsGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"wilsons", WilsonsParameters>;
 
 export type GrowingTreeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "growing-tree",
@@ -201,6 +229,8 @@ export type GeneratedLayoutRecord =
   | KruskalsGeneratedLayoutRecord
   | SidewinderGeneratedLayoutRecord
   | BinaryTreeGeneratedLayoutRecord
+  | HuntAndKillGeneratedLayoutRecord
+  | WilsonsGeneratedLayoutRecord
   | GrowingTreeGeneratedLayoutRecord
   | RecursiveDivisionGeneratedLayoutRecord
   | StarredGeneratedLayoutRecord;
@@ -217,6 +247,8 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "kruskals", label: "Kruskal's" },
   { value: "sidewinder", label: "Sidewinder" },
   { value: "binary-tree", label: "Binary Tree" },
+  { value: "hunt-and-kill", label: "Hunt-and-Kill" },
+  { value: "wilsons", label: "Wilson's" },
 ];
 
 const RANDOM_NOISE_LABEL = "Random Noise";
@@ -225,6 +257,8 @@ const PRIMS_LABEL = "Prim's";
 const KRUSKALS_LABEL = "Kruskal's";
 const SIDEWINDER_LABEL = "Sidewinder";
 const BINARY_TREE_LABEL = "Binary Tree";
+const HUNT_AND_KILL_LABEL = "Hunt-and-Kill";
+const WILSONS_LABEL = "Wilson's";
 const GROWING_TREE_LABEL = "Growing Tree";
 const RECURSIVE_DIVISION_LABEL = "Recursive Division";
 const GENERATED_LAYOUT_MIN_WALL_COUNT = 24;
@@ -238,6 +272,8 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "kruskals",
   "sidewinder",
   "binary-tree",
+  "hunt-and-kill",
+  "wilsons",
 ];
 const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = [
   "1x1",
@@ -250,6 +286,7 @@ const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = [
 const GROWING_TREE_BACKTRACK_CHANCE_VALUES = [0, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
 const SIDEWINDER_SKEW_VALUES = [0.15, 0.3, 0.5, 0.7, 0.85];
 export const BINARY_TREE_SKEW_OPTIONS: ReadonlyArray<BinaryTreeSkew> = ["NW", "NE", "SW", "SE"];
+export const HUNT_ORDER_OPTIONS: ReadonlyArray<HuntOrder> = ["random", "serpentine"];
 
 export function randomSeedFromClock(): number {
   return Date.now() & 0x7fffffff;
@@ -280,6 +317,8 @@ export function generateLayoutRecords(
     kruskalsControls?: KruskalsControlState | null;
     sidewinderControls?: SidewinderControlState | null;
     binaryTreeControls?: BinaryTreeControlState | null;
+    huntAndKillControls?: HuntAndKillControlState | null;
+    wilsonsControls?: WilsonsControlState | null;
     growingTreeControls?: GrowingTreeControlState | null;
     recursiveDivisionControls?: RecursiveDivisionControlState | null;
   }>,
@@ -299,6 +338,8 @@ export function generateLayoutRecords(
       kruskalsControls: options.kruskalsControls ?? null,
       sidewinderControls: options.sidewinderControls ?? null,
       binaryTreeControls: options.binaryTreeControls ?? null,
+      huntAndKillControls: options.huntAndKillControls ?? null,
+      wilsonsControls: options.wilsonsControls ?? null,
       growingTreeControls: options.growingTreeControls ?? null,
       recursiveDivisionControls: options.recursiveDivisionControls ?? null,
     });
@@ -366,6 +407,22 @@ export function createDefaultBinaryTreeControlState(): BinaryTreeControlState {
   };
 }
 
+export function createDefaultHuntAndKillControlState(): HuntAndKillControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    huntOrder: { randomize: true, value: "random" },
+  };
+}
+
+export function createDefaultWilsonsControlState(): WilsonsControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    huntOrder: { randomize: true, value: "random" },
+  };
+}
+
 export function createDefaultGrowingTreeControlState(): GrowingTreeControlState {
   return {
     seed: { randomize: true, value: 1 },
@@ -401,6 +458,8 @@ function generateRecordForAlgorithm(
     kruskalsControls: KruskalsControlState | null;
     sidewinderControls: SidewinderControlState | null;
     binaryTreeControls: BinaryTreeControlState | null;
+    huntAndKillControls: HuntAndKillControlState | null;
+    wilsonsControls: WilsonsControlState | null;
     growingTreeControls: GrowingTreeControlState | null;
     recursiveDivisionControls: RecursiveDivisionControlState | null;
   }>,
@@ -418,6 +477,10 @@ function generateRecordForAlgorithm(
       return buildSidewinderRecord(rng, controls.sidewinderControls);
     case "binary-tree":
       return buildBinaryTreeRecord(rng, controls.binaryTreeControls);
+    case "hunt-and-kill":
+      return buildHuntAndKillRecord(rng, controls.huntAndKillControls);
+    case "wilsons":
+      return buildWilsonsRecord(rng, controls.wilsonsControls);
     case "growing-tree":
       return buildGrowingTreeRecord(rng, controls.growingTreeControls);
     case "recursive-division":
@@ -554,6 +617,41 @@ function buildBinaryTreeRecord(
     algorithm: "binary-tree",
     title: BINARY_TREE_LABEL,
     summary: buildBinaryTreeSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildHuntAndKillRecord(
+  rng: () => number,
+  controls: HuntAndKillControlState | null,
+): HuntAndKillGeneratedLayoutRecord {
+  const params = randomizeHuntOrderParameters(
+    rng,
+    controls ?? createDefaultHuntAndKillControlState(),
+  );
+  return {
+    wallKey: wallMaskKeyFromBytes(
+      buildHuntAndKillMaskBytes(params, createSeededRandom(params.seed)),
+    ),
+    algorithm: "hunt-and-kill",
+    title: HUNT_AND_KILL_LABEL,
+    summary: buildHuntAndKillSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildWilsonsRecord(
+  rng: () => number,
+  controls: WilsonsControlState | null,
+): WilsonsGeneratedLayoutRecord {
+  const params = randomizeHuntOrderParameters(rng, controls ?? createDefaultWilsonsControlState());
+  return {
+    wallKey: wallMaskKeyFromBytes(buildWilsonsMaskBytes(params, createSeededRandom(params.seed))),
+    algorithm: "wilsons",
+    title: WILSONS_LABEL,
+    summary: buildWilsonsSummary(params),
     seedLabel: `Seed ${params.seed}`,
     params,
   };
@@ -723,6 +821,21 @@ function randomizeBinaryTreeParameters(
       defaults.skew,
       () => sampleOne(rng, BINARY_TREE_SKEW_OPTIONS),
       sanitizeBinaryTreeSkew,
+    ),
+  };
+}
+
+function randomizeHuntOrderParameters(
+  rng: () => number,
+  defaults: HuntAndKillControlState | WilsonsControlState,
+): HuntAndKillParameters {
+  const base = randomizeMazeSeedBlockParameters(rng, defaults);
+  return {
+    ...base,
+    huntOrder: resolveRandomizableValue(
+      defaults.huntOrder,
+      () => sampleOne(rng, HUNT_ORDER_OPTIONS),
+      sanitizeHuntOrder,
     ),
   };
 }
@@ -972,6 +1085,89 @@ function buildBinaryTreeMaskBytes(params: BinaryTreeParameters, rng: () => numbe
   return wallsToMaskBytes(walls);
 }
 
+function buildHuntAndKillMaskBytes(params: HuntAndKillParameters, rng: () => number): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const walls = createFilledMazeWalls();
+  const visited = new Uint8Array(metrics.columns * metrics.rows);
+  let current: Readonly<{ x: number; y: number }> | null = {
+    x: randomInt(rng, 0, metrics.columns - 1),
+    y: randomInt(rng, 0, metrics.rows - 1),
+  };
+
+  markVisited(visited, metrics.columns, current.x, current.y);
+  carveMazeCell(walls, metrics, current.x, current.y);
+
+  while (current) {
+    let neighbors = listMazeNeighbors(current.x, current.y, visited, metrics.columns, metrics.rows);
+    while (neighbors.length > 0) {
+      const next = sampleOne(rng, neighbors);
+      carveMazePassage(walls, metrics, current, next);
+      markVisited(visited, metrics.columns, next.x, next.y);
+      current = next;
+      neighbors = listMazeNeighbors(current.x, current.y, visited, metrics.columns, metrics.rows);
+    }
+
+    current = huntMazeCellWithUnvisitedNeighbors(
+      params.huntOrder,
+      visited,
+      metrics.columns,
+      metrics.rows,
+      rng,
+    );
+  }
+
+  return wallsToMaskBytes(walls);
+}
+
+function buildWilsonsMaskBytes(params: WilsonsParameters, rng: () => number): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const walls = createFilledMazeWalls();
+  const visited = new Uint8Array(metrics.columns * metrics.rows);
+  const root = {
+    x: randomInt(rng, 0, metrics.columns - 1),
+    y: randomInt(rng, 0, metrics.rows - 1),
+  };
+
+  markVisited(visited, metrics.columns, root.x, root.y);
+  carveMazeCell(walls, metrics, root.x, root.y);
+
+  while (true) {
+    const start = pickUnvisitedMazeCell(
+      params.huntOrder,
+      visited,
+      metrics.columns,
+      metrics.rows,
+      rng,
+    );
+    if (!start) break;
+
+    const walk = new Map<number, Readonly<{ x: number; y: number }>>();
+    let current = start;
+
+    while (!isMazeCellVisited(visited, metrics.columns, current.x, current.y)) {
+      const next = sampleOne(
+        rng,
+        listMazeNeighborCells(current.x, current.y, metrics.columns, metrics.rows),
+      );
+      walk.set(mazeCellIndex(metrics.columns, current.x, current.y), next);
+      current = next;
+    }
+
+    current = start;
+    carveMazeCell(walls, metrics, current.x, current.y);
+
+    while (!isMazeCellVisited(visited, metrics.columns, current.x, current.y)) {
+      markVisited(visited, metrics.columns, current.x, current.y);
+      const next = walk.get(mazeCellIndex(metrics.columns, current.x, current.y));
+      if (!next) break;
+      carveMazePassage(walls, metrics, current, next);
+      current = next;
+    }
+  }
+
+  return wallsToMaskBytes(walls);
+}
+
 function buildRecursiveDivisionMaskBytes(
   params: RecursiveDivisionParameters,
   rng: () => number,
@@ -1129,6 +1325,14 @@ function buildBinaryTreeSummary(params: BinaryTreeParameters): string {
   return `${params.blockSize} blocks • ${params.skew} bias`;
 }
 
+function buildHuntAndKillSummary(params: HuntAndKillParameters): string {
+  return `${params.blockSize} blocks • ${params.huntOrder} hunt`;
+}
+
+function buildWilsonsSummary(params: WilsonsParameters): string {
+  return `${params.blockSize} blocks • ${params.huntOrder} hunt`;
+}
+
 function buildGrowingTreeSummary(params: GrowingTreeParameters): string {
   return [
     `${params.blockSize} blocks`,
@@ -1161,24 +1365,33 @@ function listMazeNeighbors(
   mode: "visited" | "unvisited" = "unvisited",
 ): Array<Readonly<{ x: number; y: number }>> {
   const neighbors: Array<Readonly<{ x: number; y: number }>> = [];
-  const candidates = [
-    { x: x + 1, y },
-    { x: x - 1, y },
-    { x, y: y + 1 },
-    { x, y: y - 1 },
-  ];
+  const candidates = listMazeNeighborCells(x, y, columns, rows);
 
   for (const candidate of candidates) {
-    if (candidate.x < 0 || candidate.x >= columns || candidate.y < 0 || candidate.y >= rows) {
-      continue;
-    }
-    const isVisited = visited[candidate.y * columns + candidate.x] === 1;
+    const isVisited = isMazeCellVisited(visited, columns, candidate.x, candidate.y);
     if (mode === "unvisited" && isVisited) continue;
     if (mode === "visited" && !isVisited) continue;
     neighbors.push(candidate);
   }
 
   return neighbors;
+}
+
+function listMazeNeighborCells(
+  x: number,
+  y: number,
+  columns: number,
+  rows: number,
+): Array<Readonly<{ x: number; y: number }>> {
+  return [
+    { x: x + 1, y },
+    { x: x - 1, y },
+    { x, y: y + 1 },
+    { x, y: y - 1 },
+  ].filter(
+    (candidate) =>
+      candidate.x >= 0 && candidate.x < columns && candidate.y >= 0 && candidate.y < rows,
+  );
 }
 
 function addFrontierNeighbors(
@@ -1277,6 +1490,10 @@ function mazeTileIndex(x: number, y: number): number {
   return y * GENERATED_LAYOUT_GRID_SIZE + x;
 }
 
+function mazeCellIndex(columns: number, x: number, y: number): number {
+  return y * columns + x;
+}
+
 function wallsToMaskBytes(walls: Uint8Array): Uint8Array {
   const bytes = new Uint8Array(128);
   for (let index = 0; index < walls.length; index++) {
@@ -1293,7 +1510,11 @@ function createFilledMazeWalls(): Uint8Array {
 }
 
 function markVisited(visited: Uint8Array, width: number, x: number, y: number): void {
-  visited[y * width + x] = 1;
+  visited[mazeCellIndex(width, x, y)] = 1;
+}
+
+function isMazeCellVisited(visited: Uint8Array, width: number, x: number, y: number): boolean {
+  return visited[mazeCellIndex(width, x, y)] === 1;
 }
 
 function sanitizeMazeBlockSize(value: MazeBlockSize): MazeBlockSize {
@@ -1302,6 +1523,10 @@ function sanitizeMazeBlockSize(value: MazeBlockSize): MazeBlockSize {
 
 function sanitizeBinaryTreeSkew(value: BinaryTreeSkew): BinaryTreeSkew {
   return BINARY_TREE_SKEW_OPTIONS.includes(value) ? value : "NW";
+}
+
+function sanitizeHuntOrder(value: HuntOrder): HuntOrder {
+  return HUNT_ORDER_OPTIONS.includes(value) ? value : "random";
 }
 
 function resolveBinaryTreeDirectionOffsets(
@@ -1329,6 +1554,79 @@ function resolveBinaryTreeDirectionOffsets(
         { x: 1, y: 0 },
       ];
   }
+}
+
+function pickUnvisitedMazeCell(
+  huntOrder: HuntOrder,
+  visited: Uint8Array,
+  columns: number,
+  rows: number,
+  rng: () => number,
+): Readonly<{ x: number; y: number }> | null {
+  if (huntOrder === "random") {
+    const unvisited = listMazeCellsMatching(
+      visited,
+      columns,
+      rows,
+      (x, y) => !isMazeCellVisited(visited, columns, x, y),
+    );
+    return unvisited.length > 0 ? sampleOne(rng, unvisited) : null;
+  }
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < columns; x++) {
+      if (!isMazeCellVisited(visited, columns, x, y)) return { x, y };
+    }
+  }
+
+  return null;
+}
+
+function huntMazeCellWithUnvisitedNeighbors(
+  huntOrder: HuntOrder,
+  visited: Uint8Array,
+  columns: number,
+  rows: number,
+  rng: () => number,
+): Readonly<{ x: number; y: number }> | null {
+  const hasUnvisitedNeighbor = (x: number, y: number): boolean =>
+    listMazeNeighbors(x, y, visited, columns, rows).length > 0;
+
+  if (huntOrder === "random") {
+    const candidates = listMazeCellsMatching(
+      visited,
+      columns,
+      rows,
+      (x, y) => isMazeCellVisited(visited, columns, x, y) && hasUnvisitedNeighbor(x, y),
+    );
+    return candidates.length > 0 ? sampleOne(rng, candidates) : null;
+  }
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < columns; x++) {
+      if (isMazeCellVisited(visited, columns, x, y) && hasUnvisitedNeighbor(x, y)) {
+        return { x, y };
+      }
+    }
+  }
+
+  return null;
+}
+
+function listMazeCellsMatching(
+  visited: Uint8Array,
+  columns: number,
+  rows: number,
+  predicate: (x: number, y: number) => boolean,
+): Array<Readonly<{ x: number; y: number }>> {
+  const cells: Array<Readonly<{ x: number; y: number }>> = [];
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < columns; x++) {
+      if (!predicate(x, y)) continue;
+      cells.push({ x, y });
+    }
+  }
+  return cells;
 }
 
 function shuffleInPlace<T>(items: T[], rng: () => number): void {
