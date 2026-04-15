@@ -13,6 +13,12 @@ import {
   DUNGEON_ROOM_COUNT_MIN,
   DUNGEON_ROOM_SIZE_MAX,
   DUNGEON_ROOM_SIZE_MIN,
+  DOMAIN_WARP_SCALE_MAX,
+  DOMAIN_WARP_SCALE_MIN,
+  DOMAIN_WARP_SCALE_STEP,
+  DOMAIN_WARP_STRENGTH_MAX,
+  DOMAIN_WARP_STRENGTH_MIN,
+  DOMAIN_WARP_STRENGTH_STEP,
   GENERATE_ALGORITHM_OPTIONS,
   GENERATED_LAYOUT_CARD_COUNT,
   GENERATED_LAYOUT_GRID_SIZE,
@@ -23,6 +29,14 @@ import {
   MAZE_BLOCK_SIZE_OPTIONS,
   MAZE_SEED_MAX,
   MAZE_SEED_MIN,
+  NOISE_TERRAIN_OCTAVES_MAX,
+  NOISE_TERRAIN_OCTAVES_MIN,
+  NOISE_TERRAIN_SCALE_MAX,
+  NOISE_TERRAIN_SCALE_MIN,
+  NOISE_TERRAIN_SCALE_STEP,
+  NOISE_TERRAIN_THRESHOLD_MAX,
+  NOISE_TERRAIN_THRESHOLD_MIN,
+  NOISE_TERRAIN_THRESHOLD_STEP,
   RANDOM_NOISE_BLOCK_SIZE_OPTIONS,
   RANDOM_NOISE_DENSITY_MAX,
   RANDOM_NOISE_DENSITY_MIN,
@@ -33,21 +47,40 @@ import {
   SIDEWINDER_SKEW_MAX,
   SIDEWINDER_SKEW_MIN,
   SIDEWINDER_SKEW_STEP,
+  THRESHOLDED_GRADIENT_ANGLE_MAX,
+  THRESHOLDED_GRADIENT_ANGLE_MIN,
+  THRESHOLDED_GRADIENT_ANGLE_STEP,
+  THRESHOLDED_GRADIENT_ROUGHNESS_MAX,
+  THRESHOLDED_GRADIENT_ROUGHNESS_MIN,
+  THRESHOLDED_GRADIENT_ROUGHNESS_STEP,
+  VALUE_FRACTAL_GAIN_MAX,
+  VALUE_FRACTAL_GAIN_MIN,
+  VALUE_FRACTAL_GAIN_STEP,
+  WORLEY_CELL_COUNT_MAX,
+  WORLEY_CELL_COUNT_MIN,
+  WORLEY_JITTER_MAX,
+  WORLEY_JITTER_MIN,
+  WORLEY_JITTER_STEP,
   createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
   createDefaultCellularAutomatonControlState,
+  createDefaultDomainWarpedNoiseControlState,
   createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
   createDefaultKruskalsControlState,
+  createDefaultPerlinNoiseControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
   createDefaultRecursiveDivisionControlState,
   createDefaultSidewinderControlState,
+  createDefaultThresholdedGradientNoiseControlState,
   createDefaultTrivialMazeControlState,
+  createDefaultValueFractalNoiseControlState,
   createDefaultWilsonsControlState,
+  createDefaultWorleyNoiseControlState,
   dungeonRoomParameterLimits,
   generateLayoutRecords,
   mazeGridDimensionsForBlockSize,
@@ -59,6 +92,7 @@ import {
   type BinaryTreeControlState,
   type BinaryTreeSkew,
   type CellularAutomatonControlState,
+  type DomainWarpedNoiseControlState,
   type DungeonRoomsControlState,
   type EllersControlState,
   type GeneratedLayoutRecord,
@@ -68,15 +102,19 @@ import {
   type HuntOrder,
   type KruskalsControlState,
   type MazeBlockSize,
+  type PerlinNoiseControlState,
   type PrimsControlState,
   type RandomNoiseControlState,
   type RandomNoiseMirrorMode,
   type RecursiveDivisionControlState,
   type SidewinderControlState,
+  type ThresholdedGradientNoiseControlState,
   type TrivialMazeControlState,
   type TrivialMazeType,
   TRIVIAL_MAZE_TYPE_OPTIONS,
+  type ValueFractalNoiseControlState,
   type WilsonsControlState,
+  type WorleyNoiseControlState,
 } from "@/web/src/generatedLayouts";
 
 type GenerateBrowserDialogProps = Readonly<{
@@ -105,6 +143,46 @@ type RandomNoiseSettingsPanelProps = Readonly<{
   onUpdate: <K extends keyof RandomNoiseControlState>(
     key: K,
     nextValue: Partial<RandomNoiseControlState[K]>,
+  ) => void;
+}>;
+
+type PerlinNoiseSettingsPanelProps = Readonly<{
+  controls: PerlinNoiseControlState;
+  onUpdate: <K extends keyof PerlinNoiseControlState>(
+    key: K,
+    nextValue: Partial<PerlinNoiseControlState[K]>,
+  ) => void;
+}>;
+
+type ValueFractalNoiseSettingsPanelProps = Readonly<{
+  controls: ValueFractalNoiseControlState;
+  onUpdate: <K extends keyof ValueFractalNoiseControlState>(
+    key: K,
+    nextValue: Partial<ValueFractalNoiseControlState[K]>,
+  ) => void;
+}>;
+
+type WorleyNoiseSettingsPanelProps = Readonly<{
+  controls: WorleyNoiseControlState;
+  onUpdate: <K extends keyof WorleyNoiseControlState>(
+    key: K,
+    nextValue: Partial<WorleyNoiseControlState[K]>,
+  ) => void;
+}>;
+
+type ThresholdedGradientNoiseSettingsPanelProps = Readonly<{
+  controls: ThresholdedGradientNoiseControlState;
+  onUpdate: <K extends keyof ThresholdedGradientNoiseControlState>(
+    key: K,
+    nextValue: Partial<ThresholdedGradientNoiseControlState[K]>,
+  ) => void;
+}>;
+
+type DomainWarpedNoiseSettingsPanelProps = Readonly<{
+  controls: DomainWarpedNoiseControlState;
+  onUpdate: <K extends keyof DomainWarpedNoiseControlState>(
+    key: K,
+    nextValue: Partial<DomainWarpedNoiseControlState[K]>,
   ) => void;
 }>;
 
@@ -235,6 +313,14 @@ function formatMirrorLabel(mirror: RandomNoiseMirrorMode): string {
     case "none":
       return "None";
   }
+}
+
+function formatNoiseBlockSizeLabel(blockSize: number): string {
+  return `${blockSize}x${blockSize}`;
+}
+
+function formatCompactNumber(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
 }
 
 function formatMazeBlockSizeLabel(blockSize: MazeBlockSize): string {
@@ -488,6 +574,635 @@ function RandomNoiseSettingsPanel({
             step={1}
             value={controls.seed.value}
             onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function PerlinNoiseSettingsPanel({
+  controls,
+  onUpdate,
+}: PerlinNoiseSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Perlin Noise</h3>
+      <div className="fieldHint">
+        Smooth gradient noise for coastlines, caves, and landmass shapes.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Scale</span>
+          <ParameterToggle
+            checked={controls.scale.randomize}
+            onChange={(checked) => onUpdate("scale", { randomize: checked })}
+          />
+        </div>
+        {controls.scale.randomize ? (
+          <div className="fieldHint">
+            Varies the feature size from broad masses to tighter blobs.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={NOISE_TERRAIN_SCALE_MIN}
+              max={NOISE_TERRAIN_SCALE_MAX}
+              step={NOISE_TERRAIN_SCALE_STEP}
+              value={controls.scale.value}
+              onChange={(event) => onUpdate("scale", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {formatCompactNumber(controls.scale.value)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Octaves</span>
+          <ParameterToggle
+            checked={controls.octaves.randomize}
+            onChange={(checked) => onUpdate("octaves", { randomize: checked })}
+          />
+        </div>
+        {controls.octaves.randomize ? (
+          <div className="fieldHint">Higher octaves add smaller secondary detail to the field.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={NOISE_TERRAIN_OCTAVES_MIN}
+              max={NOISE_TERRAIN_OCTAVES_MAX}
+              step={1}
+              value={controls.octaves.value}
+              onChange={(event) => onUpdate("octaves", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.octaves.value}</div>
+          </div>
+        )}
+      </section>
+
+      <NoiseTerrainBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function ValueFractalNoiseSettingsPanel({
+  controls,
+  onUpdate,
+}: ValueFractalNoiseSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Value Noise / Fractal Noise</h3>
+      <div className="fieldHint">Layered value noise with explicit octave and gain control.</div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Scale</span>
+          <ParameterToggle
+            checked={controls.scale.randomize}
+            onChange={(checked) => onUpdate("scale", { randomize: checked })}
+          />
+        </div>
+        {controls.scale.randomize ? (
+          <div className="fieldHint">Controls how large the broad value-noise regions are.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={NOISE_TERRAIN_SCALE_MIN}
+              max={NOISE_TERRAIN_SCALE_MAX}
+              step={NOISE_TERRAIN_SCALE_STEP}
+              value={controls.scale.value}
+              onChange={(event) => onUpdate("scale", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {formatCompactNumber(controls.scale.value)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Octaves</span>
+          <ParameterToggle
+            checked={controls.octaves.randomize}
+            onChange={(checked) => onUpdate("octaves", { randomize: checked })}
+          />
+        </div>
+        {controls.octaves.randomize ? (
+          <div className="fieldHint">Adds progressively smaller layers of value noise.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={NOISE_TERRAIN_OCTAVES_MIN}
+              max={NOISE_TERRAIN_OCTAVES_MAX}
+              step={1}
+              value={controls.octaves.value}
+              onChange={(event) => onUpdate("octaves", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.octaves.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Gain</span>
+          <ParameterToggle
+            checked={controls.gain.randomize}
+            onChange={(checked) => onUpdate("gain", { randomize: checked })}
+          />
+        </div>
+        {controls.gain.randomize ? (
+          <div className="fieldHint">
+            Lower gain keeps later octaves subtle; higher gain keeps them visible.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={VALUE_FRACTAL_GAIN_MIN}
+              max={VALUE_FRACTAL_GAIN_MAX}
+              step={VALUE_FRACTAL_GAIN_STEP}
+              value={controls.gain.value}
+              onChange={(event) => onUpdate("gain", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.gain.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <NoiseTerrainBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function WorleyNoiseSettingsPanel({
+  controls,
+  onUpdate,
+}: WorleyNoiseSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Worley / Cellular Noise</h3>
+      <div className="fieldHint">
+        Nearest-point distance fields for cells, cracks, islands, and chambers.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Cell Count</span>
+          <ParameterToggle
+            checked={controls.cellCount.randomize}
+            onChange={(checked) => onUpdate("cellCount", { randomize: checked })}
+          />
+        </div>
+        {controls.cellCount.randomize ? (
+          <div className="fieldHint">Controls how many feature cells span the map.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={WORLEY_CELL_COUNT_MIN}
+              max={WORLEY_CELL_COUNT_MAX}
+              step={1}
+              value={controls.cellCount.value}
+              onChange={(event) => onUpdate("cellCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.cellCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Jitter</span>
+          <ParameterToggle
+            checked={controls.jitter.randomize}
+            onChange={(checked) => onUpdate("jitter", { randomize: checked })}
+          />
+        </div>
+        {controls.jitter.randomize ? (
+          <div className="fieldHint">
+            Higher jitter pushes feature points off-center for messier cells.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={WORLEY_JITTER_MIN}
+              max={WORLEY_JITTER_MAX}
+              step={WORLEY_JITTER_STEP}
+              value={controls.jitter.value}
+              onChange={(event) => onUpdate("jitter", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.jitter.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <NoiseTerrainBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function ThresholdedGradientNoiseSettingsPanel({
+  controls,
+  onUpdate,
+}: ThresholdedGradientNoiseSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Thresholded Gradient Noise</h3>
+      <div className="fieldHint">
+        Directional banding with roughness for dunes, ridges, and cliff lines.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Band Scale</span>
+          <ParameterToggle
+            checked={controls.scale.randomize}
+            onChange={(checked) => onUpdate("scale", { randomize: checked })}
+          />
+        </div>
+        {controls.scale.randomize ? (
+          <div className="fieldHint">Controls how many directional bands cross the map.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={NOISE_TERRAIN_SCALE_MIN}
+              max={NOISE_TERRAIN_SCALE_MAX}
+              step={NOISE_TERRAIN_SCALE_STEP}
+              value={controls.scale.value}
+              onChange={(event) => onUpdate("scale", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {formatCompactNumber(controls.scale.value)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Angle</span>
+          <ParameterToggle
+            checked={controls.angle.randomize}
+            onChange={(checked) => onUpdate("angle", { randomize: checked })}
+          />
+        </div>
+        {controls.angle.randomize ? (
+          <div className="fieldHint">Rotates the directional bands through the map.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={THRESHOLDED_GRADIENT_ANGLE_MIN}
+              max={THRESHOLDED_GRADIENT_ANGLE_MAX}
+              step={THRESHOLDED_GRADIENT_ANGLE_STEP}
+              value={controls.angle.value}
+              onChange={(event) => onUpdate("angle", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.angle.value}°</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Roughness</span>
+          <ParameterToggle
+            checked={controls.roughness.randomize}
+            onChange={(checked) => onUpdate("roughness", { randomize: checked })}
+          />
+        </div>
+        {controls.roughness.randomize ? (
+          <div className="fieldHint">Adds noise into the bands so they break and wobble.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={THRESHOLDED_GRADIENT_ROUGHNESS_MIN}
+              max={THRESHOLDED_GRADIENT_ROUGHNESS_MAX}
+              step={THRESHOLDED_GRADIENT_ROUGHNESS_STEP}
+              value={controls.roughness.value}
+              onChange={(event) => onUpdate("roughness", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.roughness.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <NoiseTerrainBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function DomainWarpedNoiseSettingsPanel({
+  controls,
+  onUpdate,
+}: DomainWarpedNoiseSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Domain-Warped Noise</h3>
+      <div className="fieldHint">
+        Warps a smooth noise field through a second field for chaotic terrain.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Scale</span>
+          <ParameterToggle
+            checked={controls.scale.randomize}
+            onChange={(checked) => onUpdate("scale", { randomize: checked })}
+          />
+        </div>
+        {controls.scale.randomize ? (
+          <div className="fieldHint">
+            Controls the underlying noise feature size before warping.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={NOISE_TERRAIN_SCALE_MIN}
+              max={NOISE_TERRAIN_SCALE_MAX}
+              step={NOISE_TERRAIN_SCALE_STEP}
+              value={controls.scale.value}
+              onChange={(event) => onUpdate("scale", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {formatCompactNumber(controls.scale.value)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Octaves</span>
+          <ParameterToggle
+            checked={controls.octaves.randomize}
+            onChange={(checked) => onUpdate("octaves", { randomize: checked })}
+          />
+        </div>
+        {controls.octaves.randomize ? (
+          <div className="fieldHint">Adds smaller post-warp detail into the sampled field.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={NOISE_TERRAIN_OCTAVES_MIN}
+              max={NOISE_TERRAIN_OCTAVES_MAX}
+              step={1}
+              value={controls.octaves.value}
+              onChange={(event) => onUpdate("octaves", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.octaves.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Warp Scale</span>
+          <ParameterToggle
+            checked={controls.warpScale.randomize}
+            onChange={(checked) => onUpdate("warpScale", { randomize: checked })}
+          />
+        </div>
+        {controls.warpScale.randomize ? (
+          <div className="fieldHint">Controls how broad the warping field is.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DOMAIN_WARP_SCALE_MIN}
+              max={DOMAIN_WARP_SCALE_MAX}
+              step={DOMAIN_WARP_SCALE_STEP}
+              value={controls.warpScale.value}
+              onChange={(event) => onUpdate("warpScale", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {formatCompactNumber(controls.warpScale.value)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Warp Strength</span>
+          <ParameterToggle
+            checked={controls.warpStrength.randomize}
+            onChange={(checked) => onUpdate("warpStrength", { randomize: checked })}
+          />
+        </div>
+        {controls.warpStrength.randomize ? (
+          <div className="fieldHint">Controls how far the sample positions get displaced.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DOMAIN_WARP_STRENGTH_MIN}
+              max={DOMAIN_WARP_STRENGTH_MAX}
+              step={DOMAIN_WARP_STRENGTH_STEP}
+              value={controls.warpStrength.value}
+              onChange={(event) => onUpdate("warpStrength", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.warpStrength.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <NoiseTerrainBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function NoiseTerrainBaseSections<
+  T extends {
+    seed: { randomize: boolean; value: number };
+    blockSize: { randomize: boolean; value: number };
+    threshold: { randomize: boolean; value: number };
+    invert: { randomize: boolean; value: boolean };
+  },
+>({
+  controls,
+  onUpdate,
+}: Readonly<{
+  controls: T;
+  onUpdate: <K extends keyof T>(key: K, nextValue: Partial<T[K]>) => void;
+}>): JSX.Element {
+  return (
+    <>
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Threshold</span>
+          <ParameterToggle
+            checked={controls.threshold.randomize}
+            onChange={(checked) =>
+              onUpdate(
+                "threshold" as keyof T,
+                { randomize: checked } as unknown as Partial<T[keyof T]>,
+              )
+            }
+          />
+        </div>
+        {controls.threshold.randomize ? (
+          <div className="fieldHint">
+            Varies the cutoff used to turn the field into walls and floors.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={NOISE_TERRAIN_THRESHOLD_MIN}
+              max={NOISE_TERRAIN_THRESHOLD_MAX}
+              step={NOISE_TERRAIN_THRESHOLD_STEP}
+              value={controls.threshold.value}
+              onChange={(event) =>
+                onUpdate(
+                  "threshold" as keyof T,
+                  { value: Number(event.target.value) } as unknown as Partial<T[keyof T]>,
+                )
+              }
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.threshold.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) =>
+              onUpdate(
+                "blockSize" as keyof T,
+                { randomize: checked } as unknown as Partial<T[keyof T]>,
+              )
+            }
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">Chooses between 1x1 and 4x4 blocks for chunkier layouts.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate(
+                "blockSize" as keyof T,
+                { value: Number(event.target.value) } as unknown as Partial<T[keyof T]>,
+              )
+            }
+          >
+            {RANDOM_NOISE_BLOCK_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {formatNoiseBlockSizeLabel(size)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Invert</span>
+          <ParameterToggle
+            checked={controls.invert.randomize}
+            onChange={(checked) =>
+              onUpdate(
+                "invert" as keyof T,
+                { randomize: checked } as unknown as Partial<T[keyof T]>,
+              )
+            }
+          />
+        </div>
+        {controls.invert.randomize ? (
+          <div className="fieldHint">Usually off, but can occasionally flip walls and floors.</div>
+        ) : (
+          <label className="generateBooleanField">
+            <input
+              type="checkbox"
+              checked={controls.invert.value}
+              onChange={(event) =>
+                onUpdate(
+                  "invert" as keyof T,
+                  { value: event.target.checked } as unknown as Partial<T[keyof T]>,
+                )
+              }
+            />
+            <span>Use inverted mask</span>
+          </label>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) =>
+              onUpdate("seed" as keyof T, { randomize: checked } as unknown as Partial<T[keyof T]>)
+            }
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={RANDOM_NOISE_SEED_MIN}
+            max={RANDOM_NOISE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) =>
+              onUpdate(
+                "seed" as keyof T,
+                { value: Number(event.target.value) } as unknown as Partial<T[keyof T]>,
+              )
+            }
           />
         )}
       </section>
@@ -2041,6 +2756,157 @@ function GeneratedRecordDetails({
             <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
+      ) : record.algorithm === "perlin-noise" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Scale</span>
+            <div>{formatCompactNumber(record.params.scale)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Octaves</span>
+            <div>{record.params.octaves}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Threshold</span>
+            <div>{Math.round(record.params.threshold * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "value-fractal-noise" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Scale</span>
+            <div>{formatCompactNumber(record.params.scale)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Octaves</span>
+            <div>{record.params.octaves}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Gain</span>
+            <div>{Math.round(record.params.gain * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Threshold</span>
+            <div>{Math.round(record.params.threshold * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "worley-noise" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Cell Count</span>
+            <div>{record.params.cellCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Jitter</span>
+            <div>{Math.round(record.params.jitter * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Threshold</span>
+            <div>{Math.round(record.params.threshold * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "thresholded-gradient-noise" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Band Scale</span>
+            <div>{formatCompactNumber(record.params.scale)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Angle</span>
+            <div>{record.params.angle}°</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Roughness</span>
+            <div>{Math.round(record.params.roughness * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Threshold</span>
+            <div>{Math.round(record.params.threshold * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "domain-warped-noise" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Scale</span>
+            <div>{formatCompactNumber(record.params.scale)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Octaves</span>
+            <div>{record.params.octaves}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Warp Scale</span>
+            <div>{formatCompactNumber(record.params.warpScale)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Warp Strength</span>
+            <div>{Math.round(record.params.warpStrength * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Threshold</span>
+            <div>{Math.round(record.params.threshold * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
       ) : record.algorithm === "backtracking-generator" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -2303,6 +3169,20 @@ export function GenerateBrowserDialog({
   const [randomNoiseControls, setRandomNoiseControls] = useState<RandomNoiseControlState>(() =>
     createDefaultRandomNoiseControlState(),
   );
+  const [perlinNoiseControls, setPerlinNoiseControls] = useState<PerlinNoiseControlState>(() =>
+    createDefaultPerlinNoiseControlState(),
+  );
+  const [valueFractalNoiseControls, setValueFractalNoiseControls] =
+    useState<ValueFractalNoiseControlState>(() => createDefaultValueFractalNoiseControlState());
+  const [worleyNoiseControls, setWorleyNoiseControls] = useState<WorleyNoiseControlState>(() =>
+    createDefaultWorleyNoiseControlState(),
+  );
+  const [thresholdedGradientNoiseControls, setThresholdedGradientNoiseControls] =
+    useState<ThresholdedGradientNoiseControlState>(() =>
+      createDefaultThresholdedGradientNoiseControlState(),
+    );
+  const [domainWarpedNoiseControls, setDomainWarpedNoiseControls] =
+    useState<DomainWarpedNoiseControlState>(() => createDefaultDomainWarpedNoiseControlState());
   const [backtrackingControls, setBacktrackingControls] = useState<BacktrackingControlState>(() =>
     createDefaultBacktrackingControlState(),
   );
@@ -2354,6 +3234,16 @@ export function GenerateBrowserDialog({
             count: GENERATED_LAYOUT_CARD_COUNT,
             seed: randomSeed,
             randomNoiseControls: selectedAlgorithm === "random-noise" ? randomNoiseControls : null,
+            perlinNoiseControls: selectedAlgorithm === "perlin-noise" ? perlinNoiseControls : null,
+            valueFractalNoiseControls:
+              selectedAlgorithm === "value-fractal-noise" ? valueFractalNoiseControls : null,
+            worleyNoiseControls: selectedAlgorithm === "worley-noise" ? worleyNoiseControls : null,
+            thresholdedGradientNoiseControls:
+              selectedAlgorithm === "thresholded-gradient-noise"
+                ? thresholdedGradientNoiseControls
+                : null,
+            domainWarpedNoiseControls:
+              selectedAlgorithm === "domain-warped-noise" ? domainWarpedNoiseControls : null,
             backtrackingControls:
               selectedAlgorithm === "backtracking-generator" ? backtrackingControls : null,
             primsControls: selectedAlgorithm === "prims" ? primsControls : null,
@@ -2379,11 +3269,13 @@ export function GenerateBrowserDialog({
       backtrackingControls,
       binaryTreeControls,
       cellularAutomatonControls,
+      domainWarpedNoiseControls,
       dungeonRoomsControls,
       ellersControls,
       growingTreeControls,
       huntAndKillControls,
       kruskalsControls,
+      perlinNoiseControls,
       primsControls,
       randomNoiseControls,
       randomSeed,
@@ -2392,8 +3284,11 @@ export function GenerateBrowserDialog({
       sidewinderControls,
       starredKeys,
       starredOnly,
+      thresholdedGradientNoiseControls,
       trivialMazeControls,
+      valueFractalNoiseControls,
       wilsonsControls,
+      worleyNoiseControls,
     ],
   );
   const selectedRecord =
@@ -2417,6 +3312,70 @@ export function GenerateBrowserDialog({
     nextValue: Partial<RandomNoiseControlState[K]>,
   ): void {
     setRandomNoiseControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updatePerlinNoiseControl<K extends keyof PerlinNoiseControlState>(
+    key: K,
+    nextValue: Partial<PerlinNoiseControlState[K]>,
+  ): void {
+    setPerlinNoiseControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateValueFractalNoiseControl<K extends keyof ValueFractalNoiseControlState>(
+    key: K,
+    nextValue: Partial<ValueFractalNoiseControlState[K]>,
+  ): void {
+    setValueFractalNoiseControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateWorleyNoiseControl<K extends keyof WorleyNoiseControlState>(
+    key: K,
+    nextValue: Partial<WorleyNoiseControlState[K]>,
+  ): void {
+    setWorleyNoiseControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateThresholdedGradientNoiseControl<
+    K extends keyof ThresholdedGradientNoiseControlState,
+  >(key: K, nextValue: Partial<ThresholdedGradientNoiseControlState[K]>): void {
+    setThresholdedGradientNoiseControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateDomainWarpedNoiseControl<K extends keyof DomainWarpedNoiseControlState>(
+    key: K,
+    nextValue: Partial<DomainWarpedNoiseControlState[K]>,
+  ): void {
+    setDomainWarpedNoiseControls((current) => ({
       ...current,
       [key]: {
         ...current[key],
@@ -2622,6 +3581,60 @@ export function GenerateBrowserDialog({
         mirror: { randomize: false, value: record.params.mirror },
         invert: { randomize: false, value: record.params.invert },
       });
+    } else if (record.algorithm === "perlin-noise") {
+      setSelectedAlgorithm("perlin-noise");
+      setPerlinNoiseControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        threshold: { randomize: false, value: record.params.threshold },
+        invert: { randomize: false, value: record.params.invert },
+        scale: { randomize: false, value: record.params.scale },
+        octaves: { randomize: false, value: record.params.octaves },
+      });
+    } else if (record.algorithm === "value-fractal-noise") {
+      setSelectedAlgorithm("value-fractal-noise");
+      setValueFractalNoiseControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        threshold: { randomize: false, value: record.params.threshold },
+        invert: { randomize: false, value: record.params.invert },
+        scale: { randomize: false, value: record.params.scale },
+        octaves: { randomize: false, value: record.params.octaves },
+        gain: { randomize: false, value: record.params.gain },
+      });
+    } else if (record.algorithm === "worley-noise") {
+      setSelectedAlgorithm("worley-noise");
+      setWorleyNoiseControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        threshold: { randomize: false, value: record.params.threshold },
+        invert: { randomize: false, value: record.params.invert },
+        cellCount: { randomize: false, value: record.params.cellCount },
+        jitter: { randomize: false, value: record.params.jitter },
+      });
+    } else if (record.algorithm === "thresholded-gradient-noise") {
+      setSelectedAlgorithm("thresholded-gradient-noise");
+      setThresholdedGradientNoiseControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        threshold: { randomize: false, value: record.params.threshold },
+        invert: { randomize: false, value: record.params.invert },
+        scale: { randomize: false, value: record.params.scale },
+        angle: { randomize: false, value: record.params.angle },
+        roughness: { randomize: false, value: record.params.roughness },
+      });
+    } else if (record.algorithm === "domain-warped-noise") {
+      setSelectedAlgorithm("domain-warped-noise");
+      setDomainWarpedNoiseControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        threshold: { randomize: false, value: record.params.threshold },
+        invert: { randomize: false, value: record.params.invert },
+        scale: { randomize: false, value: record.params.scale },
+        octaves: { randomize: false, value: record.params.octaves },
+        warpScale: { randomize: false, value: record.params.warpScale },
+        warpStrength: { randomize: false, value: record.params.warpStrength },
+      });
     } else if (record.algorithm === "backtracking-generator") {
       setSelectedAlgorithm("backtracking-generator");
       setBacktrackingControls({
@@ -2801,6 +3814,31 @@ export function GenerateBrowserDialog({
                   <RandomNoiseSettingsPanel
                     controls={randomNoiseControls}
                     onUpdate={updateRandomNoiseControl}
+                  />
+                ) : selectedAlgorithm === "perlin-noise" ? (
+                  <PerlinNoiseSettingsPanel
+                    controls={perlinNoiseControls}
+                    onUpdate={updatePerlinNoiseControl}
+                  />
+                ) : selectedAlgorithm === "value-fractal-noise" ? (
+                  <ValueFractalNoiseSettingsPanel
+                    controls={valueFractalNoiseControls}
+                    onUpdate={updateValueFractalNoiseControl}
+                  />
+                ) : selectedAlgorithm === "worley-noise" ? (
+                  <WorleyNoiseSettingsPanel
+                    controls={worleyNoiseControls}
+                    onUpdate={updateWorleyNoiseControl}
+                  />
+                ) : selectedAlgorithm === "thresholded-gradient-noise" ? (
+                  <ThresholdedGradientNoiseSettingsPanel
+                    controls={thresholdedGradientNoiseControls}
+                    onUpdate={updateThresholdedGradientNoiseControl}
+                  />
+                ) : selectedAlgorithm === "domain-warped-noise" ? (
+                  <DomainWarpedNoiseSettingsPanel
+                    controls={domainWarpedNoiseControls}
+                    onUpdate={updateDomainWarpedNoiseControl}
                   />
                 ) : selectedAlgorithm === "backtracking-generator" ? (
                   <BacktrackingSettingsPanel

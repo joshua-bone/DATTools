@@ -16,6 +16,34 @@ export const RANDOM_NOISE_MIRROR_OPTIONS: ReadonlyArray<RandomNoiseMirrorMode> =
   "vertical",
   "quad",
 ];
+export const NOISE_TERRAIN_THRESHOLD_MIN = 0.32;
+export const NOISE_TERRAIN_THRESHOLD_MAX = 0.68;
+export const NOISE_TERRAIN_THRESHOLD_STEP = 0.02;
+export const NOISE_TERRAIN_SCALE_MIN = 1;
+export const NOISE_TERRAIN_SCALE_MAX = 9;
+export const NOISE_TERRAIN_SCALE_STEP = 0.25;
+export const NOISE_TERRAIN_OCTAVES_MIN = 1;
+export const NOISE_TERRAIN_OCTAVES_MAX = 5;
+export const VALUE_FRACTAL_GAIN_MIN = 0.35;
+export const VALUE_FRACTAL_GAIN_MAX = 0.85;
+export const VALUE_FRACTAL_GAIN_STEP = 0.05;
+export const WORLEY_CELL_COUNT_MIN = 2;
+export const WORLEY_CELL_COUNT_MAX = 9;
+export const WORLEY_JITTER_MIN = 0.1;
+export const WORLEY_JITTER_MAX = 1;
+export const WORLEY_JITTER_STEP = 0.05;
+export const THRESHOLDED_GRADIENT_ANGLE_MIN = 0;
+export const THRESHOLDED_GRADIENT_ANGLE_MAX = 165;
+export const THRESHOLDED_GRADIENT_ANGLE_STEP = 15;
+export const THRESHOLDED_GRADIENT_ROUGHNESS_MIN = 0;
+export const THRESHOLDED_GRADIENT_ROUGHNESS_MAX = 1;
+export const THRESHOLDED_GRADIENT_ROUGHNESS_STEP = 0.05;
+export const DOMAIN_WARP_SCALE_MIN = 0.75;
+export const DOMAIN_WARP_SCALE_MAX = 5;
+export const DOMAIN_WARP_SCALE_STEP = 0.25;
+export const DOMAIN_WARP_STRENGTH_MIN = 0.1;
+export const DOMAIN_WARP_STRENGTH_MAX = 0.75;
+export const DOMAIN_WARP_STRENGTH_STEP = 0.05;
 
 export const MAZE_SEED_MIN = 1;
 export const MAZE_SEED_MAX = 0x7ffffffe;
@@ -45,6 +73,11 @@ export const DUNGEON_ROOM_SIZE_MAX = 5;
 
 export type GenerateAlgorithmId =
   | "random-noise"
+  | "perlin-noise"
+  | "value-fractal-noise"
+  | "worley-noise"
+  | "thresholded-gradient-noise"
+  | "domain-warped-noise"
   | "backtracking-generator"
   | "growing-tree"
   | "prims"
@@ -79,6 +112,47 @@ export type RandomNoiseParameters = Readonly<{
   mirror: RandomNoiseMirrorMode;
   invert: boolean;
 }>;
+
+type NoiseTerrainBaseParameters = Readonly<{
+  seed: number;
+  blockSize: number;
+  threshold: number;
+  invert: boolean;
+}>;
+
+export type PerlinNoiseParameters = NoiseTerrainBaseParameters &
+  Readonly<{
+    scale: number;
+    octaves: number;
+  }>;
+
+export type ValueFractalNoiseParameters = NoiseTerrainBaseParameters &
+  Readonly<{
+    scale: number;
+    octaves: number;
+    gain: number;
+  }>;
+
+export type WorleyNoiseParameters = NoiseTerrainBaseParameters &
+  Readonly<{
+    cellCount: number;
+    jitter: number;
+  }>;
+
+export type ThresholdedGradientNoiseParameters = NoiseTerrainBaseParameters &
+  Readonly<{
+    scale: number;
+    angle: number;
+    roughness: number;
+  }>;
+
+export type DomainWarpedNoiseParameters = NoiseTerrainBaseParameters &
+  Readonly<{
+    scale: number;
+    octaves: number;
+    warpScale: number;
+    warpStrength: number;
+  }>;
 
 export type MazeAlgorithmParameters = Readonly<{
   seed: number;
@@ -160,6 +234,47 @@ export type RandomNoiseControlState = Readonly<{
   invert: RandomizableValue<boolean>;
 }>;
 
+type NoiseTerrainBaseControlState = Readonly<{
+  seed: RandomizableValue<number>;
+  blockSize: RandomizableValue<number>;
+  threshold: RandomizableValue<number>;
+  invert: RandomizableValue<boolean>;
+}>;
+
+export type PerlinNoiseControlState = NoiseTerrainBaseControlState &
+  Readonly<{
+    scale: RandomizableValue<number>;
+    octaves: RandomizableValue<number>;
+  }>;
+
+export type ValueFractalNoiseControlState = NoiseTerrainBaseControlState &
+  Readonly<{
+    scale: RandomizableValue<number>;
+    octaves: RandomizableValue<number>;
+    gain: RandomizableValue<number>;
+  }>;
+
+export type WorleyNoiseControlState = NoiseTerrainBaseControlState &
+  Readonly<{
+    cellCount: RandomizableValue<number>;
+    jitter: RandomizableValue<number>;
+  }>;
+
+export type ThresholdedGradientNoiseControlState = NoiseTerrainBaseControlState &
+  Readonly<{
+    scale: RandomizableValue<number>;
+    angle: RandomizableValue<number>;
+    roughness: RandomizableValue<number>;
+  }>;
+
+export type DomainWarpedNoiseControlState = NoiseTerrainBaseControlState &
+  Readonly<{
+    scale: RandomizableValue<number>;
+    octaves: RandomizableValue<number>;
+    warpScale: RandomizableValue<number>;
+    warpStrength: RandomizableValue<number>;
+  }>;
+
 type MazeBaseControlState = Readonly<{
   seed: RandomizableValue<number>;
   blockSize: RandomizableValue<MazeBlockSize>;
@@ -224,6 +339,11 @@ type BaseGeneratedLayoutRecord<
   Algorithm extends GenerateRecordAlgorithm,
   Params extends
     | RandomNoiseParameters
+    | PerlinNoiseParameters
+    | ValueFractalNoiseParameters
+    | WorleyNoiseParameters
+    | ThresholdedGradientNoiseParameters
+    | DomainWarpedNoiseParameters
     | BacktrackingParameters
     | PrimsParameters
     | KruskalsParameters
@@ -251,6 +371,31 @@ type BaseGeneratedLayoutRecord<
 export type RandomNoiseGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "random-noise",
   RandomNoiseParameters
+>;
+
+export type PerlinNoiseGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "perlin-noise",
+  PerlinNoiseParameters
+>;
+
+export type ValueFractalNoiseGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "value-fractal-noise",
+  ValueFractalNoiseParameters
+>;
+
+export type WorleyNoiseGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "worley-noise",
+  WorleyNoiseParameters
+>;
+
+export type ThresholdedGradientNoiseGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "thresholded-gradient-noise",
+  ThresholdedGradientNoiseParameters
+>;
+
+export type DomainWarpedNoiseGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "domain-warped-noise",
+  DomainWarpedNoiseParameters
 >;
 
 export type BacktrackingGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
@@ -311,6 +456,11 @@ export type StarredGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"starred", 
 
 export type GeneratedLayoutRecord =
   | RandomNoiseGeneratedLayoutRecord
+  | PerlinNoiseGeneratedLayoutRecord
+  | ValueFractalNoiseGeneratedLayoutRecord
+  | WorleyNoiseGeneratedLayoutRecord
+  | ThresholdedGradientNoiseGeneratedLayoutRecord
+  | DomainWarpedNoiseGeneratedLayoutRecord
   | BacktrackingGeneratedLayoutRecord
   | PrimsGeneratedLayoutRecord
   | KruskalsGeneratedLayoutRecord
@@ -332,6 +482,11 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
 > = [
   { value: "any", label: "Any" },
   { value: "random-noise", label: "Random Noise" },
+  { value: "perlin-noise", label: "Perlin Noise" },
+  { value: "value-fractal-noise", label: "Value Noise / Fractal Noise" },
+  { value: "worley-noise", label: "Worley / Cellular Noise" },
+  { value: "thresholded-gradient-noise", label: "Thresholded Gradient Noise" },
+  { value: "domain-warped-noise", label: "Domain-Warped Noise" },
   { value: "backtracking-generator", label: "Backtracking Generator" },
   { value: "growing-tree", label: "Growing Tree" },
   { value: "prims", label: "Prim's" },
@@ -349,6 +504,11 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
 ];
 
 const RANDOM_NOISE_LABEL = "Random Noise";
+const PERLIN_NOISE_LABEL = "Perlin Noise";
+const VALUE_FRACTAL_NOISE_LABEL = "Value Noise / Fractal Noise";
+const WORLEY_NOISE_LABEL = "Worley / Cellular Noise";
+const THRESHOLDED_GRADIENT_NOISE_LABEL = "Thresholded Gradient Noise";
+const DOMAIN_WARPED_NOISE_LABEL = "Domain-Warped Noise";
 const BACKTRACKING_LABEL = "Backtracking Generator";
 const PRIMS_LABEL = "Prim's";
 const KRUSKALS_LABEL = "Kruskal's";
@@ -367,6 +527,11 @@ const GENERATED_LAYOUT_MIN_WALL_COUNT = 24;
 const GENERATED_LAYOUT_MAX_WALL_COUNT = 1000;
 const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "random-noise",
+  "perlin-noise",
+  "value-fractal-noise",
+  "worley-noise",
+  "thresholded-gradient-noise",
+  "domain-warped-noise",
   "backtracking-generator",
   "growing-tree",
   "prims",
@@ -397,6 +562,16 @@ const CELLULAR_AUTOMATON_COMPLEXITY_VALUES = [0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1
 const CELLULAR_AUTOMATON_DENSITY_VALUES = [0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1];
 const DUNGEON_ROOM_COUNT_VALUES = [1, 2, 3, 4, 5, 6];
 const DUNGEON_ROOM_SIZE_VALUES = [1, 2, 3, 4, 5];
+const NOISE_TERRAIN_THRESHOLD_VALUES = [0.36, 0.4, 0.44, 0.48, 0.52, 0.56, 0.6, 0.64];
+const NOISE_TERRAIN_SCALE_VALUES = [1.25, 1.75, 2.25, 3, 4, 5, 6, 7.5, 9];
+const NOISE_TERRAIN_OCTAVE_VALUES = [1, 2, 3, 4, 5];
+const VALUE_FRACTAL_GAIN_VALUES = [0.35, 0.45, 0.55, 0.65, 0.75, 0.85];
+const WORLEY_CELL_COUNT_VALUES = [2, 3, 4, 5, 6, 7, 8, 9];
+const WORLEY_JITTER_VALUES = [0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1];
+const THRESHOLDED_GRADIENT_ANGLE_VALUES = [0, 30, 45, 60, 90, 120, 135, 150];
+const THRESHOLDED_GRADIENT_ROUGHNESS_VALUES = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9];
+const DOMAIN_WARP_SCALE_VALUES = [0.75, 1, 1.5, 2, 2.5, 3.5, 5];
+const DOMAIN_WARP_STRENGTH_VALUES = [0.1, 0.2, 0.3, 0.4, 0.55, 0.7];
 export const BINARY_TREE_SKEW_OPTIONS: ReadonlyArray<BinaryTreeSkew> = ["NW", "NE", "SW", "SE"];
 export const HUNT_ORDER_OPTIONS: ReadonlyArray<HuntOrder> = ["random", "serpentine"];
 export const TRIVIAL_MAZE_TYPE_OPTIONS: ReadonlyArray<TrivialMazeType> = ["spiral", "serpentine"];
@@ -425,6 +600,11 @@ export function generateLayoutRecords(
     count?: number;
     seed: number;
     randomNoiseControls?: RandomNoiseControlState | null;
+    perlinNoiseControls?: PerlinNoiseControlState | null;
+    valueFractalNoiseControls?: ValueFractalNoiseControlState | null;
+    worleyNoiseControls?: WorleyNoiseControlState | null;
+    thresholdedGradientNoiseControls?: ThresholdedGradientNoiseControlState | null;
+    domainWarpedNoiseControls?: DomainWarpedNoiseControlState | null;
     backtrackingControls?: BacktrackingControlState | null;
     primsControls?: PrimsControlState | null;
     kruskalsControls?: KruskalsControlState | null;
@@ -451,6 +631,11 @@ export function generateLayoutRecords(
     const algorithm = pickAlgorithm(options.algorithm, rng);
     const record = generateRecordForAlgorithm(algorithm, rng, {
       randomNoiseControls: options.randomNoiseControls ?? null,
+      perlinNoiseControls: options.perlinNoiseControls ?? null,
+      valueFractalNoiseControls: options.valueFractalNoiseControls ?? null,
+      worleyNoiseControls: options.worleyNoiseControls ?? null,
+      thresholdedGradientNoiseControls: options.thresholdedGradientNoiseControls ?? null,
+      domainWarpedNoiseControls: options.domainWarpedNoiseControls ?? null,
       backtrackingControls: options.backtrackingControls ?? null,
       primsControls: options.primsControls ?? null,
       kruskalsControls: options.kruskalsControls ?? null,
@@ -486,6 +671,65 @@ export function createDefaultRandomNoiseControlState(): RandomNoiseControlState 
     blockSize: { randomize: true, value: 1 },
     mirror: { randomize: true, value: "none" },
     invert: { randomize: true, value: false },
+  };
+}
+
+export function createDefaultPerlinNoiseControlState(): PerlinNoiseControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    threshold: { randomize: true, value: 0.5 },
+    invert: { randomize: true, value: false },
+    scale: { randomize: true, value: 3 },
+    octaves: { randomize: true, value: 3 },
+  };
+}
+
+export function createDefaultValueFractalNoiseControlState(): ValueFractalNoiseControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    threshold: { randomize: true, value: 0.5 },
+    invert: { randomize: true, value: false },
+    scale: { randomize: true, value: 3 },
+    octaves: { randomize: true, value: 4 },
+    gain: { randomize: true, value: 0.55 },
+  };
+}
+
+export function createDefaultWorleyNoiseControlState(): WorleyNoiseControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    threshold: { randomize: true, value: 0.5 },
+    invert: { randomize: true, value: false },
+    cellCount: { randomize: true, value: 5 },
+    jitter: { randomize: true, value: 0.6 },
+  };
+}
+
+export function createDefaultThresholdedGradientNoiseControlState(): ThresholdedGradientNoiseControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    threshold: { randomize: true, value: 0.5 },
+    invert: { randomize: true, value: false },
+    scale: { randomize: true, value: 3 },
+    angle: { randomize: true, value: 45 },
+    roughness: { randomize: true, value: 0.45 },
+  };
+}
+
+export function createDefaultDomainWarpedNoiseControlState(): DomainWarpedNoiseControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    threshold: { randomize: true, value: 0.5 },
+    invert: { randomize: true, value: false },
+    scale: { randomize: true, value: 3 },
+    octaves: { randomize: true, value: 3 },
+    warpScale: { randomize: true, value: 1.5 },
+    warpStrength: { randomize: true, value: 0.3 },
   };
 }
 
@@ -619,6 +863,11 @@ function generateRecordForAlgorithm(
   rng: () => number,
   controls: Readonly<{
     randomNoiseControls: RandomNoiseControlState | null;
+    perlinNoiseControls: PerlinNoiseControlState | null;
+    valueFractalNoiseControls: ValueFractalNoiseControlState | null;
+    worleyNoiseControls: WorleyNoiseControlState | null;
+    thresholdedGradientNoiseControls: ThresholdedGradientNoiseControlState | null;
+    domainWarpedNoiseControls: DomainWarpedNoiseControlState | null;
     backtrackingControls: BacktrackingControlState | null;
     primsControls: PrimsControlState | null;
     kruskalsControls: KruskalsControlState | null;
@@ -638,6 +887,16 @@ function generateRecordForAlgorithm(
   switch (algorithm) {
     case "random-noise":
       return buildRandomNoiseRecord(rng, controls.randomNoiseControls);
+    case "perlin-noise":
+      return buildPerlinNoiseRecord(rng, controls.perlinNoiseControls);
+    case "value-fractal-noise":
+      return buildValueFractalNoiseRecord(rng, controls.valueFractalNoiseControls);
+    case "worley-noise":
+      return buildWorleyNoiseRecord(rng, controls.worleyNoiseControls);
+    case "thresholded-gradient-noise":
+      return buildThresholdedGradientNoiseRecord(rng, controls.thresholdedGradientNoiseControls);
+    case "domain-warped-noise":
+      return buildDomainWarpedNoiseRecord(rng, controls.domainWarpedNoiseControls);
     case "backtracking-generator":
       return buildBacktrackingRecord(rng, controls.backtrackingControls);
     case "prims":
@@ -706,6 +965,181 @@ function buildRandomNoiseRecord(
     seedLabel: `Seed ${fallback.seed}`,
     params: fallback,
   };
+}
+
+function buildNoiseTerrainRecord<
+  Algorithm extends
+    | "perlin-noise"
+    | "value-fractal-noise"
+    | "worley-noise"
+    | "thresholded-gradient-noise"
+    | "domain-warped-noise",
+  Params extends
+    | PerlinNoiseParameters
+    | ValueFractalNoiseParameters
+    | WorleyNoiseParameters
+    | ThresholdedGradientNoiseParameters
+    | DomainWarpedNoiseParameters,
+>(
+  rng: () => number,
+  options: Readonly<{
+    algorithm: Algorithm;
+    title: string;
+    randomize: () => Params;
+    buildBytes: (params: Params) => Uint8Array;
+    buildSummary: (params: Params) => string;
+    fallback: Params;
+  }>,
+): BaseGeneratedLayoutRecord<Algorithm, Params> {
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const params = options.randomize();
+    const bytes = options.buildBytes(params);
+    const wallCount = countSetBits(bytes);
+    if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
+      continue;
+
+    return {
+      wallKey: wallMaskKeyFromBytes(bytes),
+      algorithm: options.algorithm,
+      title: options.title,
+      summary: options.buildSummary(params),
+      seedLabel: `Seed ${params.seed}`,
+      params,
+    };
+  }
+
+  return {
+    wallKey: wallMaskKeyFromBytes(options.buildBytes(options.fallback)),
+    algorithm: options.algorithm,
+    title: options.title,
+    summary: options.buildSummary(options.fallback),
+    seedLabel: `Seed ${options.fallback.seed}`,
+    params: options.fallback,
+  };
+}
+
+function buildPerlinNoiseRecord(
+  rng: () => number,
+  controls: PerlinNoiseControlState | null,
+): PerlinNoiseGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultPerlinNoiseControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    threshold: 0.52,
+    invert: false,
+    scale: 3,
+    octaves: 3,
+  } satisfies PerlinNoiseParameters;
+
+  return buildNoiseTerrainRecord(rng, {
+    algorithm: "perlin-noise",
+    title: PERLIN_NOISE_LABEL,
+    randomize: () => randomizePerlinNoiseParameters(rng, defaults),
+    buildBytes: buildPerlinNoiseMaskBytes,
+    buildSummary: buildPerlinNoiseSummary,
+    fallback,
+  });
+}
+
+function buildValueFractalNoiseRecord(
+  rng: () => number,
+  controls: ValueFractalNoiseControlState | null,
+): ValueFractalNoiseGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultValueFractalNoiseControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    threshold: 0.5,
+    invert: false,
+    scale: 3,
+    octaves: 4,
+    gain: 0.55,
+  } satisfies ValueFractalNoiseParameters;
+
+  return buildNoiseTerrainRecord(rng, {
+    algorithm: "value-fractal-noise",
+    title: VALUE_FRACTAL_NOISE_LABEL,
+    randomize: () => randomizeValueFractalNoiseParameters(rng, defaults),
+    buildBytes: buildValueFractalNoiseMaskBytes,
+    buildSummary: buildValueFractalNoiseSummary,
+    fallback,
+  });
+}
+
+function buildWorleyNoiseRecord(
+  rng: () => number,
+  controls: WorleyNoiseControlState | null,
+): WorleyNoiseGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultWorleyNoiseControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    threshold: 0.54,
+    invert: false,
+    cellCount: 5,
+    jitter: 0.7,
+  } satisfies WorleyNoiseParameters;
+
+  return buildNoiseTerrainRecord(rng, {
+    algorithm: "worley-noise",
+    title: WORLEY_NOISE_LABEL,
+    randomize: () => randomizeWorleyNoiseParameters(rng, defaults),
+    buildBytes: buildWorleyNoiseMaskBytes,
+    buildSummary: buildWorleyNoiseSummary,
+    fallback,
+  });
+}
+
+function buildThresholdedGradientNoiseRecord(
+  rng: () => number,
+  controls: ThresholdedGradientNoiseControlState | null,
+): ThresholdedGradientNoiseGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultThresholdedGradientNoiseControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    threshold: 0.5,
+    invert: false,
+    scale: 3,
+    angle: 45,
+    roughness: 0.45,
+  } satisfies ThresholdedGradientNoiseParameters;
+
+  return buildNoiseTerrainRecord(rng, {
+    algorithm: "thresholded-gradient-noise",
+    title: THRESHOLDED_GRADIENT_NOISE_LABEL,
+    randomize: () => randomizeThresholdedGradientNoiseParameters(rng, defaults),
+    buildBytes: buildThresholdedGradientNoiseMaskBytes,
+    buildSummary: buildThresholdedGradientNoiseSummary,
+    fallback,
+  });
+}
+
+function buildDomainWarpedNoiseRecord(
+  rng: () => number,
+  controls: DomainWarpedNoiseControlState | null,
+): DomainWarpedNoiseGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultDomainWarpedNoiseControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    threshold: 0.5,
+    invert: false,
+    scale: 3,
+    octaves: 3,
+    warpScale: 1.5,
+    warpStrength: 0.3,
+  } satisfies DomainWarpedNoiseParameters;
+
+  return buildNoiseTerrainRecord(rng, {
+    algorithm: "domain-warped-noise",
+    title: DOMAIN_WARPED_NOISE_LABEL,
+    randomize: () => randomizeDomainWarpedNoiseParameters(rng, defaults),
+    buildBytes: buildDomainWarpedNoiseMaskBytes,
+    buildSummary: buildDomainWarpedNoiseSummary,
+    fallback,
+  });
 }
 
 function buildBacktrackingRecord(
@@ -1032,6 +1466,154 @@ function randomizeRandomNoiseParameters(
   };
 }
 
+function randomizeNoiseTerrainBaseParameters(
+  rng: () => number,
+  defaults: NoiseTerrainBaseControlState,
+): NoiseTerrainBaseParameters {
+  return {
+    seed: resolveRandomizableValue(
+      defaults.seed,
+      () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
+      sanitizeSeed,
+    ),
+    blockSize: resolveRandomizableValue(
+      defaults.blockSize,
+      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
+      sampleClosestNoiseBlockSize,
+    ),
+    threshold: resolveRandomizableValue(
+      defaults.threshold,
+      () => sampleOne(rng, NOISE_TERRAIN_THRESHOLD_VALUES),
+      sanitizeNoiseTerrainThreshold,
+    ),
+    invert: resolveRandomizableValue(
+      defaults.invert,
+      () => rng() < 0.18,
+      (value) => !!value,
+    ),
+  };
+}
+
+function randomizePerlinNoiseParameters(
+  rng: () => number,
+  defaults: PerlinNoiseControlState,
+): PerlinNoiseParameters {
+  const base = randomizeNoiseTerrainBaseParameters(rng, defaults);
+  return {
+    ...base,
+    scale: resolveRandomizableValue(
+      defaults.scale,
+      () => sampleOne(rng, NOISE_TERRAIN_SCALE_VALUES),
+      sanitizeNoiseTerrainScale,
+    ),
+    octaves: resolveRandomizableValue(
+      defaults.octaves,
+      () => sampleOne(rng, NOISE_TERRAIN_OCTAVE_VALUES),
+      sanitizeNoiseTerrainOctaves,
+    ),
+  };
+}
+
+function randomizeValueFractalNoiseParameters(
+  rng: () => number,
+  defaults: ValueFractalNoiseControlState,
+): ValueFractalNoiseParameters {
+  const base = randomizeNoiseTerrainBaseParameters(rng, defaults);
+  return {
+    ...base,
+    scale: resolveRandomizableValue(
+      defaults.scale,
+      () => sampleOne(rng, NOISE_TERRAIN_SCALE_VALUES),
+      sanitizeNoiseTerrainScale,
+    ),
+    octaves: resolveRandomizableValue(
+      defaults.octaves,
+      () => sampleOne(rng, NOISE_TERRAIN_OCTAVE_VALUES),
+      sanitizeNoiseTerrainOctaves,
+    ),
+    gain: resolveRandomizableValue(
+      defaults.gain,
+      () => sampleOne(rng, VALUE_FRACTAL_GAIN_VALUES),
+      sanitizeValueFractalGain,
+    ),
+  };
+}
+
+function randomizeWorleyNoiseParameters(
+  rng: () => number,
+  defaults: WorleyNoiseControlState,
+): WorleyNoiseParameters {
+  const base = randomizeNoiseTerrainBaseParameters(rng, defaults);
+  return {
+    ...base,
+    cellCount: resolveRandomizableValue(
+      defaults.cellCount,
+      () => sampleOne(rng, WORLEY_CELL_COUNT_VALUES),
+      sanitizeWorleyCellCount,
+    ),
+    jitter: resolveRandomizableValue(
+      defaults.jitter,
+      () => sampleOne(rng, WORLEY_JITTER_VALUES),
+      sanitizeWorleyJitter,
+    ),
+  };
+}
+
+function randomizeThresholdedGradientNoiseParameters(
+  rng: () => number,
+  defaults: ThresholdedGradientNoiseControlState,
+): ThresholdedGradientNoiseParameters {
+  const base = randomizeNoiseTerrainBaseParameters(rng, defaults);
+  return {
+    ...base,
+    scale: resolveRandomizableValue(
+      defaults.scale,
+      () => sampleOne(rng, NOISE_TERRAIN_SCALE_VALUES),
+      sanitizeNoiseTerrainScale,
+    ),
+    angle: resolveRandomizableValue(
+      defaults.angle,
+      () => sampleOne(rng, THRESHOLDED_GRADIENT_ANGLE_VALUES),
+      sanitizeThresholdedGradientAngle,
+    ),
+    roughness: resolveRandomizableValue(
+      defaults.roughness,
+      () => sampleOne(rng, THRESHOLDED_GRADIENT_ROUGHNESS_VALUES),
+      sanitizeThresholdedGradientRoughness,
+    ),
+  };
+}
+
+function randomizeDomainWarpedNoiseParameters(
+  rng: () => number,
+  defaults: DomainWarpedNoiseControlState,
+): DomainWarpedNoiseParameters {
+  const base = randomizeNoiseTerrainBaseParameters(rng, defaults);
+  return {
+    ...base,
+    scale: resolveRandomizableValue(
+      defaults.scale,
+      () => sampleOne(rng, NOISE_TERRAIN_SCALE_VALUES),
+      sanitizeNoiseTerrainScale,
+    ),
+    octaves: resolveRandomizableValue(
+      defaults.octaves,
+      () => sampleOne(rng, NOISE_TERRAIN_OCTAVE_VALUES),
+      sanitizeNoiseTerrainOctaves,
+    ),
+    warpScale: resolveRandomizableValue(
+      defaults.warpScale,
+      () => sampleOne(rng, DOMAIN_WARP_SCALE_VALUES),
+      sanitizeDomainWarpScale,
+    ),
+    warpStrength: resolveRandomizableValue(
+      defaults.warpStrength,
+      () => sampleOne(rng, DOMAIN_WARP_STRENGTH_VALUES),
+      sanitizeDomainWarpStrength,
+    ),
+  };
+}
+
 function randomizeMazeBaseParameters(
   rng: () => number,
   defaults: MazeBaseControlState,
@@ -1272,6 +1854,98 @@ function buildRandomNoiseMaskBytes(params: RandomNoiseParameters): Uint8Array {
       );
       const filled = params.invert ? !sample : sample;
       if (!filled) continue;
+      setMaskBit(bytes, y * GENERATED_LAYOUT_GRID_SIZE + x);
+    }
+  }
+
+  return bytes;
+}
+
+function buildPerlinNoiseMaskBytes(params: PerlinNoiseParameters): Uint8Array {
+  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+    fractalNoise(
+      params.seed,
+      sampleX * params.scale,
+      sampleY * params.scale,
+      params.octaves,
+      0.5,
+      gradientNoise2D,
+    ),
+  );
+}
+
+function buildValueFractalNoiseMaskBytes(params: ValueFractalNoiseParameters): Uint8Array {
+  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+    fractalNoise(
+      params.seed,
+      sampleX * params.scale,
+      sampleY * params.scale,
+      params.octaves,
+      params.gain,
+      valueNoise2D,
+    ),
+  );
+}
+
+function buildWorleyNoiseMaskBytes(params: WorleyNoiseParameters): Uint8Array {
+  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+    worleyNoise2D(params.seed, sampleX, sampleY, params.cellCount, params.jitter),
+  );
+}
+
+function buildThresholdedGradientNoiseMaskBytes(
+  params: ThresholdedGradientNoiseParameters,
+): Uint8Array {
+  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+    thresholdedGradientNoise(
+      params.seed,
+      sampleX,
+      sampleY,
+      params.scale,
+      params.angle,
+      params.roughness,
+    ),
+  );
+}
+
+function buildDomainWarpedNoiseMaskBytes(params: DomainWarpedNoiseParameters): Uint8Array {
+  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+    domainWarpedNoise(
+      params.seed,
+      sampleX,
+      sampleY,
+      params.scale,
+      params.octaves,
+      params.warpScale,
+      params.warpStrength,
+    ),
+  );
+}
+
+function buildNoiseTerrainMaskBytes(
+  params: NoiseTerrainBaseParameters,
+  sampleField: (sampleX: number, sampleY: number) => number,
+): Uint8Array {
+  const bytes = new Uint8Array(128);
+  const sourceWidth = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / params.blockSize);
+  const sourceHeight = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / params.blockSize);
+  const cells = new Uint8Array(sourceWidth * sourceHeight);
+
+  for (let sourceY = 0; sourceY < sourceHeight; sourceY++) {
+    for (let sourceX = 0; sourceX < sourceWidth; sourceX++) {
+      const sampleX = (sourceX + 0.5) / sourceWidth;
+      const sampleY = (sourceY + 0.5) / sourceHeight;
+      const value = clamp01(sampleField(sampleX, sampleY));
+      const filled = params.invert ? value < params.threshold : value >= params.threshold;
+      cells[sourceY * sourceWidth + sourceX] = filled ? 1 : 0;
+    }
+  }
+
+  for (let y = 0; y < GENERATED_LAYOUT_GRID_SIZE; y++) {
+    for (let x = 0; x < GENERATED_LAYOUT_GRID_SIZE; x++) {
+      const sourceX = Math.min(sourceWidth - 1, Math.floor(x / params.blockSize));
+      const sourceY = Math.min(sourceHeight - 1, Math.floor(y / params.blockSize));
+      if (cells[sourceY * sourceWidth + sourceX] !== 1) continue;
       setMaskBit(bytes, y * GENERATED_LAYOUT_GRID_SIZE + x);
     }
   }
@@ -1940,6 +2614,65 @@ function buildRandomNoiseSummary(params: RandomNoiseParameters): string {
         ? "quad mirror"
         : `${params.mirror} mirror`;
   return [densityLabel, blockLabel, mirrorLabel, params.invert ? "inverted" : null]
+    .filter((value): value is string => value !== null)
+    .join(" • ");
+}
+
+function buildPerlinNoiseSummary(params: PerlinNoiseParameters): string {
+  return buildNoiseTerrainSummary(
+    [`${formatNoiseScale(params.scale)} scale`, `${params.octaves} octaves`],
+    params,
+  );
+}
+
+function buildValueFractalNoiseSummary(params: ValueFractalNoiseParameters): string {
+  return buildNoiseTerrainSummary(
+    [
+      `${formatNoiseScale(params.scale)} scale`,
+      `${params.octaves} octaves`,
+      `${Math.round(params.gain * 100)}% gain`,
+    ],
+    params,
+  );
+}
+
+function buildWorleyNoiseSummary(params: WorleyNoiseParameters): string {
+  return buildNoiseTerrainSummary(
+    [`${params.cellCount} cells`, `${Math.round(params.jitter * 100)}% jitter`],
+    params,
+  );
+}
+
+function buildThresholdedGradientNoiseSummary(params: ThresholdedGradientNoiseParameters): string {
+  return buildNoiseTerrainSummary(
+    [
+      `${formatNoiseScale(params.scale)} band scale`,
+      `${params.angle}°`,
+      `${Math.round(params.roughness * 100)}% roughness`,
+    ],
+    params,
+  );
+}
+
+function buildDomainWarpedNoiseSummary(params: DomainWarpedNoiseParameters): string {
+  return buildNoiseTerrainSummary(
+    [
+      `${formatNoiseScale(params.scale)} scale`,
+      `${params.octaves} octaves`,
+      `${formatNoiseScale(params.warpScale)} warp scale`,
+      `${Math.round(params.warpStrength * 100)}% warp`,
+    ],
+    params,
+  );
+}
+
+function buildNoiseTerrainSummary(parts: string[], params: NoiseTerrainBaseParameters): string {
+  return [
+    `${params.blockSize}x${params.blockSize} blocks`,
+    ...parts,
+    `${Math.round(params.threshold * 100)}% threshold`,
+    params.invert ? "inverted" : null,
+  ]
     .filter((value): value is string => value !== null)
     .join(" • ");
 }
@@ -2810,6 +3543,84 @@ function sampleClosestNoiseBlockSize(value: number): number {
   );
 }
 
+function sanitizeSeed(value: number): number {
+  return clamp(Math.round(value), RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX);
+}
+
+function sanitizeNoiseTerrainThreshold(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    NOISE_TERRAIN_THRESHOLD_STEP,
+    NOISE_TERRAIN_THRESHOLD_MIN,
+    NOISE_TERRAIN_THRESHOLD_MAX,
+  );
+}
+
+function sanitizeNoiseTerrainScale(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    NOISE_TERRAIN_SCALE_STEP,
+    NOISE_TERRAIN_SCALE_MIN,
+    NOISE_TERRAIN_SCALE_MAX,
+  );
+}
+
+function sanitizeNoiseTerrainOctaves(value: number): number {
+  return clamp(Math.round(value), NOISE_TERRAIN_OCTAVES_MIN, NOISE_TERRAIN_OCTAVES_MAX);
+}
+
+function sanitizeValueFractalGain(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    VALUE_FRACTAL_GAIN_STEP,
+    VALUE_FRACTAL_GAIN_MIN,
+    VALUE_FRACTAL_GAIN_MAX,
+  );
+}
+
+function sanitizeWorleyCellCount(value: number): number {
+  return clamp(Math.round(value), WORLEY_CELL_COUNT_MIN, WORLEY_CELL_COUNT_MAX);
+}
+
+function sanitizeWorleyJitter(value: number): number {
+  return normalizeSteppedValue(value, WORLEY_JITTER_STEP, WORLEY_JITTER_MIN, WORLEY_JITTER_MAX);
+}
+
+function sanitizeThresholdedGradientAngle(value: number): number {
+  return clamp(
+    Math.round(value / THRESHOLDED_GRADIENT_ANGLE_STEP) * THRESHOLDED_GRADIENT_ANGLE_STEP,
+    THRESHOLDED_GRADIENT_ANGLE_MIN,
+    THRESHOLDED_GRADIENT_ANGLE_MAX,
+  );
+}
+
+function sanitizeThresholdedGradientRoughness(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    THRESHOLDED_GRADIENT_ROUGHNESS_STEP,
+    THRESHOLDED_GRADIENT_ROUGHNESS_MIN,
+    THRESHOLDED_GRADIENT_ROUGHNESS_MAX,
+  );
+}
+
+function sanitizeDomainWarpScale(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    DOMAIN_WARP_SCALE_STEP,
+    DOMAIN_WARP_SCALE_MIN,
+    DOMAIN_WARP_SCALE_MAX,
+  );
+}
+
+function sanitizeDomainWarpStrength(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    DOMAIN_WARP_STRENGTH_STEP,
+    DOMAIN_WARP_STRENGTH_MIN,
+    DOMAIN_WARP_STRENGTH_MAX,
+  );
+}
+
 function resolveRandomizableValue<T>(
   control: RandomizableValue<T>,
   randomize: () => T,
@@ -2829,6 +3640,174 @@ function clamp(value: number, min: number, max: number): number {
 
 function normalizeSteppedValue(value: number, step: number, min: number, max: number): number {
   return Number(clamp(Math.round(value / step) * step, min, max).toFixed(2));
+}
+
+function clamp01(value: number): number {
+  return clamp(value, 0, 1);
+}
+
+function lerp(a: number, b: number, amount: number): number {
+  return a + (b - a) * amount;
+}
+
+function fade(value: number): number {
+  return value * value * value * (value * (value * 6 - 15) + 10);
+}
+
+function fractalNoise(
+  seed: number,
+  x: number,
+  y: number,
+  octaves: number,
+  gain: number,
+  sampler: (seed: number, x: number, y: number) => number,
+): number {
+  let amplitude = 1;
+  let frequency = 1;
+  let total = 0;
+  let amplitudeSum = 0;
+
+  for (let octave = 0; octave < octaves; octave++) {
+    total += sampler(seed + octave * 1013, x * frequency, y * frequency) * amplitude;
+    amplitudeSum += amplitude;
+    amplitude *= gain;
+    frequency *= 2;
+  }
+
+  if (amplitudeSum === 0) return 0.5;
+  return clamp01(total / amplitudeSum);
+}
+
+function valueNoise2D(seed: number, x: number, y: number): number {
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const x1 = x0 + 1;
+  const y1 = y0 + 1;
+  const tx = fade(x - x0);
+  const ty = fade(y - y0);
+
+  const v00 = hashFloat(seed, x0, y0);
+  const v10 = hashFloat(seed, x1, y0);
+  const v01 = hashFloat(seed, x0, y1);
+  const v11 = hashFloat(seed, x1, y1);
+  const top = lerp(v00, v10, tx);
+  const bottom = lerp(v01, v11, tx);
+
+  return lerp(top, bottom, ty);
+}
+
+function gradientNoise2D(seed: number, x: number, y: number): number {
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const x1 = x0 + 1;
+  const y1 = y0 + 1;
+  const tx = x - x0;
+  const ty = y - y0;
+  const fx = fade(tx);
+  const fy = fade(ty);
+
+  const g00 = gradientVector(seed, x0, y0);
+  const g10 = gradientVector(seed, x1, y0);
+  const g01 = gradientVector(seed, x0, y1);
+  const g11 = gradientVector(seed, x1, y1);
+
+  const d00 = g00.x * tx + g00.y * ty;
+  const d10 = g10.x * (tx - 1) + g10.y * ty;
+  const d01 = g01.x * tx + g01.y * (ty - 1);
+  const d11 = g11.x * (tx - 1) + g11.y * (ty - 1);
+
+  const top = lerp(d00, d10, fx);
+  const bottom = lerp(d01, d11, fx);
+  return clamp01((lerp(top, bottom, fy) + 1) / 2);
+}
+
+function thresholdedGradientNoise(
+  seed: number,
+  sampleX: number,
+  sampleY: number,
+  scale: number,
+  angle: number,
+  roughness: number,
+): number {
+  const radians = (angle * Math.PI) / 180;
+  const projection = sampleX * Math.cos(radians) + sampleY * Math.sin(radians);
+  const roughnessField = gradientNoise2D(seed + 271, sampleX * scale * 2, sampleY * scale * 2);
+  const warpedPhase = projection * scale * Math.PI * 2 + (roughnessField - 0.5) * roughness * 4;
+  return clamp01((Math.sin(warpedPhase) + 1) / 2);
+}
+
+function domainWarpedNoise(
+  seed: number,
+  sampleX: number,
+  sampleY: number,
+  scale: number,
+  octaves: number,
+  warpScale: number,
+  warpStrength: number,
+): number {
+  const warpX = gradientNoise2D(seed + 911, sampleX * warpScale, sampleY * warpScale) * 2 - 1;
+  const warpY = gradientNoise2D(seed + 1777, sampleX * warpScale, sampleY * warpScale) * 2 - 1;
+  const warpedX = sampleX + warpX * warpStrength;
+  const warpedY = sampleY + warpY * warpStrength;
+  return fractalNoise(seed, warpedX * scale, warpedY * scale, octaves, 0.5, gradientNoise2D);
+}
+
+function worleyNoise2D(
+  seed: number,
+  sampleX: number,
+  sampleY: number,
+  cellCount: number,
+  jitter: number,
+): number {
+  const scaledX = sampleX * cellCount;
+  const scaledY = sampleY * cellCount;
+  const cellX = Math.floor(scaledX);
+  const cellY = Math.floor(scaledY);
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  for (let offsetY = -1; offsetY <= 1; offsetY++) {
+    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+      const candidateCellX = cellX + offsetX;
+      const candidateCellY = cellY + offsetY;
+      const featureX =
+        candidateCellX +
+        0.5 +
+        (hashFloat(seed + 37, candidateCellX, candidateCellY) - 0.5) * jitter;
+      const featureY =
+        candidateCellY +
+        0.5 +
+        (hashFloat(seed + 73, candidateCellX, candidateCellY) - 0.5) * jitter;
+      const dx = featureX - scaledX;
+      const dy = featureY - scaledY;
+      nearestDistance = Math.min(nearestDistance, Math.hypot(dx, dy));
+    }
+  }
+
+  const normalizedDistance = clamp01(nearestDistance / Math.SQRT2);
+  return 1 - normalizedDistance;
+}
+
+function gradientVector(
+  seed: number,
+  gridX: number,
+  gridY: number,
+): Readonly<{ x: number; y: number }> {
+  const angle = hashFloat(seed, gridX, gridY) * Math.PI * 2;
+  return {
+    x: Math.cos(angle),
+    y: Math.sin(angle),
+  };
+}
+
+function hashFloat(seed: number, x: number, y: number): number {
+  let state = seed ^ Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
+  state = Math.imul(state ^ (state >>> 13), 1274126177);
+  state ^= state >>> 16;
+  return (state >>> 0) / 4294967295;
+}
+
+function formatNoiseScale(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
 }
 
 function createSeededRandom(seed: number): () => number {

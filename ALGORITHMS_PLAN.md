@@ -22,6 +22,11 @@ The Generate modal should eventually expose:
 Currently implemented in the modal:
 
 - `Random Noise` (local placeholder, not from mazelib)
+- `Perlin Noise`
+- `Value Noise / Fractal Noise`
+- `Worley / Cellular Noise`
+- `Thresholded Gradient Noise`
+- `Domain-Warped Noise`
 - `Backtracking Generator`
 - `Growing Tree`
 - `Prim's`
@@ -69,11 +74,11 @@ These are good follow-up generators that are not primarily maze algorithms, but 
 
 ### Noise And Terrain
 
-- `Perlin Noise`: smooth organic blobs, cave walls, coastlines, and landmass-style layouts.
-- `Value Noise / Fractal Noise`: layered soft noise with octave controls for roughness and scale.
-- `Worley / Cellular Noise`: crackle, cells, ridges, islands, and clustered chamber patterns.
-- `Thresholded Gradient Noise`: soft directional bands that can create cliff, dune, or cloud-like walls.
-- `Domain-Warped Noise`: warped Perlin/value fields for more chaotic natural formations.
+- Done: `Perlin Noise`, with scale, octaves, threshold, invert, and block-size controls.
+- Done: `Value Noise / Fractal Noise`, with scale, octaves, gain, threshold, invert, and block-size controls.
+- Done: `Worley / Cellular Noise`, with cell-count, jitter, threshold, invert, and block-size controls.
+- Done: `Thresholded Gradient Noise`, with band scale, angle, roughness, threshold, invert, and block-size controls.
+- Done: `Domain-Warped Noise`, with scale, octaves, warp scale, warp strength, threshold, invert, and block-size controls.
 
 ### Symmetry And Ornament
 
@@ -117,8 +122,6 @@ These are good follow-up generators that are not primarily maze algorithms, but 
 
 ### Good Early Picks
 
-- `Perlin Noise`: highest-value next addition because it covers natural layouts that the current set does not.
-- `Worley / Cellular Noise`: complements Perlin with chambered, clustered structure.
 - `BSP Room Partitioner`: strong architectural contrast to the maze-heavy current catalog.
 - `Radial Symmetry`: quickly adds iconic, highly star-worthy layouts.
 - `Stamp Brush Generator`: cheap to implement and can cover a lot of visual ground fast.

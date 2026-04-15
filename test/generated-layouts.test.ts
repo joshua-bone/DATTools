@@ -5,17 +5,22 @@ import {
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
   createDefaultCellularAutomatonControlState,
+  createDefaultDomainWarpedNoiseControlState,
   createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
   createDefaultKruskalsControlState,
+  createDefaultPerlinNoiseControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
   createDefaultRecursiveDivisionControlState,
   createDefaultSidewinderControlState,
+  createDefaultThresholdedGradientNoiseControlState,
   createDefaultTrivialMazeControlState,
+  createDefaultValueFractalNoiseControlState,
   createDefaultWilsonsControlState,
+  createDefaultWorleyNoiseControlState,
   generateLayoutRecords,
   recordsFromStarredKeys,
 } from "@/web/src/generatedLayouts";
@@ -40,6 +45,11 @@ describe("generated layouts", () => {
       first.every(
         (record) =>
           record.algorithm === "random-noise" ||
+          record.algorithm === "perlin-noise" ||
+          record.algorithm === "value-fractal-noise" ||
+          record.algorithm === "worley-noise" ||
+          record.algorithm === "thresholded-gradient-noise" ||
+          record.algorithm === "domain-warped-noise" ||
           record.algorithm === "backtracking-generator" ||
           record.algorithm === "growing-tree" ||
           record.algorithm === "prims" ||
@@ -91,6 +101,249 @@ describe("generated layouts", () => {
           record.params.blockSize === 4 &&
           record.params.mirror === "vertical" &&
           record.params.invert === true,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic perlin-noise layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "perlin-noise",
+      count: 6,
+      seed: 42424,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "perlin-noise",
+      count: 6,
+      seed: 42424,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "perlin-noise")).toBe(true);
+  });
+
+  it("keeps locked perlin-noise parameters fixed across generated cards", () => {
+    const controls = createDefaultPerlinNoiseControlState();
+    const records = generateLayoutRecords({
+      algorithm: "perlin-noise",
+      count: 6,
+      seed: 51515,
+      perlinNoiseControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 4 },
+        threshold: { randomize: false, value: 0.58 },
+        invert: { randomize: false, value: true },
+        scale: { randomize: false, value: 4.5 },
+        octaves: { randomize: false, value: 5 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "perlin-noise" &&
+          record.params.blockSize === 4 &&
+          record.params.threshold === 0.58 &&
+          record.params.invert === true &&
+          record.params.scale === 4.5 &&
+          record.params.octaves === 5,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic value-fractal-noise layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "value-fractal-noise",
+      count: 6,
+      seed: 61616,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "value-fractal-noise",
+      count: 6,
+      seed: 61616,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "value-fractal-noise")).toBe(true);
+  });
+
+  it("keeps locked value-fractal-noise parameters fixed across generated cards", () => {
+    const controls = createDefaultValueFractalNoiseControlState();
+    const records = generateLayoutRecords({
+      algorithm: "value-fractal-noise",
+      count: 6,
+      seed: 71717,
+      valueFractalNoiseControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        threshold: { randomize: false, value: 0.46 },
+        invert: { randomize: false, value: false },
+        scale: { randomize: false, value: 6 },
+        octaves: { randomize: false, value: 4 },
+        gain: { randomize: false, value: 0.65 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "value-fractal-noise" &&
+          record.params.blockSize === 2 &&
+          record.params.threshold === 0.46 &&
+          record.params.invert === false &&
+          record.params.scale === 6 &&
+          record.params.octaves === 4 &&
+          record.params.gain === 0.65,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic worley-noise layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "worley-noise",
+      count: 6,
+      seed: 81818,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "worley-noise",
+      count: 6,
+      seed: 81818,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "worley-noise")).toBe(true);
+  });
+
+  it("keeps locked worley-noise parameters fixed across generated cards", () => {
+    const controls = createDefaultWorleyNoiseControlState();
+    const records = generateLayoutRecords({
+      algorithm: "worley-noise",
+      count: 6,
+      seed: 91991,
+      worleyNoiseControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 3 },
+        threshold: { randomize: false, value: 0.54 },
+        invert: { randomize: false, value: true },
+        cellCount: { randomize: false, value: 7 },
+        jitter: { randomize: false, value: 0.75 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "worley-noise" &&
+          record.params.blockSize === 3 &&
+          record.params.threshold === 0.54 &&
+          record.params.invert === true &&
+          record.params.cellCount === 7 &&
+          record.params.jitter === 0.75,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic thresholded-gradient-noise layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "thresholded-gradient-noise",
+      count: 6,
+      seed: 21212,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "thresholded-gradient-noise",
+      count: 6,
+      seed: 21212,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "thresholded-gradient-noise")).toBe(true);
+  });
+
+  it("keeps locked thresholded-gradient-noise parameters fixed across generated cards", () => {
+    const controls = createDefaultThresholdedGradientNoiseControlState();
+    const records = generateLayoutRecords({
+      algorithm: "thresholded-gradient-noise",
+      count: 6,
+      seed: 31313,
+      thresholdedGradientNoiseControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        threshold: { randomize: false, value: 0.6 },
+        invert: { randomize: false, value: false },
+        scale: { randomize: false, value: 5 },
+        angle: { randomize: false, value: 135 },
+        roughness: { randomize: false, value: 0.7 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "thresholded-gradient-noise" &&
+          record.params.blockSize === 1 &&
+          record.params.threshold === 0.6 &&
+          record.params.invert === false &&
+          record.params.scale === 5 &&
+          record.params.angle === 135 &&
+          record.params.roughness === 0.7,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic domain-warped-noise layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "domain-warped-noise",
+      count: 6,
+      seed: 41414,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "domain-warped-noise",
+      count: 6,
+      seed: 41414,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "domain-warped-noise")).toBe(true);
+  });
+
+  it("keeps locked domain-warped-noise parameters fixed across generated cards", () => {
+    const controls = createDefaultDomainWarpedNoiseControlState();
+    const records = generateLayoutRecords({
+      algorithm: "domain-warped-noise",
+      count: 6,
+      seed: 51551,
+      domainWarpedNoiseControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        threshold: { randomize: false, value: 0.48 },
+        invert: { randomize: false, value: true },
+        scale: { randomize: false, value: 4 },
+        octaves: { randomize: false, value: 5 },
+        warpScale: { randomize: false, value: 2.5 },
+        warpStrength: { randomize: false, value: 0.4 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "domain-warped-noise" &&
+          record.params.blockSize === 2 &&
+          record.params.threshold === 0.48 &&
+          record.params.invert === true &&
+          record.params.scale === 4 &&
+          record.params.octaves === 5 &&
+          record.params.warpScale === 2.5 &&
+          record.params.warpStrength === 0.4,
       ),
     ).toBe(true);
   });
