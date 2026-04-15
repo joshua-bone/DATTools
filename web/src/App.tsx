@@ -49,6 +49,7 @@ import {
   type DatLevelJson,
   type DatLevelsetJsonV1,
 } from "@/src/dat/datLevelsetJsonV1";
+import { applyWallMaskToLevel } from "@/src/dat/wallsBank";
 import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import {
   drawCc1CellToContext,
@@ -133,6 +134,14 @@ import {
   undoLevelsetEvent,
 } from "@/web/src/levelEditing";
 import { TilePreview } from "@/web/src/TilePreview";
+import { WallsBrowserDialog } from "@/web/src/WallsBrowserDialog";
+import { loadWallsBank, type LoadedWallsBank } from "@/web/src/wallsBank";
+import {
+  WALLS_BANK_HIDDEN_STORAGE_KEY,
+  WALLS_BANK_STARRED_STORAGE_KEY,
+  parsePersistedWallsKeySet,
+  serializePersistedWallsKeySet,
+} from "@/web/src/wallsBankStorage";
 
 type ToolMode = "brush" | "line" | "fill" | "select" | "connect";
 type LeftPanelTab = "levels" | "controls";
@@ -142,6 +151,7 @@ type LayoutModePreference = "auto" | "desktop" | "tablet";
 type TabletDrawerSide = "left" | "right" | null;
 type PaletteAssignmentTarget = "primary" | "secondary";
 type LatestDesktopReleaseLoadState = "idle" | "loading" | "ready" | "error";
+type WallsBankLoadState = "idle" | "loading" | "ready" | "error";
 
 type MetadataDraft = Readonly<{
   number: string;
@@ -3244,13 +3254,24 @@ export default function App() {
   const [boardMenuOpen, setBoardMenuOpen] = useState<
     "file" | "view" | "options" | "transform" | null
   >(null);
-  const [openDialog, setOpenDialog] = useState<"brandingHelp" | "threeDHelp" | null>(null);
+  const [openDialog, setOpenDialog] = useState<
+    "brandingHelp" | "threeDHelp" | "wallsBrowser" | null
+  >(null);
   const [currentDesktopAppVersion, setCurrentDesktopAppVersion] = useState<string | null>(null);
   const [latestDesktopRelease, setLatestDesktopRelease] = useState<LatestDesktopRelease | null>(
     null,
   );
   const [latestDesktopReleaseLoadState, setLatestDesktopReleaseLoadState] =
     useState<LatestDesktopReleaseLoadState>("idle");
+  const [wallsBank, setWallsBank] = useState<LoadedWallsBank | null>(null);
+  const [wallsBankLoadState, setWallsBankLoadState] = useState<WallsBankLoadState>("idle");
+  const [wallsBankError, setWallsBankError] = useState<string | null>(null);
+  const [wallsStarredKeys, setWallsStarredKeys] = useState<ReadonlySet<string>>(() =>
+    parsePersistedWallsKeySet(readLocalStorage(WALLS_BANK_STARRED_STORAGE_KEY)),
+  );
+  const [wallsHiddenKeys, setWallsHiddenKeys] = useState<ReadonlySet<string>>(() =>
+    parsePersistedWallsKeySet(readLocalStorage(WALLS_BANK_HIDDEN_STORAGE_KEY)),
+  );
   const [dismissedDesktopUpdateVersion, setDismissedDesktopUpdateVersion] = useState<string | null>(
     null,
   );
@@ -3508,6 +3529,22 @@ export default function App() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     writeLocalStorage(
+      WALLS_BANK_STARRED_STORAGE_KEY,
+      serializePersistedWallsKeySet(wallsStarredKeys),
+    );
+  }, [wallsStarredKeys]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    writeLocalStorage(
+      WALLS_BANK_HIDDEN_STORAGE_KEY,
+      serializePersistedWallsKeySet(wallsHiddenKeys),
+    );
+  }, [wallsHiddenKeys]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    writeLocalStorage(
       APP_PREFERENCES_STORAGE_KEY,
       serializePersistedAppPreferences({
         showSecrets,
@@ -3655,6 +3692,27 @@ export default function App() {
     return () => controller.abort();
   }, [currentDesktopAppVersion, latestDesktopReleaseLoadState, openDialog]);
 
+  useEffect(() => {
+    if (openDialog !== "wallsBrowser" || wallsBankLoadState !== "idle") return;
+
+    const controller = new AbortController();
+    setWallsBankLoadState("loading");
+    setWallsBankError(null);
+
+    void loadWallsBank(controller.signal)
+      .then((loaded) => {
+        setWallsBank(loaded);
+        setWallsBankLoadState("ready");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setWallsBankError(asErrorMessage(error));
+        setWallsBankLoadState("error");
+      });
+
+    return () => controller.abort();
+  }, [openDialog, wallsBankLoadState]);
+
   function loadDocument(nextDoc: DatLevelsetJsonV1, nextFileName?: string | null): void {
     resetWorkspaceUiState();
     setEditor(createLevelsetEditorHistory(nextDoc));
@@ -3710,6 +3768,29 @@ export default function App() {
     replaceDocument(createDefaultLevelsetDocument());
     setFileName(createNewLevelsetFileName());
     resetWorkspaceUiState();
+  }
+
+  function toggleWallsStar(wallKey: string): void {
+    setWallsStarredKeys((current) => {
+      const next = new Set(current);
+      if (next.has(wallKey)) next.delete(wallKey);
+      else next.add(wallKey);
+      return next;
+    });
+  }
+
+  function toggleWallsHidden(wallKey: string): void {
+    setWallsHiddenKeys((current) => {
+      const next = new Set(current);
+      if (next.has(wallKey)) next.delete(wallKey);
+      else next.add(wallKey);
+      return next;
+    });
+  }
+
+  function importWallLayout(wallKey: string): void {
+    commitSelectedLevelUpdate((level) => applyWallMaskToLevel(level, wallKey));
+    setOpenDialog(null);
   }
 
   function cloneEditableGroup(group: Editable3dLevel): Editable3dLevel {
@@ -4900,6 +4981,18 @@ export default function App() {
                       onClick={() => {
                         if (!doc) return;
                         setBoardMenuOpen(null);
+                        setOpenDialog("wallsBrowser");
+                      }}
+                    >
+                      Walls
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!doc}
+                      onClick={() => {
+                        if (!doc) return;
+                        setBoardMenuOpen(null);
                         void saveCurrentJson();
                       }}
                     >
@@ -5879,6 +5972,21 @@ export default function App() {
             Delete
           </button>
         </div>
+      ) : null}
+
+      {openDialog === "wallsBrowser" ? (
+        <WallsBrowserDialog
+          spriteCache={canvasSpriteCache}
+          wallsBank={wallsBank}
+          wallsBankLoadState={wallsBankLoadState}
+          wallsBankError={wallsBankError}
+          starredKeys={wallsStarredKeys}
+          hiddenKeys={wallsHiddenKeys}
+          onToggleStar={toggleWallsStar}
+          onToggleHidden={toggleWallsHidden}
+          onImport={importWallLayout}
+          onClose={() => setOpenDialog(null)}
+        />
       ) : null}
 
       {openDialog === "threeDHelp" ? (
