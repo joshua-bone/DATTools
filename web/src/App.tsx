@@ -134,7 +134,13 @@ import {
   undoLevelsetEvent,
 } from "@/web/src/levelEditing";
 import { TilePreview } from "@/web/src/TilePreview";
+import { GenerateBrowserDialog } from "@/web/src/GenerateBrowserDialog";
 import { WallsBrowserDialog } from "@/web/src/WallsBrowserDialog";
+import {
+  GENERATED_LAYOUT_STARRED_STORAGE_KEY,
+  parsePersistedGeneratedLayoutKeySet,
+  serializePersistedGeneratedLayoutKeySet,
+} from "@/web/src/generatedLayoutStorage";
 import { loadWallsBank, type LoadedWallsBank } from "@/web/src/wallsBank";
 import {
   WALLS_BANK_HIDDEN_STORAGE_KEY,
@@ -3255,7 +3261,7 @@ export default function App() {
     "file" | "view" | "options" | "transform" | null
   >(null);
   const [openDialog, setOpenDialog] = useState<
-    "brandingHelp" | "threeDHelp" | "wallsBrowser" | null
+    "brandingHelp" | "threeDHelp" | "wallsBrowser" | "generateBrowser" | null
   >(null);
   const [currentDesktopAppVersion, setCurrentDesktopAppVersion] = useState<string | null>(null);
   const [latestDesktopRelease, setLatestDesktopRelease] = useState<LatestDesktopRelease | null>(
@@ -3268,6 +3274,9 @@ export default function App() {
   const [wallsBankError, setWallsBankError] = useState<string | null>(null);
   const [wallsStarredKeys, setWallsStarredKeys] = useState<ReadonlySet<string>>(() =>
     parsePersistedWallsKeySet(readLocalStorage(WALLS_BANK_STARRED_STORAGE_KEY)),
+  );
+  const [generatedStarredKeys, setGeneratedStarredKeys] = useState<ReadonlySet<string>>(() =>
+    parsePersistedGeneratedLayoutKeySet(readLocalStorage(GENERATED_LAYOUT_STARRED_STORAGE_KEY)),
   );
   const [wallsHiddenKeys, setWallsHiddenKeys] = useState<ReadonlySet<string>>(() =>
     parsePersistedWallsKeySet(readLocalStorage(WALLS_BANK_HIDDEN_STORAGE_KEY)),
@@ -3537,6 +3546,14 @@ export default function App() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     writeLocalStorage(
+      GENERATED_LAYOUT_STARRED_STORAGE_KEY,
+      serializePersistedGeneratedLayoutKeySet(generatedStarredKeys),
+    );
+  }, [generatedStarredKeys]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    writeLocalStorage(
       WALLS_BANK_HIDDEN_STORAGE_KEY,
       serializePersistedWallsKeySet(wallsHiddenKeys),
     );
@@ -3783,6 +3800,15 @@ export default function App() {
 
   function toggleWallsHidden(wallKey: string): void {
     setWallsHiddenKeys((current) => {
+      const next = new Set(current);
+      if (next.has(wallKey)) next.delete(wallKey);
+      else next.add(wallKey);
+      return next;
+    });
+  }
+
+  function toggleGeneratedStar(wallKey: string): void {
+    setGeneratedStarredKeys((current) => {
       const next = new Set(current);
       if (next.has(wallKey)) next.delete(wallKey);
       else next.add(wallKey);
@@ -4983,6 +5009,18 @@ export default function App() {
                       onClick={() => {
                         if (!doc) return;
                         setBoardMenuOpen(null);
+                        setOpenDialog("generateBrowser");
+                      }}
+                    >
+                      Generate
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!doc}
+                      onClick={() => {
+                        if (!doc) return;
+                        setBoardMenuOpen(null);
                         setOpenDialog("wallsBrowser");
                       }}
                     >
@@ -5985,6 +6023,15 @@ export default function App() {
           hiddenKeys={wallsHiddenKeys}
           onToggleStar={toggleWallsStar}
           onToggleHidden={toggleWallsHidden}
+          onImport={importWallLayout}
+          onClose={() => setOpenDialog(null)}
+        />
+      ) : null}
+
+      {openDialog === "generateBrowser" ? (
+        <GenerateBrowserDialog
+          starredKeys={generatedStarredKeys}
+          onToggleStar={toggleGeneratedStar}
           onImport={importWallLayout}
           onClose={() => setOpenDialog(null)}
         />

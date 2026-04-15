@@ -1702,6 +1702,181 @@ button:disabled {
   gap: 8px;
 }
 
+.generateDialogCard {
+  width: min(1120px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+}
+
+.generateDialogBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.generateToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.generateField {
+  flex: 0 1 220px;
+  min-width: 200px;
+}
+
+.generateSelect {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+}
+
+.generateToggle {
+  align-self: flex-end;
+}
+
+.generateStatusBadge {
+  min-height: 34px;
+  padding: 0 14px;
+  align-self: flex-end;
+}
+
+.generateGrid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 148px));
+  justify-content: start;
+  gap: 8px;
+  overflow: auto;
+  padding: 2px;
+}
+
+.generateCard {
+  display: flex;
+  flex-direction: column;
+  width: 148px;
+  min-width: 0;
+  border: 1px solid rgba(47, 70, 81, 0.12);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 248, 250, 0.96));
+  box-shadow: 0 6px 16px rgba(23, 34, 41, 0.08);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.generateCard:hover {
+  transform: translateY(-1px);
+  border-color: rgba(35, 95, 122, 0.28);
+  box-shadow: 0 10px 24px rgba(23, 34, 41, 0.14);
+}
+
+.generateCard.selected {
+  border-color: rgba(35, 95, 122, 0.58);
+  box-shadow:
+    0 0 0 2px rgba(35, 95, 122, 0.14),
+    0 8px 20px rgba(23, 34, 41, 0.14);
+}
+
+.generateCardPreview {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 2px 2px 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0)),
+    linear-gradient(135deg, rgba(221, 229, 234, 0.6), rgba(236, 240, 243, 0.9));
+}
+
+.generatePreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(32, 4px);
+  grid-template-rows: repeat(32, 4px);
+  width: 128px;
+  height: 128px;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(47, 70, 81, 0.08);
+}
+
+.generatePreviewCell {
+  width: 4px;
+  height: 4px;
+}
+
+.generatePreviewCell.floor {
+  background: #d8d8d8;
+}
+
+.generatePreviewCell.wall {
+  background: #4e4e4e;
+}
+
+.generateCardMeta {
+  display: grid;
+  gap: 2px;
+  padding: 6px 6px 4px;
+}
+
+.generateCardTitle {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.generateCardSummary {
+  min-height: 32px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.generateCardSeed {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.generateCardFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 6px 6px;
+}
+
+.generateStarButton {
+  min-width: 28px;
+  min-height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 2px 8px rgba(23, 34, 41, 0.08);
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.generateStarButton.active {
+  border-color: rgba(175, 133, 40, 0.34);
+  background: linear-gradient(180deg, rgba(255, 251, 236, 0.98), rgba(248, 242, 206, 0.98));
+  color: #8a6a16;
+}
+
+.generateDialogActions {
+  gap: 8px;
+}
+
 .wallsDetailDialog {
   width: min(860px, calc(100vw - 40px));
   max-height: calc(100vh - 40px);
