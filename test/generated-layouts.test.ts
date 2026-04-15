@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   createDefaultBacktrackingControlState,
   createDefaultGrowingTreeControlState,
+  createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
+  createDefaultRecursiveDivisionControlState,
   generateLayoutRecords,
   recordsFromStarredKeys,
 } from "@/web/src/generatedLayouts";
@@ -29,7 +31,9 @@ describe("generated layouts", () => {
         (record) =>
           record.algorithm === "random-noise" ||
           record.algorithm === "backtracking-generator" ||
-          record.algorithm === "growing-tree",
+          record.algorithm === "growing-tree" ||
+          record.algorithm === "prims" ||
+          record.algorithm === "recursive-division",
       ),
     ).toBe(true);
   });
@@ -155,6 +159,86 @@ describe("generated layouts", () => {
           record.params.startColumn === 4 &&
           record.params.startRow === 7 &&
           record.params.backtrackChance === 0.65,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic prim's layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "prims",
+      count: 6,
+      seed: 11223,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "prims",
+      count: 6,
+      seed: 11223,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "prims")).toBe(true);
+  });
+
+  it("keeps locked prim's parameters fixed across generated cards", () => {
+    const controls = createDefaultPrimsControlState();
+    const records = generateLayoutRecords({
+      algorithm: "prims",
+      count: 6,
+      seed: 99887,
+      primsControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "2x2" },
+        startColumn: { randomize: false, value: 5 },
+        startRow: { randomize: false, value: 6 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "prims" &&
+          record.params.blockSize === "2x2" &&
+          record.params.startColumn === 5 &&
+          record.params.startRow === 6,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic recursive-division layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "recursive-division",
+      count: 6,
+      seed: 44556,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "recursive-division",
+      count: 6,
+      seed: 44556,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "recursive-division")).toBe(true);
+  });
+
+  it("keeps locked recursive-division parameters fixed across generated cards", () => {
+    const controls = createDefaultRecursiveDivisionControlState();
+    const records = generateLayoutRecords({
+      algorithm: "recursive-division",
+      count: 6,
+      seed: 55443,
+      recursiveDivisionControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "1x2" },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) => record.algorithm === "recursive-division" && record.params.blockSize === "1x2",
       ),
     ).toBe(true);
   });

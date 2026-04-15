@@ -30,7 +30,12 @@ export const GROWING_TREE_BACKTRACK_CHANCE_MIN = 0;
 export const GROWING_TREE_BACKTRACK_CHANCE_MAX = 1;
 export const GROWING_TREE_BACKTRACK_CHANCE_STEP = 0.05;
 
-export type GenerateAlgorithmId = "random-noise" | "backtracking-generator" | "growing-tree";
+export type GenerateAlgorithmId =
+  | "random-noise"
+  | "backtracking-generator"
+  | "growing-tree"
+  | "prims"
+  | "recursive-division";
 export type GenerateAlgorithmChoice = GenerateAlgorithmId | "any";
 export type GenerateRecordAlgorithm = GenerateAlgorithmId | "starred";
 export type RandomNoiseMirrorMode = "none" | "horizontal" | "vertical" | "quad";
@@ -57,11 +62,17 @@ export type MazeAlgorithmParameters = Readonly<{
 }>;
 
 export type BacktrackingParameters = MazeAlgorithmParameters;
+export type PrimsParameters = MazeAlgorithmParameters;
 
 export type GrowingTreeParameters = MazeAlgorithmParameters &
   Readonly<{
     backtrackChance: number;
   }>;
+
+export type RecursiveDivisionParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+}>;
 
 export type RandomNoiseControlState = Readonly<{
   seed: RandomizableValue<number>;
@@ -79,15 +90,27 @@ type MazeBaseControlState = Readonly<{
 }>;
 
 export type BacktrackingControlState = MazeBaseControlState;
+export type PrimsControlState = MazeBaseControlState;
 
 export type GrowingTreeControlState = MazeBaseControlState &
   Readonly<{
     backtrackChance: RandomizableValue<number>;
   }>;
 
+export type RecursiveDivisionControlState = Readonly<{
+  seed: RandomizableValue<number>;
+  blockSize: RandomizableValue<MazeBlockSize>;
+}>;
+
 type BaseGeneratedLayoutRecord<
   Algorithm extends GenerateRecordAlgorithm,
-  Params extends RandomNoiseParameters | BacktrackingParameters | GrowingTreeParameters | null,
+  Params extends
+    | RandomNoiseParameters
+    | BacktrackingParameters
+    | PrimsParameters
+    | GrowingTreeParameters
+    | RecursiveDivisionParameters
+    | null,
 > = Readonly<{
   wallKey: string;
   algorithm: Algorithm;
@@ -107,9 +130,16 @@ export type BacktrackingGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   BacktrackingParameters
 >;
 
+export type PrimsGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"prims", PrimsParameters>;
+
 export type GrowingTreeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "growing-tree",
   GrowingTreeParameters
+>;
+
+export type RecursiveDivisionGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "recursive-division",
+  RecursiveDivisionParameters
 >;
 
 export type StarredGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"starred", null>;
@@ -117,7 +147,9 @@ export type StarredGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"starred", 
 export type GeneratedLayoutRecord =
   | RandomNoiseGeneratedLayoutRecord
   | BacktrackingGeneratedLayoutRecord
+  | PrimsGeneratedLayoutRecord
   | GrowingTreeGeneratedLayoutRecord
+  | RecursiveDivisionGeneratedLayoutRecord
   | StarredGeneratedLayoutRecord;
 
 export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
@@ -127,17 +159,23 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "random-noise", label: "Random Noise" },
   { value: "backtracking-generator", label: "Backtracking Generator" },
   { value: "growing-tree", label: "Growing Tree" },
+  { value: "prims", label: "Prim's" },
+  { value: "recursive-division", label: "Recursive Division" },
 ];
 
 const RANDOM_NOISE_LABEL = "Random Noise";
 const BACKTRACKING_LABEL = "Backtracking Generator";
+const PRIMS_LABEL = "Prim's";
 const GROWING_TREE_LABEL = "Growing Tree";
+const RECURSIVE_DIVISION_LABEL = "Recursive Division";
 const GENERATED_LAYOUT_MIN_WALL_COUNT = 24;
 const GENERATED_LAYOUT_MAX_WALL_COUNT = 1000;
 const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "random-noise",
   "backtracking-generator",
   "growing-tree",
+  "prims",
+  "recursive-division",
 ];
 const GROWING_TREE_BACKTRACK_CHANCE_VALUES = [0, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
 
@@ -166,7 +204,9 @@ export function generateLayoutRecords(
     seed: number;
     randomNoiseControls?: RandomNoiseControlState | null;
     backtrackingControls?: BacktrackingControlState | null;
+    primsControls?: PrimsControlState | null;
     growingTreeControls?: GrowingTreeControlState | null;
+    recursiveDivisionControls?: RecursiveDivisionControlState | null;
   }>,
 ): GeneratedLayoutRecord[] {
   const count = Math.max(1, options.count ?? GENERATED_LAYOUT_CARD_COUNT);
@@ -180,7 +220,9 @@ export function generateLayoutRecords(
     const record = generateRecordForAlgorithm(algorithm, rng, {
       randomNoiseControls: options.randomNoiseControls ?? null,
       backtrackingControls: options.backtrackingControls ?? null,
+      primsControls: options.primsControls ?? null,
       growingTreeControls: options.growingTreeControls ?? null,
+      recursiveDivisionControls: options.recursiveDivisionControls ?? null,
     });
     if (seen.has(record.wallKey)) continue;
     seen.add(record.wallKey);
@@ -214,6 +256,15 @@ export function createDefaultBacktrackingControlState(): BacktrackingControlStat
   };
 }
 
+export function createDefaultPrimsControlState(): PrimsControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    startColumn: { randomize: true, value: 8 },
+    startRow: { randomize: true, value: 8 },
+  };
+}
+
 export function createDefaultGrowingTreeControlState(): GrowingTreeControlState {
   return {
     seed: { randomize: true, value: 1 },
@@ -221,6 +272,13 @@ export function createDefaultGrowingTreeControlState(): GrowingTreeControlState 
     startColumn: { randomize: true, value: 8 },
     startRow: { randomize: true, value: 8 },
     backtrackChance: { randomize: true, value: 1 },
+  };
+}
+
+export function createDefaultRecursiveDivisionControlState(): RecursiveDivisionControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
   };
 }
 
@@ -238,7 +296,9 @@ function generateRecordForAlgorithm(
   controls: Readonly<{
     randomNoiseControls: RandomNoiseControlState | null;
     backtrackingControls: BacktrackingControlState | null;
+    primsControls: PrimsControlState | null;
     growingTreeControls: GrowingTreeControlState | null;
+    recursiveDivisionControls: RecursiveDivisionControlState | null;
   }>,
 ): GeneratedLayoutRecord {
   switch (algorithm) {
@@ -246,8 +306,12 @@ function generateRecordForAlgorithm(
       return buildRandomNoiseRecord(rng, controls.randomNoiseControls);
     case "backtracking-generator":
       return buildBacktrackingRecord(rng, controls.backtrackingControls);
+    case "prims":
+      return buildPrimsRecord(rng, controls.primsControls);
     case "growing-tree":
       return buildGrowingTreeRecord(rng, controls.growingTreeControls);
+    case "recursive-division":
+      return buildRecursiveDivisionRecord(rng, controls.recursiveDivisionControls);
   }
 }
 
@@ -308,6 +372,21 @@ function buildBacktrackingRecord(
   };
 }
 
+function buildPrimsRecord(
+  rng: () => number,
+  controls: PrimsControlState | null,
+): PrimsGeneratedLayoutRecord {
+  const params = randomizeMazeBaseParameters(rng, controls ?? createDefaultPrimsControlState());
+  return {
+    wallKey: wallMaskKeyFromBytes(buildMazeMaskBytes(params, "prims", rng)),
+    algorithm: "prims",
+    title: PRIMS_LABEL,
+    summary: buildPrimsSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
 function buildGrowingTreeRecord(
   rng: () => number,
   controls: GrowingTreeControlState | null,
@@ -318,6 +397,24 @@ function buildGrowingTreeRecord(
     algorithm: "growing-tree",
     title: GROWING_TREE_LABEL,
     summary: buildGrowingTreeSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildRecursiveDivisionRecord(
+  rng: () => number,
+  controls: RecursiveDivisionControlState | null,
+): RecursiveDivisionGeneratedLayoutRecord {
+  const params = randomizeRecursiveDivisionParameters(
+    rng,
+    controls ?? createDefaultRecursiveDivisionControlState(),
+  );
+  return {
+    wallKey: wallMaskKeyFromBytes(buildRecursiveDivisionMaskBytes(params, rng)),
+    algorithm: "recursive-division",
+    title: RECURSIVE_DIVISION_LABEL,
+    summary: buildRecursiveDivisionSummary(params),
     seedLabel: `Seed ${params.seed}`,
     params,
   };
@@ -418,6 +515,28 @@ function randomizeGrowingTreeParameters(
   };
 }
 
+function randomizeRecursiveDivisionParameters(
+  rng: () => number,
+  defaults: RecursiveDivisionControlState,
+): RecursiveDivisionParameters {
+  return {
+    seed: resolveRandomizableValue(
+      defaults.seed,
+      () => randomInt(rng, MAZE_SEED_MIN, MAZE_SEED_MAX),
+      (value) => clamp(Math.round(value), MAZE_SEED_MIN, MAZE_SEED_MAX),
+    ),
+    blockSize: resolveRandomizableValue(
+      defaults.blockSize,
+      () =>
+        sampleOne(
+          rng,
+          MAZE_BLOCK_SIZE_OPTIONS.map((option) => option.value),
+        ),
+      sanitizeMazeBlockSize,
+    ),
+  };
+}
+
 function buildRandomNoiseMaskBytes(params: RandomNoiseParameters): Uint8Array {
   const bytes = new Uint8Array(128);
   const sourceWidth = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / params.blockSize);
@@ -452,7 +571,7 @@ function buildRandomNoiseMaskBytes(params: RandomNoiseParameters): Uint8Array {
 
 function buildMazeMaskBytes(
   params: MazeAlgorithmParameters | GrowingTreeParameters,
-  algorithm: "backtracking" | "growing-tree",
+  algorithm: "backtracking" | "growing-tree" | "prims",
   rng: () => number,
 ): Uint8Array {
   const metrics = resolveMazeMetrics(params.blockSize);
@@ -489,7 +608,7 @@ function buildMazeMaskBytes(
       markVisited(visited, metrics.columns, next.x, next.y);
       stack.push(next);
     }
-  } else {
+  } else if (algorithm === "growing-tree") {
     const active: Array<Readonly<{ x: number; y: number }>> = [start];
     const backtrackChance = (params as GrowingTreeParameters).backtrackChance;
 
@@ -513,6 +632,131 @@ function buildMazeMaskBytes(
       carveMazePassage(walls, metrics, current, next);
       markVisited(visited, metrics.columns, next.x, next.y);
       active.push(next);
+    }
+  } else {
+    const frontier: Array<Readonly<{ x: number; y: number }>> = [];
+    const frontierFlags = new Uint8Array(metrics.columns * metrics.rows);
+    addFrontierNeighbors(frontier, frontierFlags, visited, metrics.columns, metrics.rows, start);
+
+    while (frontier.length > 0) {
+      const currentIndex = randomInt(rng, 0, frontier.length - 1);
+      const current = frontier.splice(currentIndex, 1)[0]!;
+      frontierFlags[current.y * metrics.columns + current.x] = 0;
+      const visitedNeighbors = listMazeNeighbors(
+        current.x,
+        current.y,
+        visited,
+        metrics.columns,
+        metrics.rows,
+        "visited",
+      );
+      if (visitedNeighbors.length === 0) continue;
+
+      const anchor = sampleOne(rng, visitedNeighbors);
+      carveMazePassage(walls, metrics, anchor, current);
+      markVisited(visited, metrics.columns, current.x, current.y);
+      addFrontierNeighbors(
+        frontier,
+        frontierFlags,
+        visited,
+        metrics.columns,
+        metrics.rows,
+        current,
+      );
+    }
+  }
+
+  const bytes = new Uint8Array(128);
+  for (let index = 0; index < walls.length; index++) {
+    if (walls[index] !== 1) continue;
+    setMaskBit(bytes, index);
+  }
+  return bytes;
+}
+
+function buildRecursiveDivisionMaskBytes(
+  params: RecursiveDivisionParameters,
+  rng: () => number,
+): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const walls = new Uint8Array(GENERATED_LAYOUT_GRID_SIZE * GENERATED_LAYOUT_GRID_SIZE);
+
+  fillRect(walls, 0, 0, GENERATED_LAYOUT_GRID_SIZE, 1);
+  fillRect(walls, 0, GENERATED_LAYOUT_GRID_SIZE - 1, GENERATED_LAYOUT_GRID_SIZE, 1);
+  fillRect(walls, 0, 0, 1, GENERATED_LAYOUT_GRID_SIZE);
+  fillRect(walls, GENERATED_LAYOUT_GRID_SIZE - 1, 0, 1, GENERATED_LAYOUT_GRID_SIZE);
+
+  const regions: Array<Readonly<{ minX: number; minY: number; maxX: number; maxY: number }>> = [
+    {
+      minX: 0,
+      minY: 0,
+      maxX: metrics.columns - 1,
+      maxY: metrics.rows - 1,
+    },
+  ];
+
+  while (regions.length > 0) {
+    const region = regions.pop()!;
+    const width = region.maxX - region.minX + 1;
+    const height = region.maxY - region.minY + 1;
+
+    if (width <= 1 || height <= 1) continue;
+
+    const cutDirection =
+      width < height
+        ? "horizontal"
+        : width > height
+          ? "vertical"
+          : rng() < 0.5
+            ? "vertical"
+            : "horizontal";
+
+    if (cutDirection === "vertical") {
+      if (width < 2) continue;
+      const split = randomInt(rng, region.minX + 1, region.maxX);
+      const wallX = split * (metrics.blockWidth + 1);
+      const startY = region.minY * (metrics.blockHeight + 1) + 1;
+      const endY = region.maxY * (metrics.blockHeight + 1) + metrics.blockHeight;
+      fillRect(walls, wallX, startY, 1, endY - startY + 1);
+
+      const doorCellY = randomInt(rng, region.minY, region.maxY);
+      carveRect(walls, wallX, doorCellY * (metrics.blockHeight + 1) + 1, 1, metrics.blockHeight);
+
+      regions.push({
+        minX: region.minX,
+        minY: region.minY,
+        maxX: split - 1,
+        maxY: region.maxY,
+      });
+      regions.push({
+        minX: split,
+        minY: region.minY,
+        maxX: region.maxX,
+        maxY: region.maxY,
+      });
+    } else {
+      if (height < 2) continue;
+      const split = randomInt(rng, region.minY + 1, region.maxY);
+      const wallY = split * (metrics.blockHeight + 1);
+      const startX = region.minX * (metrics.blockWidth + 1) + 1;
+      const endX = region.maxX * (metrics.blockWidth + 1) + metrics.blockWidth;
+      fillRect(walls, startX, wallY, endX - startX + 1, 1);
+
+      const doorCellX = randomInt(rng, region.minX, region.maxX);
+      carveRect(walls, doorCellX * (metrics.blockWidth + 1) + 1, wallY, metrics.blockWidth, 1);
+
+      regions.push({
+        minX: region.minX,
+        minY: region.minY,
+        maxX: region.maxX,
+        maxY: split - 1,
+      });
+      regions.push({
+        minX: region.minX,
+        minY: split,
+        maxX: region.maxX,
+        maxY: region.maxY,
+      });
     }
   }
 
@@ -576,12 +820,20 @@ function buildBacktrackingSummary(params: BacktrackingParameters): string {
   return `${params.blockSize} blocks • start ${params.startColumn}, ${params.startRow}`;
 }
 
+function buildPrimsSummary(params: PrimsParameters): string {
+  return `${params.blockSize} blocks • start ${params.startColumn}, ${params.startRow}`;
+}
+
 function buildGrowingTreeSummary(params: GrowingTreeParameters): string {
   return [
     `${params.blockSize} blocks`,
     `start ${params.startColumn}, ${params.startRow}`,
     `${Math.round(params.backtrackChance * 100)}% backtrack`,
   ].join(" • ");
+}
+
+function buildRecursiveDivisionSummary(params: RecursiveDivisionParameters): string {
+  return `${params.blockSize} blocks`;
 }
 
 function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
@@ -601,6 +853,7 @@ function listMazeNeighbors(
   visited: Uint8Array,
   columns: number,
   rows: number,
+  mode: "visited" | "unvisited" = "unvisited",
 ): Array<Readonly<{ x: number; y: number }>> {
   const neighbors: Array<Readonly<{ x: number; y: number }>> = [];
   const candidates = [
@@ -614,11 +867,30 @@ function listMazeNeighbors(
     if (candidate.x < 0 || candidate.x >= columns || candidate.y < 0 || candidate.y >= rows) {
       continue;
     }
-    if (visited[candidate.y * columns + candidate.x] === 1) continue;
+    const isVisited = visited[candidate.y * columns + candidate.x] === 1;
+    if (mode === "unvisited" && isVisited) continue;
+    if (mode === "visited" && !isVisited) continue;
     neighbors.push(candidate);
   }
 
   return neighbors;
+}
+
+function addFrontierNeighbors(
+  frontier: Array<Readonly<{ x: number; y: number }>>,
+  frontierFlags: Uint8Array,
+  visited: Uint8Array,
+  columns: number,
+  rows: number,
+  current: Readonly<{ x: number; y: number }>,
+): void {
+  const neighbors = listMazeNeighbors(current.x, current.y, visited, columns, rows, "unvisited");
+  for (const neighbor of neighbors) {
+    const index = neighbor.y * columns + neighbor.x;
+    if (frontierFlags[index] === 1) continue;
+    frontierFlags[index] = 1;
+    frontier.push(neighbor);
+  }
 }
 
 function resolveMazeMetrics(blockSize: MazeBlockSize): Readonly<{
@@ -684,6 +956,14 @@ function carveRect(walls: Uint8Array, x: number, y: number, width: number, heigh
   for (let dy = 0; dy < height; dy++) {
     for (let dx = 0; dx < width; dx++) {
       walls[mazeTileIndex(x + dx, y + dy)] = 0;
+    }
+  }
+}
+
+function fillRect(walls: Uint8Array, x: number, y: number, width: number, height: number): void {
+  for (let dy = 0; dy < height; dy++) {
+    for (let dx = 0; dx < width; dx++) {
+      walls[mazeTileIndex(x + dx, y + dy)] = 1;
     }
   }
 }

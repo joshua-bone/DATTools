@@ -20,7 +20,9 @@ import {
   RANDOM_NOISE_SEED_MIN,
   createDefaultBacktrackingControlState,
   createDefaultGrowingTreeControlState,
+  createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
+  createDefaultRecursiveDivisionControlState,
   generateLayoutRecords,
   mazeGridDimensionsForBlockSize,
   nextRandomSeed,
@@ -31,8 +33,10 @@ import {
   type GenerateAlgorithmChoice,
   type GrowingTreeControlState,
   type MazeBlockSize,
+  type PrimsControlState,
   type RandomNoiseControlState,
   type RandomNoiseMirrorMode,
+  type RecursiveDivisionControlState,
 } from "@/web/src/generatedLayouts";
 
 type GenerateBrowserDialogProps = Readonly<{
@@ -77,6 +81,22 @@ type GrowingTreeSettingsPanelProps = Readonly<{
   onUpdate: <K extends keyof GrowingTreeControlState>(
     key: K,
     nextValue: Partial<GrowingTreeControlState[K]>,
+  ) => void;
+}>;
+
+type PrimsSettingsPanelProps = Readonly<{
+  controls: PrimsControlState;
+  onUpdate: <K extends keyof PrimsControlState>(
+    key: K,
+    nextValue: Partial<PrimsControlState[K]>,
+  ) => void;
+}>;
+
+type RecursiveDivisionSettingsPanelProps = Readonly<{
+  controls: RecursiveDivisionControlState;
+  onUpdate: <K extends keyof RecursiveDivisionControlState>(
+    key: K,
+    nextValue: Partial<RecursiveDivisionControlState[K]>,
   ) => void;
 }>;
 
@@ -450,6 +470,129 @@ function BacktrackingSettingsPanel({
   );
 }
 
+function PrimsSettingsPanel({ controls, onUpdate }: PrimsSettingsPanelProps): JSX.Element {
+  const fixedBlockSize = controls.blockSize.randomize ? null : controls.blockSize.value;
+  const dims = mazeGridDimensionsForBlockSize(fixedBlockSize ?? "1x1");
+  const maxColumns = fixedBlockSize ? dims.columns : mazeGridDimensionsForBlockSize("1x1").columns;
+  const maxRows = fixedBlockSize ? dims.rows : mazeGridDimensionsForBlockSize("1x1").rows;
+
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Prim&apos;s</h3>
+      <div className="fieldHint">
+        Frontier-based carving using the randomized Prim&apos;s pattern.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">Chooses between 1x1, 2x2, 1x2, and 2x1 blocks.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Start Column</span>
+          <ParameterToggle
+            checked={controls.startColumn.randomize}
+            onChange={(checked) => onUpdate("startColumn", { randomize: checked })}
+          />
+        </div>
+        {controls.startColumn.randomize ? (
+          <div className="fieldHint">Random starting column within the current maze width.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={1}
+              max={maxColumns}
+              step={1}
+              value={Math.min(controls.startColumn.value, maxColumns)}
+              onChange={(event) => onUpdate("startColumn", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.min(controls.startColumn.value, maxColumns)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Start Row</span>
+          <ParameterToggle
+            checked={controls.startRow.randomize}
+            onChange={(checked) => onUpdate("startRow", { randomize: checked })}
+          />
+        </div>
+        {controls.startRow.randomize ? (
+          <div className="fieldHint">Random starting row within the current maze height.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={1}
+              max={maxRows}
+              step={1}
+              value={Math.min(controls.startRow.value, maxRows)}
+              onChange={(event) => onUpdate("startRow", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.min(controls.startRow.value, maxRows)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
 function GrowingTreeSettingsPanel({
   controls,
   onUpdate,
@@ -604,6 +747,71 @@ function GrowingTreeSettingsPanel({
   );
 }
 
+function RecursiveDivisionSettingsPanel({
+  controls,
+  onUpdate,
+}: RecursiveDivisionSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Recursive Division</h3>
+      <div className="fieldHint">
+        Starts open and recursively adds walls with a single doorway per split.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">Chooses between 1x1, 2x2, 1x2, and 2x1 blocks.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
 function GeneratedRecordDetails({
   record,
   starred,
@@ -698,6 +906,25 @@ function GeneratedRecordDetails({
             <div>{record.params.startRow}</div>
           </div>
         </div>
+      ) : record.algorithm === "prims" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Start Column</span>
+            <div>{record.params.startColumn}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Start Row</span>
+            <div>{record.params.startRow}</div>
+          </div>
+        </div>
       ) : record.algorithm === "growing-tree" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -719,6 +946,17 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Backtrack Chance</span>
             <div>{Math.round(record.params.backtrackChance * 100)}%</div>
+          </div>
+        </div>
+      ) : record.algorithm === "recursive-division" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
           </div>
         </div>
       ) : (
@@ -754,9 +992,14 @@ export function GenerateBrowserDialog({
   const [backtrackingControls, setBacktrackingControls] = useState<BacktrackingControlState>(() =>
     createDefaultBacktrackingControlState(),
   );
+  const [primsControls, setPrimsControls] = useState<PrimsControlState>(() =>
+    createDefaultPrimsControlState(),
+  );
   const [growingTreeControls, setGrowingTreeControls] = useState<GrowingTreeControlState>(() =>
     createDefaultGrowingTreeControlState(),
   );
+  const [recursiveDivisionControls, setRecursiveDivisionControls] =
+    useState<RecursiveDivisionControlState>(() => createDefaultRecursiveDivisionControlState());
 
   const showParameterSidebar = !starredOnly && selectedAlgorithm !== "any";
   const visibleRecords = useMemo(
@@ -770,13 +1013,18 @@ export function GenerateBrowserDialog({
             randomNoiseControls: selectedAlgorithm === "random-noise" ? randomNoiseControls : null,
             backtrackingControls:
               selectedAlgorithm === "backtracking-generator" ? backtrackingControls : null,
+            primsControls: selectedAlgorithm === "prims" ? primsControls : null,
             growingTreeControls: selectedAlgorithm === "growing-tree" ? growingTreeControls : null,
+            recursiveDivisionControls:
+              selectedAlgorithm === "recursive-division" ? recursiveDivisionControls : null,
           }),
     [
       backtrackingControls,
       growingTreeControls,
+      primsControls,
       randomNoiseControls,
       randomSeed,
+      recursiveDivisionControls,
       selectedAlgorithm,
       starredKeys,
       starredOnly,
@@ -837,6 +1085,32 @@ export function GenerateBrowserDialog({
     }));
   }
 
+  function updatePrimsControl<K extends keyof PrimsControlState>(
+    key: K,
+    nextValue: Partial<PrimsControlState[K]>,
+  ): void {
+    setPrimsControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateRecursiveDivisionControl<K extends keyof RecursiveDivisionControlState>(
+    key: K,
+    nextValue: Partial<RecursiveDivisionControlState[K]>,
+  ): void {
+    setRecursiveDivisionControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
   function applyMoreLikeThis(record: GeneratedLayoutRecord): void {
     if (record.algorithm === "starred") return;
 
@@ -860,6 +1134,14 @@ export function GenerateBrowserDialog({
         startColumn: { randomize: false, value: record.params.startColumn },
         startRow: { randomize: false, value: record.params.startRow },
       });
+    } else if (record.algorithm === "prims") {
+      setSelectedAlgorithm("prims");
+      setPrimsControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        startColumn: { randomize: false, value: record.params.startColumn },
+        startRow: { randomize: false, value: record.params.startRow },
+      });
     } else if (record.algorithm === "growing-tree") {
       setSelectedAlgorithm("growing-tree");
       setGrowingTreeControls({
@@ -868,6 +1150,12 @@ export function GenerateBrowserDialog({
         startColumn: { randomize: false, value: record.params.startColumn },
         startRow: { randomize: false, value: record.params.startRow },
         backtrackChance: { randomize: false, value: record.params.backtrackChance },
+      });
+    } else if (record.algorithm === "recursive-division") {
+      setSelectedAlgorithm("recursive-division");
+      setRecursiveDivisionControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
       });
     }
 
@@ -951,10 +1239,17 @@ export function GenerateBrowserDialog({
                     controls={backtrackingControls}
                     onUpdate={updateBacktrackingControl}
                   />
+                ) : selectedAlgorithm === "prims" ? (
+                  <PrimsSettingsPanel controls={primsControls} onUpdate={updatePrimsControl} />
                 ) : selectedAlgorithm === "growing-tree" ? (
                   <GrowingTreeSettingsPanel
                     controls={growingTreeControls}
                     onUpdate={updateGrowingTreeControl}
+                  />
+                ) : selectedAlgorithm === "recursive-division" ? (
+                  <RecursiveDivisionSettingsPanel
+                    controls={recursiveDivisionControls}
+                    onUpdate={updateRecursiveDivisionControl}
                   />
                 ) : null}
               </aside>

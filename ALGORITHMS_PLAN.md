@@ -19,9 +19,13 @@ The Generate modal should eventually expose:
 - starring by generated wall-mask key
 - `Starred only`, which shows saved layouts and disables fresh generation
 
-For this first pass, the modal is live with one starter algorithm:
+Currently implemented in the modal:
 
 - `Random Noise` (local placeholder, not from mazelib)
+- `Backtracking Generator`
+- `Growing Tree`
+- `Prim's`
+- `Recursive Division`
 
 ## Generators To Implement
 
@@ -29,10 +33,10 @@ These are the upstream generation algorithms from `mazelib` that fit this modal.
 
 | Priority | Algorithm              | Upstream params to expose             | Notes                                                                                                                |
 | -------- | ---------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 1        | Backtracking Generator | start seed only                       | Strong default generator. Fast, recognizable, and likely to produce useful wall silhouettes.                         |
-| 1        | Growing Tree           | `backtrack_chance`                    | Good because it spans a range between recursive-backtracker and Prim-like behavior.                                  |
-| 1        | Prim's                 | start seed only                       | Reliable “organic” spanning-tree style layouts.                                                                      |
-| 1        | Recursive Division     | bias mode / cut strategy              | Produces strong room-and-corridor geometry that should look good in wall-only previews.                              |
+| Done     | Backtracking Generator | start seed only                       | Implemented with seed, block size, and explicit start cell controls.                                                 |
+| Done     | Growing Tree           | `backtrack_chance`                    | Implemented with seed, block size, explicit start cell controls, and backtrack chance.                               |
+| Done     | Prim's                 | start seed only                       | Implemented with seed, block size, and explicit start cell controls.                                                 |
+| Done     | Recursive Division     | bias mode / cut strategy              | Implemented with seed and block size. Bias/cut-strategy controls can still be added later if we want more variety.   |
 | 2        | Kruskal's              | start seed only                       | Another strong baseline spanning-tree generator with a different texture.                                            |
 | 2        | Sidewinder             | `skew`                                | Very cheap to generate and visually distinct.                                                                        |
 | 2        | Binary Tree            | `skew` (`NW`, `NE`, `SE`, `SW`)       | Extremely simple and fast; useful even though it is intentionally biased.                                            |
@@ -47,13 +51,9 @@ These are the upstream generation algorithms from `mazelib` that fit this modal.
 ## Recommended Implementation Order
 
 1. Keep `Random Noise` as the fast fallback and test harness.
-2. Add `Backtracking Generator`.
-3. Add `Growing Tree`.
-4. Add `Prim's`.
-5. Add `Recursive Division`.
-6. Add the cheap directional set: `Binary Tree`, `Sidewinder`, `Eller's`.
-7. Add the slower completeness set: `Kruskal's`, `Hunt-and-Kill`, `Wilson's`, `Aldous-Broder`.
-8. Add the imperfect/specialized set: `Cellular Automaton`, `Dungeon Rooms`, `Trivial Maze`.
+2. Add the cheap directional set: `Binary Tree`, `Sidewinder`, `Eller's`.
+3. Add the slower completeness set: `Kruskal's`, `Hunt-and-Kill`, `Wilson's`, `Aldous-Broder`.
+4. Add the imperfect/specialized set: `Cellular Automaton`, `Dungeon Rooms`, `Trivial Maze`.
 
 ## Modal Mapping Rules
 
