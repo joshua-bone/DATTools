@@ -1,6 +1,6 @@
 # Algorithms Plan
 
-This file defines the maze-style wall generators we should add behind `File > Generate`.
+This file defines the layout generators we should add behind `File > Generate`.
 
 Source material:
 
@@ -62,6 +62,66 @@ These are the upstream generation algorithms from `mazelib` that fit this modal.
 
 1. Keep `Random Noise` as the fast fallback and test harness.
 2. Add transmuters or generator-specific refinements only if we want more parameter depth later.
+
+## Non-Maze Generator Ideas
+
+These are good follow-up generators that are not primarily maze algorithms, but would still produce useful wall layouts for the bank.
+
+### Noise And Terrain
+
+- `Perlin Noise`: smooth organic blobs, cave walls, coastlines, and landmass-style layouts.
+- `Value Noise / Fractal Noise`: layered soft noise with octave controls for roughness and scale.
+- `Worley / Cellular Noise`: crackle, cells, ridges, islands, and clustered chamber patterns.
+- `Thresholded Gradient Noise`: soft directional bands that can create cliff, dune, or cloud-like walls.
+- `Domain-Warped Noise`: warped Perlin/value fields for more chaotic natural formations.
+
+### Symmetry And Ornament
+
+- `Radial Symmetry`: rings, spokes, medallions, and cathedral-window style wall sets.
+- `Kaleidoscope`: mirrored wedge-based layouts with rotational symmetry controls.
+- `L-System / Turtle Patterns`: branching ornamental lines, vines, glyphs, and recursive motifs.
+- `Rose Curves / Polar Patterns`: flowers, stars, petals, and circular emblem-style layouts.
+- `Tileable Motif Repeater`: stamp a local motif across the map with jitter, rotation, and spacing controls.
+
+### Rooms And Architecture
+
+- `BSP Room Partitioner`: recursive room subdivision without requiring maze connectivity.
+- `Corridor Grid`: Manhattan-style street blocks, office floors, or dungeon grid plans.
+- `Room Scatter`: drop disconnected or loosely connected rooms with overlap, gap, and door controls.
+- `Courtyard Generator`: nested rectangles, courtyards, cloisters, and fortress plans.
+- `Blueprint Generator`: halls, pillars, chambers, and wing layouts with deliberate architectural bias.
+
+### Cellular And Growth Systems
+
+- `Game of Life Variants`: evolve binary seeds for unusual chamber and tunnel fields.
+- `Diffusion-Limited Aggregation`: coral, lightning, tendrils, and crystal-growth silhouettes.
+- `Reaction-Diffusion Approximation`: stripe, spot, and biological-looking wall distributions.
+- `Voronoi Region Carver`: region boundaries and cell walls from seeded points.
+- `Erosion / Dilation Pipeline`: start from a simple seed and repeatedly grow, shrink, smooth, and puncture it.
+
+### Patterned And Geometric
+
+- `Stripe / Plaid Generator`: horizontal, vertical, and woven band patterns.
+- `Checker / Diamond / Lattice`: regular geometric tilings with phase and scale controls.
+- `Concentric Boxes`: nested rectangles, stepped ziggurats, or target-like layouts.
+- `Line Interference`: overlapping line fields at different angles for technical or abstract patterns.
+- `Circle Packing`: packed discs or rounded cells turned into walls by thresholding overlaps.
+
+### Chaotic And Procedural Art
+
+- `Drunk Walk Painter`: multiple walkers leaving trails, rooms, and scribble-like structures.
+- `Particle Flow Field`: agents follow a vector field and carve streamlines.
+- `Stamp Brush Generator`: repeatedly place primitive stamps like squares, circles, crosses, and bars.
+- `Cutout Collage`: boolean add/subtract of random primitives for bold poster-like layouts.
+- `Glitch Blocks`: broken scanlines, offsets, striping, and corrupted-grid aesthetics.
+
+### Good Early Picks
+
+- `Perlin Noise`: highest-value next addition because it covers natural layouts that the current set does not.
+- `Worley / Cellular Noise`: complements Perlin with chambered, clustered structure.
+- `BSP Room Partitioner`: strong architectural contrast to the maze-heavy current catalog.
+- `Radial Symmetry`: quickly adds iconic, highly star-worthy layouts.
+- `Stamp Brush Generator`: cheap to implement and can cover a lot of visual ground fast.
 
 ## Modal Mapping Rules
 
