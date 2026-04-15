@@ -31,6 +31,8 @@ Currently implemented in the modal:
 - `Binary Tree`
 - `Hunt-and-Kill`
 - `Wilson's`
+- `Aldous-Broder`
+- `Eller's`
 
 ## Generators To Implement
 
@@ -47,8 +49,8 @@ These are the upstream generation algorithms from `mazelib` that fit this modal.
 | Done     | Binary Tree            | `skew` (`NW`, `NE`, `SE`, `SW`)       | Implemented with seed, block size, and directional skew.                                                             |
 | Done     | Hunt-and-Kill          | `hunt_order` (`random`, `serpentine`) | Implemented with seed, block size, and hunt order.                                                                   |
 | Done     | Wilson's               | `hunt_order` (`random`, `serpentine`) | Implemented with seed, block size, and hunt order.                                                                   |
-| 3        | Aldous-Broder          | start seed only                       | Also unbiased, but slower; still worth having for completeness.                                                      |
-| 3        | Eller's                | `xskew`, `yskew`                      | Good row-wise texture and useful for directional variation.                                                          |
+| Done     | Aldous-Broder          | start seed only                       | Implemented with seed and block size.                                                                                |
+| Done     | Eller's                | `xskew`, `yskew`                      | Implemented with seed, block size, horizontal-merge skew, and vertical-carry skew.                                   |
 | 3        | Cellular Automaton     | `complexity`, `density`               | Imperfect mazes are still valuable here because the modal is for harvesting wall patterns, not only “perfect” mazes. |
 | 3        | Dungeon Rooms          | `rooms`, `grid`, `hunt_order`         | High-value once we define a local room-layout randomizer.                                                            |
 | 3        | Trivial Maze           | `maze_type` (`spiral`, `serpentine`)  | Present in source, not in the main generator doc page. Good for iconic simple patterns.                              |
@@ -56,9 +58,7 @@ These are the upstream generation algorithms from `mazelib` that fit this modal.
 ## Recommended Implementation Order
 
 1. Keep `Random Noise` as the fast fallback and test harness.
-2. Add the next spanning-tree follow-up: `Aldous-Broder`.
-3. Add the row-wise follow-up: `Eller's`.
-4. Add the imperfect/specialized set: `Cellular Automaton`, `Dungeon Rooms`, `Trivial Maze`.
+2. Add the imperfect/specialized set: `Cellular Automaton`, `Dungeon Rooms`, `Trivial Maze`.
 
 ## Modal Mapping Rules
 

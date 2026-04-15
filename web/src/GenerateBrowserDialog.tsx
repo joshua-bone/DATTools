@@ -23,8 +23,10 @@ import {
   SIDEWINDER_SKEW_MAX,
   SIDEWINDER_SKEW_MIN,
   SIDEWINDER_SKEW_STEP,
+  createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
+  createDefaultEllersControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
   createDefaultKruskalsControlState,
@@ -38,9 +40,11 @@ import {
   nextRandomSeed,
   randomSeedFromClock,
   recordsFromStarredKeys,
+  type AldousBroderControlState,
   type BacktrackingControlState,
   type BinaryTreeControlState,
   type BinaryTreeSkew,
+  type EllersControlState,
   type GeneratedLayoutRecord,
   type GenerateAlgorithmChoice,
   type GrowingTreeControlState,
@@ -154,6 +158,22 @@ type WilsonsSettingsPanelProps = Readonly<{
   onUpdate: <K extends keyof WilsonsControlState>(
     key: K,
     nextValue: Partial<WilsonsControlState[K]>,
+  ) => void;
+}>;
+
+type AldousBroderSettingsPanelProps = Readonly<{
+  controls: AldousBroderControlState;
+  onUpdate: <K extends keyof AldousBroderControlState>(
+    key: K,
+    nextValue: Partial<AldousBroderControlState[K]>,
+  ) => void;
+}>;
+
+type EllersSettingsPanelProps = Readonly<{
+  controls: EllersControlState;
+  onUpdate: <K extends keyof EllersControlState>(
+    key: K,
+    nextValue: Partial<EllersControlState[K]>,
   ) => void;
 }>;
 
@@ -1112,6 +1132,195 @@ function WilsonsSettingsPanel({ controls, onUpdate }: WilsonsSettingsPanelProps)
   );
 }
 
+function AldousBroderSettingsPanel({
+  controls,
+  onUpdate,
+}: AldousBroderSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Aldous-Broder</h3>
+      <div className="fieldHint">
+        Uses a full random walk, only carving when it first reaches a new cell.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function EllersSettingsPanel({ controls, onUpdate }: EllersSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Eller&apos;s</h3>
+      <div className="fieldHint">
+        Builds sets row by row, with separate controls for horizontal merges and vertical carry.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Horizontal Merge</span>
+          <ParameterToggle
+            checked={controls.xskew.randomize}
+            onChange={(checked) => onUpdate("xskew", { randomize: checked })}
+          />
+        </div>
+        {controls.xskew.randomize ? (
+          <div className="fieldHint">Varies how often adjacent sets merge within a row.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={SIDEWINDER_SKEW_MIN}
+              max={SIDEWINDER_SKEW_MAX}
+              step={SIDEWINDER_SKEW_STEP}
+              value={controls.xskew.value}
+              onChange={(event) => onUpdate("xskew", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.xskew.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Vertical Carry</span>
+          <ParameterToggle
+            checked={controls.yskew.randomize}
+            onChange={(checked) => onUpdate("yskew", { randomize: checked })}
+          />
+        </div>
+        {controls.yskew.randomize ? (
+          <div className="fieldHint">
+            Varies how many extra downward connections survive into the next row.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={SIDEWINDER_SKEW_MIN}
+              max={SIDEWINDER_SKEW_MAX}
+              step={SIDEWINDER_SKEW_STEP}
+              value={controls.yskew.value}
+              onChange={(event) => onUpdate("yskew", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.yskew.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
 function GrowingTreeSettingsPanel({
   controls,
   onUpdate,
@@ -1519,6 +1728,36 @@ function GeneratedRecordDetails({
             <div>{formatHuntOrderLabel(record.params.huntOrder)}</div>
           </div>
         </div>
+      ) : record.algorithm === "aldous-broder" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "ellers" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Horizontal Merge</span>
+            <div>{Math.round(record.params.xskew * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Vertical Carry</span>
+            <div>{Math.round(record.params.yskew * 100)}%</div>
+          </div>
+        </div>
       ) : record.algorithm === "growing-tree" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -1604,6 +1843,12 @@ export function GenerateBrowserDialog({
   const [wilsonsControls, setWilsonsControls] = useState<WilsonsControlState>(() =>
     createDefaultWilsonsControlState(),
   );
+  const [aldousBroderControls, setAldousBroderControls] = useState<AldousBroderControlState>(() =>
+    createDefaultAldousBroderControlState(),
+  );
+  const [ellersControls, setEllersControls] = useState<EllersControlState>(() =>
+    createDefaultEllersControlState(),
+  );
   const [growingTreeControls, setGrowingTreeControls] = useState<GrowingTreeControlState>(() =>
     createDefaultGrowingTreeControlState(),
   );
@@ -1628,13 +1873,18 @@ export function GenerateBrowserDialog({
             binaryTreeControls: selectedAlgorithm === "binary-tree" ? binaryTreeControls : null,
             huntAndKillControls: selectedAlgorithm === "hunt-and-kill" ? huntAndKillControls : null,
             wilsonsControls: selectedAlgorithm === "wilsons" ? wilsonsControls : null,
+            aldousBroderControls:
+              selectedAlgorithm === "aldous-broder" ? aldousBroderControls : null,
+            ellersControls: selectedAlgorithm === "ellers" ? ellersControls : null,
             growingTreeControls: selectedAlgorithm === "growing-tree" ? growingTreeControls : null,
             recursiveDivisionControls:
               selectedAlgorithm === "recursive-division" ? recursiveDivisionControls : null,
           }),
     [
+      aldousBroderControls,
       backtrackingControls,
       binaryTreeControls,
+      ellersControls,
       growingTreeControls,
       huntAndKillControls,
       kruskalsControls,
@@ -1769,6 +2019,32 @@ export function GenerateBrowserDialog({
     }));
   }
 
+  function updateAldousBroderControl<K extends keyof AldousBroderControlState>(
+    key: K,
+    nextValue: Partial<AldousBroderControlState[K]>,
+  ): void {
+    setAldousBroderControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateEllersControl<K extends keyof EllersControlState>(
+    key: K,
+    nextValue: Partial<EllersControlState[K]>,
+  ): void {
+    setEllersControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
   function updatePrimsControl<K extends keyof PrimsControlState>(
     key: K,
     nextValue: Partial<PrimsControlState[K]>,
@@ -1859,6 +2135,20 @@ export function GenerateBrowserDialog({
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
         huntOrder: { randomize: false, value: record.params.huntOrder },
+      });
+    } else if (record.algorithm === "aldous-broder") {
+      setSelectedAlgorithm("aldous-broder");
+      setAldousBroderControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+      });
+    } else if (record.algorithm === "ellers") {
+      setSelectedAlgorithm("ellers");
+      setEllersControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        xskew: { randomize: false, value: record.params.xskew },
+        yskew: { randomize: false, value: record.params.yskew },
       });
     } else if (record.algorithm === "growing-tree") {
       setSelectedAlgorithm("growing-tree");
@@ -1984,6 +2274,13 @@ export function GenerateBrowserDialog({
                     controls={wilsonsControls}
                     onUpdate={updateWilsonsControl}
                   />
+                ) : selectedAlgorithm === "aldous-broder" ? (
+                  <AldousBroderSettingsPanel
+                    controls={aldousBroderControls}
+                    onUpdate={updateAldousBroderControl}
+                  />
+                ) : selectedAlgorithm === "ellers" ? (
+                  <EllersSettingsPanel controls={ellersControls} onUpdate={updateEllersControl} />
                 ) : selectedAlgorithm === "growing-tree" ? (
                   <GrowingTreeSettingsPanel
                     controls={growingTreeControls}

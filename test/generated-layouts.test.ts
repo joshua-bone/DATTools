@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
+  createDefaultEllersControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
   createDefaultKruskalsControlState,
@@ -43,7 +45,9 @@ describe("generated layouts", () => {
           record.algorithm === "sidewinder" ||
           record.algorithm === "binary-tree" ||
           record.algorithm === "hunt-and-kill" ||
-          record.algorithm === "wilsons",
+          record.algorithm === "wilsons" ||
+          record.algorithm === "aldous-broder" ||
+          record.algorithm === "ellers",
       ),
     ).toBe(true);
   });
@@ -413,6 +417,86 @@ describe("generated layouts", () => {
           record.algorithm === "wilsons" &&
           record.params.blockSize === "1x2" &&
           record.params.huntOrder === "random",
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic aldous-broder layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "aldous-broder",
+      count: 6,
+      seed: 12121,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "aldous-broder",
+      count: 6,
+      seed: 12121,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "aldous-broder")).toBe(true);
+  });
+
+  it("keeps locked aldous-broder parameters fixed across generated cards", () => {
+    const controls = createDefaultAldousBroderControlState();
+    const records = generateLayoutRecords({
+      algorithm: "aldous-broder",
+      count: 6,
+      seed: 34343,
+      aldousBroderControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "2x2" },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) => record.algorithm === "aldous-broder" && record.params.blockSize === "2x2",
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic ellers layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "ellers",
+      count: 6,
+      seed: 56565,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "ellers",
+      count: 6,
+      seed: 56565,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "ellers")).toBe(true);
+  });
+
+  it("keeps locked ellers parameters fixed across generated cards", () => {
+    const controls = createDefaultEllersControlState();
+    const records = generateLayoutRecords({
+      algorithm: "ellers",
+      count: 6,
+      seed: 78787,
+      ellersControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "1x2" },
+        xskew: { randomize: false, value: 0.3 },
+        yskew: { randomize: false, value: 0.7 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "ellers" &&
+          record.params.blockSize === "1x2" &&
+          record.params.xskew === 0.3 &&
+          record.params.yskew === 0.7,
       ),
     ).toBe(true);
   });

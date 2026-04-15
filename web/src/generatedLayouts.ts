@@ -43,7 +43,9 @@ export type GenerateAlgorithmId =
   | "sidewinder"
   | "binary-tree"
   | "hunt-and-kill"
-  | "wilsons";
+  | "wilsons"
+  | "aldous-broder"
+  | "ellers";
 export type GenerateAlgorithmChoice = GenerateAlgorithmId | "any";
 export type GenerateRecordAlgorithm = GenerateAlgorithmId | "starred";
 export type RandomNoiseMirrorMode = "none" | "horizontal" | "vertical" | "quad";
@@ -97,6 +99,16 @@ export type WilsonsParameters = Readonly<{
   blockSize: MazeBlockSize;
   huntOrder: HuntOrder;
 }>;
+export type AldousBroderParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+}>;
+export type EllersParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+  xskew: number;
+  yskew: number;
+}>;
 
 export type GrowingTreeParameters = MazeAlgorithmParameters &
   Readonly<{
@@ -147,6 +159,12 @@ export type WilsonsControlState = MazeSeedBlockControlState &
   Readonly<{
     huntOrder: RandomizableValue<HuntOrder>;
   }>;
+export type AldousBroderControlState = MazeSeedBlockControlState;
+export type EllersControlState = MazeSeedBlockControlState &
+  Readonly<{
+    xskew: RandomizableValue<number>;
+    yskew: RandomizableValue<number>;
+  }>;
 
 export type GrowingTreeControlState = MazeBaseControlState &
   Readonly<{
@@ -166,6 +184,8 @@ type BaseGeneratedLayoutRecord<
     | BinaryTreeParameters
     | HuntAndKillParameters
     | WilsonsParameters
+    | AldousBroderParameters
+    | EllersParameters
     | GrowingTreeParameters
     | RecursiveDivisionParameters
     | null,
@@ -209,6 +229,11 @@ export type HuntAndKillGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   HuntAndKillParameters
 >;
 export type WilsonsGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"wilsons", WilsonsParameters>;
+export type AldousBroderGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "aldous-broder",
+  AldousBroderParameters
+>;
+export type EllersGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"ellers", EllersParameters>;
 
 export type GrowingTreeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "growing-tree",
@@ -231,6 +256,8 @@ export type GeneratedLayoutRecord =
   | BinaryTreeGeneratedLayoutRecord
   | HuntAndKillGeneratedLayoutRecord
   | WilsonsGeneratedLayoutRecord
+  | AldousBroderGeneratedLayoutRecord
+  | EllersGeneratedLayoutRecord
   | GrowingTreeGeneratedLayoutRecord
   | RecursiveDivisionGeneratedLayoutRecord
   | StarredGeneratedLayoutRecord;
@@ -249,6 +276,8 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "binary-tree", label: "Binary Tree" },
   { value: "hunt-and-kill", label: "Hunt-and-Kill" },
   { value: "wilsons", label: "Wilson's" },
+  { value: "aldous-broder", label: "Aldous-Broder" },
+  { value: "ellers", label: "Eller's" },
 ];
 
 const RANDOM_NOISE_LABEL = "Random Noise";
@@ -259,6 +288,8 @@ const SIDEWINDER_LABEL = "Sidewinder";
 const BINARY_TREE_LABEL = "Binary Tree";
 const HUNT_AND_KILL_LABEL = "Hunt-and-Kill";
 const WILSONS_LABEL = "Wilson's";
+const ALDOUS_BRODER_LABEL = "Aldous-Broder";
+const ELLERS_LABEL = "Eller's";
 const GROWING_TREE_LABEL = "Growing Tree";
 const RECURSIVE_DIVISION_LABEL = "Recursive Division";
 const GENERATED_LAYOUT_MIN_WALL_COUNT = 24;
@@ -274,6 +305,8 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "binary-tree",
   "hunt-and-kill",
   "wilsons",
+  "aldous-broder",
+  "ellers",
 ];
 const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = [
   "1x1",
@@ -285,6 +318,7 @@ const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = [
 ];
 const GROWING_TREE_BACKTRACK_CHANCE_VALUES = [0, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
 const SIDEWINDER_SKEW_VALUES = [0.15, 0.3, 0.5, 0.7, 0.85];
+const ELLERS_SKEW_VALUES = [0.15, 0.3, 0.5, 0.7, 0.85];
 export const BINARY_TREE_SKEW_OPTIONS: ReadonlyArray<BinaryTreeSkew> = ["NW", "NE", "SW", "SE"];
 export const HUNT_ORDER_OPTIONS: ReadonlyArray<HuntOrder> = ["random", "serpentine"];
 
@@ -319,6 +353,8 @@ export function generateLayoutRecords(
     binaryTreeControls?: BinaryTreeControlState | null;
     huntAndKillControls?: HuntAndKillControlState | null;
     wilsonsControls?: WilsonsControlState | null;
+    aldousBroderControls?: AldousBroderControlState | null;
+    ellersControls?: EllersControlState | null;
     growingTreeControls?: GrowingTreeControlState | null;
     recursiveDivisionControls?: RecursiveDivisionControlState | null;
   }>,
@@ -340,6 +376,8 @@ export function generateLayoutRecords(
       binaryTreeControls: options.binaryTreeControls ?? null,
       huntAndKillControls: options.huntAndKillControls ?? null,
       wilsonsControls: options.wilsonsControls ?? null,
+      aldousBroderControls: options.aldousBroderControls ?? null,
+      ellersControls: options.ellersControls ?? null,
       growingTreeControls: options.growingTreeControls ?? null,
       recursiveDivisionControls: options.recursiveDivisionControls ?? null,
     });
@@ -423,6 +461,22 @@ export function createDefaultWilsonsControlState(): WilsonsControlState {
   };
 }
 
+export function createDefaultAldousBroderControlState(): AldousBroderControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+  };
+}
+
+export function createDefaultEllersControlState(): EllersControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    xskew: { randomize: true, value: 0.5 },
+    yskew: { randomize: true, value: 0.5 },
+  };
+}
+
 export function createDefaultGrowingTreeControlState(): GrowingTreeControlState {
   return {
     seed: { randomize: true, value: 1 },
@@ -460,6 +514,8 @@ function generateRecordForAlgorithm(
     binaryTreeControls: BinaryTreeControlState | null;
     huntAndKillControls: HuntAndKillControlState | null;
     wilsonsControls: WilsonsControlState | null;
+    aldousBroderControls: AldousBroderControlState | null;
+    ellersControls: EllersControlState | null;
     growingTreeControls: GrowingTreeControlState | null;
     recursiveDivisionControls: RecursiveDivisionControlState | null;
   }>,
@@ -481,6 +537,10 @@ function generateRecordForAlgorithm(
       return buildHuntAndKillRecord(rng, controls.huntAndKillControls);
     case "wilsons":
       return buildWilsonsRecord(rng, controls.wilsonsControls);
+    case "aldous-broder":
+      return buildAldousBroderRecord(rng, controls.aldousBroderControls);
+    case "ellers":
+      return buildEllersRecord(rng, controls.ellersControls);
     case "growing-tree":
       return buildGrowingTreeRecord(rng, controls.growingTreeControls);
     case "recursive-division":
@@ -652,6 +712,41 @@ function buildWilsonsRecord(
     algorithm: "wilsons",
     title: WILSONS_LABEL,
     summary: buildWilsonsSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildAldousBroderRecord(
+  rng: () => number,
+  controls: AldousBroderControlState | null,
+): AldousBroderGeneratedLayoutRecord {
+  const params = randomizeMazeSeedBlockParameters(
+    rng,
+    controls ?? createDefaultAldousBroderControlState(),
+  );
+  return {
+    wallKey: wallMaskKeyFromBytes(
+      buildAldousBroderMaskBytes(params, createSeededRandom(params.seed)),
+    ),
+    algorithm: "aldous-broder",
+    title: ALDOUS_BRODER_LABEL,
+    summary: buildAldousBroderSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildEllersRecord(
+  rng: () => number,
+  controls: EllersControlState | null,
+): EllersGeneratedLayoutRecord {
+  const params = randomizeEllersParameters(rng, controls ?? createDefaultEllersControlState());
+  return {
+    wallKey: wallMaskKeyFromBytes(buildEllersMaskBytes(params, createSeededRandom(params.seed))),
+    algorithm: "ellers",
+    title: ELLERS_LABEL,
+    summary: buildEllersSummary(params),
     seedLabel: `Seed ${params.seed}`,
     params,
   };
@@ -836,6 +931,26 @@ function randomizeHuntOrderParameters(
       defaults.huntOrder,
       () => sampleOne(rng, HUNT_ORDER_OPTIONS),
       sanitizeHuntOrder,
+    ),
+  };
+}
+
+function randomizeEllersParameters(
+  rng: () => number,
+  defaults: EllersControlState,
+): EllersParameters {
+  const base = randomizeMazeSeedBlockParameters(rng, defaults);
+  return {
+    ...base,
+    xskew: resolveRandomizableValue(
+      defaults.xskew,
+      () => sampleOne(rng, ELLERS_SKEW_VALUES),
+      (value) => clamp(value, SIDEWINDER_SKEW_MIN, SIDEWINDER_SKEW_MAX),
+    ),
+    yskew: resolveRandomizableValue(
+      defaults.yskew,
+      () => sampleOne(rng, ELLERS_SKEW_VALUES),
+      (value) => clamp(value, SIDEWINDER_SKEW_MIN, SIDEWINDER_SKEW_MAX),
     ),
   };
 }
@@ -1168,6 +1283,100 @@ function buildWilsonsMaskBytes(params: WilsonsParameters, rng: () => number): Ui
   return wallsToMaskBytes(walls);
 }
 
+function buildAldousBroderMaskBytes(params: AldousBroderParameters, rng: () => number): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const walls = createFilledMazeWalls();
+  const visited = new Uint8Array(metrics.columns * metrics.rows);
+  const totalCells = metrics.columns * metrics.rows;
+  let current = {
+    x: randomInt(rng, 0, metrics.columns - 1),
+    y: randomInt(rng, 0, metrics.rows - 1),
+  };
+  let visitedCount = 1;
+
+  markVisited(visited, metrics.columns, current.x, current.y);
+  carveMazeCell(walls, metrics, current.x, current.y);
+
+  while (visitedCount < totalCells) {
+    const next = sampleOne(
+      rng,
+      listMazeNeighborCells(current.x, current.y, metrics.columns, metrics.rows),
+    );
+    if (!isMazeCellVisited(visited, metrics.columns, next.x, next.y)) {
+      carveMazePassage(walls, metrics, current, next);
+      markVisited(visited, metrics.columns, next.x, next.y);
+      visitedCount += 1;
+    }
+    current = next;
+  }
+
+  return wallsToMaskBytes(walls);
+}
+
+function buildEllersMaskBytes(params: EllersParameters, rng: () => number): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const walls = createFilledMazeWalls();
+  let nextSetId = 0;
+  let rowSets = new Array<number | null>(metrics.columns).fill(null);
+
+  for (let y = 0; y < metrics.rows; y++) {
+    for (let x = 0; x < metrics.columns; x++) {
+      carveMazeCell(walls, metrics, x, y);
+      if (rowSets[x] !== null) continue;
+      rowSets[x] = nextSetId;
+      nextSetId += 1;
+    }
+
+    if (y === metrics.rows - 1) {
+      for (let x = 0; x < metrics.columns - 1; x++) {
+        const currentSet = rowSets[x] ?? null;
+        const nextSet = rowSets[x + 1] ?? null;
+        if (currentSet === nextSet) continue;
+        carveMazePassage(walls, metrics, { x, y }, { x: x + 1, y });
+        mergeEllersRowSets(rowSets, nextSet, currentSet);
+      }
+      continue;
+    }
+
+    for (let x = 0; x < metrics.columns - 1; x++) {
+      const currentSet = rowSets[x] ?? null;
+      const nextSet = rowSets[x + 1] ?? null;
+      if (currentSet === nextSet) continue;
+      if (rng() >= params.xskew) continue;
+      carveMazePassage(walls, metrics, { x, y }, { x: x + 1, y });
+      mergeEllersRowSets(rowSets, nextSet, currentSet);
+    }
+
+    const nextRowSets = new Array<number | null>(metrics.columns).fill(null);
+    const columnsBySet = new Map<number, number[]>();
+
+    for (let x = 0; x < metrics.columns; x++) {
+      const setId = rowSets[x] ?? null;
+      if (setId === null) continue;
+      const columns = columnsBySet.get(setId) ?? [];
+      columns.push(x);
+      columnsBySet.set(setId, columns);
+    }
+
+    for (const [setId, columns] of columnsBySet) {
+      const requiredColumn = sampleOne(rng, columns);
+      nextRowSets[requiredColumn] = setId;
+      carveMazePassage(walls, metrics, { x: requiredColumn, y }, { x: requiredColumn, y: y + 1 });
+
+      for (const column of columns) {
+        if (column === requiredColumn || nextRowSets[column] !== null) continue;
+        if (rng() >= params.yskew) continue;
+        nextRowSets[column] = setId;
+        carveMazePassage(walls, metrics, { x: column, y }, { x: column, y: y + 1 });
+      }
+    }
+
+    rowSets = nextRowSets;
+  }
+
+  return wallsToMaskBytes(walls);
+}
+
 function buildRecursiveDivisionMaskBytes(
   params: RecursiveDivisionParameters,
   rng: () => number,
@@ -1331,6 +1540,18 @@ function buildHuntAndKillSummary(params: HuntAndKillParameters): string {
 
 function buildWilsonsSummary(params: WilsonsParameters): string {
   return `${params.blockSize} blocks • ${params.huntOrder} hunt`;
+}
+
+function buildAldousBroderSummary(params: AldousBroderParameters): string {
+  return `${params.blockSize} blocks`;
+}
+
+function buildEllersSummary(params: EllersParameters): string {
+  return [
+    `${params.blockSize} blocks`,
+    `${Math.round(params.xskew * 100)}% horizontal merge`,
+    `${Math.round(params.yskew * 100)}% extra drops`,
+  ].join(" • ");
 }
 
 function buildGrowingTreeSummary(params: GrowingTreeParameters): string {
@@ -1627,6 +1848,17 @@ function listMazeCellsMatching(
     }
   }
   return cells;
+}
+
+function mergeEllersRowSets(
+  rowSets: Array<number | null>,
+  fromSet: number | null,
+  toSet: number | null,
+): void {
+  if (fromSet === null || toSet === null || fromSet === toSet) return;
+  for (let index = 0; index < rowSets.length; index++) {
+    if (rowSets[index] === fromSet) rowSets[index] = toSet;
+  }
 }
 
 function shuffleInPlace<T>(items: T[], rng: () => number): void {
