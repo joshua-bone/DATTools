@@ -3,12 +3,43 @@ import { useEffect, useMemo, useState, type JSX, type SyntheticEvent } from "rea
 import { wallMaskBytesFromKey } from "@/src/dat/wallsBank";
 import {
   BINARY_TREE_SKEW_OPTIONS,
+  BLUEPRINT_CHAMBER_DEPTH_MAX,
+  BLUEPRINT_CHAMBER_DEPTH_MIN,
+  BLUEPRINT_HALL_WIDTH_MAX,
+  BLUEPRINT_HALL_WIDTH_MIN,
+  BLUEPRINT_PILLAR_SPACING_MAX,
+  BLUEPRINT_PILLAR_SPACING_MIN,
+  BLUEPRINT_WING_COUNT_MAX,
+  BLUEPRINT_WING_COUNT_MIN,
+  BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MAX,
+  BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MIN,
+  BSP_ROOM_PARTITIONER_ROOM_PADDING_MAX,
+  BSP_ROOM_PARTITIONER_ROOM_PADDING_MIN,
+  BSP_ROOM_PARTITIONER_SPLIT_DEPTH_MAX,
+  BSP_ROOM_PARTITIONER_SPLIT_DEPTH_MIN,
   CELLULAR_AUTOMATON_COMPLEXITY_MAX,
   CELLULAR_AUTOMATON_COMPLEXITY_MIN,
   CELLULAR_AUTOMATON_COMPLEXITY_STEP,
   CELLULAR_AUTOMATON_DENSITY_MAX,
   CELLULAR_AUTOMATON_DENSITY_MIN,
   CELLULAR_AUTOMATON_DENSITY_STEP,
+  CORRIDOR_GRID_COLUMN_SPACING_MAX,
+  CORRIDOR_GRID_COLUMN_SPACING_MIN,
+  CORRIDOR_GRID_GAP_CHANCE_MAX,
+  CORRIDOR_GRID_GAP_CHANCE_MIN,
+  CORRIDOR_GRID_GAP_CHANCE_STEP,
+  CORRIDOR_GRID_ROW_SPACING_MAX,
+  CORRIDOR_GRID_ROW_SPACING_MIN,
+  CORRIDOR_GRID_WALL_THICKNESS_MAX,
+  CORRIDOR_GRID_WALL_THICKNESS_MIN,
+  COURTYARD_GATE_WIDTH_MAX,
+  COURTYARD_GATE_WIDTH_MIN,
+  COURTYARD_OFFSET_MAX,
+  COURTYARD_OFFSET_MIN,
+  COURTYARD_RING_COUNT_MAX,
+  COURTYARD_RING_COUNT_MIN,
+  COURTYARD_RING_GAP_MAX,
+  COURTYARD_RING_GAP_MIN,
   DUNGEON_ROOM_COUNT_MAX,
   DUNGEON_ROOM_COUNT_MIN,
   DUNGEON_ROOM_SIZE_MAX,
@@ -97,7 +128,11 @@ import {
   createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
+  createDefaultBlueprintGeneratorControlState,
+  createDefaultBspRoomPartitionerControlState,
   createDefaultCellularAutomatonControlState,
+  createDefaultCorridorGridControlState,
+  createDefaultCourtyardGeneratorControlState,
   createDefaultDomainWarpedNoiseControlState,
   createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
@@ -111,6 +146,7 @@ import {
   createDefaultRandomNoiseControlState,
   createDefaultRadialSymmetryControlState,
   createDefaultRecursiveDivisionControlState,
+  createDefaultRoomScatterControlState,
   createDefaultRoseCurvesControlState,
   createDefaultSidewinderControlState,
   createDefaultThresholdedGradientNoiseControlState,
@@ -129,7 +165,11 @@ import {
   type BacktrackingControlState,
   type BinaryTreeControlState,
   type BinaryTreeSkew,
+  type BlueprintGeneratorControlState,
+  type BspRoomPartitionerControlState,
   type CellularAutomatonControlState,
+  type CorridorGridControlState,
+  type CourtyardGeneratorControlState,
   type DomainWarpedNoiseControlState,
   type DungeonRoomsControlState,
   type EllersControlState,
@@ -149,6 +189,16 @@ import {
   type RandomNoiseControlState,
   type RandomNoiseMirrorMode,
   type RecursiveDivisionControlState,
+  ROOM_SCATTER_CONNECTOR_CHANCE_MAX,
+  ROOM_SCATTER_CONNECTOR_CHANCE_MIN,
+  ROOM_SCATTER_CONNECTOR_CHANCE_STEP,
+  ROOM_SCATTER_GAP_MAX,
+  ROOM_SCATTER_GAP_MIN,
+  ROOM_SCATTER_ROOM_COUNT_MAX,
+  ROOM_SCATTER_ROOM_COUNT_MIN,
+  ROOM_SCATTER_ROOM_SIZE_MAX,
+  ROOM_SCATTER_ROOM_SIZE_MIN,
+  type RoomScatterControlState,
   type RoseCurvesControlState,
   type SidewinderControlState,
   type ThresholdedGradientNoiseControlState,
@@ -275,6 +325,46 @@ type TileableMotifRepeaterSettingsPanelProps = Readonly<{
   onUpdate: <K extends keyof TileableMotifRepeaterControlState>(
     key: K,
     nextValue: Partial<TileableMotifRepeaterControlState[K]>,
+  ) => void;
+}>;
+
+type BspRoomPartitionerSettingsPanelProps = Readonly<{
+  controls: BspRoomPartitionerControlState;
+  onUpdate: <K extends keyof BspRoomPartitionerControlState>(
+    key: K,
+    nextValue: Partial<BspRoomPartitionerControlState[K]>,
+  ) => void;
+}>;
+
+type CorridorGridSettingsPanelProps = Readonly<{
+  controls: CorridorGridControlState;
+  onUpdate: <K extends keyof CorridorGridControlState>(
+    key: K,
+    nextValue: Partial<CorridorGridControlState[K]>,
+  ) => void;
+}>;
+
+type RoomScatterSettingsPanelProps = Readonly<{
+  controls: RoomScatterControlState;
+  onUpdate: <K extends keyof RoomScatterControlState>(
+    key: K,
+    nextValue: Partial<RoomScatterControlState[K]>,
+  ) => void;
+}>;
+
+type CourtyardGeneratorSettingsPanelProps = Readonly<{
+  controls: CourtyardGeneratorControlState;
+  onUpdate: <K extends keyof CourtyardGeneratorControlState>(
+    key: K,
+    nextValue: Partial<CourtyardGeneratorControlState[K]>,
+  ) => void;
+}>;
+
+type BlueprintGeneratorSettingsPanelProps = Readonly<{
+  controls: BlueprintGeneratorControlState;
+  onUpdate: <K extends keyof BlueprintGeneratorControlState>(
+    key: K,
+    nextValue: Partial<BlueprintGeneratorControlState[K]>,
   ) => void;
 }>;
 
@@ -2059,6 +2149,593 @@ function TileableMotifRepeaterSettingsPanel({
               </option>
             ))}
           </select>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function BspRoomPartitionerSettingsPanel({
+  controls,
+  onUpdate,
+}: BspRoomPartitionerSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">BSP Room Partitioner</h3>
+      <div className="fieldHint">
+        Recursively splits the map into leaves, carves inset rooms, then reconnects siblings.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Split Depth</span>
+          <ParameterToggle
+            checked={controls.splitDepth.randomize}
+            onChange={(checked) => onUpdate("splitDepth", { randomize: checked })}
+          />
+        </div>
+        {controls.splitDepth.randomize ? (
+          <div className="fieldHint">Controls how many recursive subdivisions get applied.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={BSP_ROOM_PARTITIONER_SPLIT_DEPTH_MIN}
+              max={BSP_ROOM_PARTITIONER_SPLIT_DEPTH_MAX}
+              step={1}
+              value={controls.splitDepth.value}
+              onChange={(event) => onUpdate("splitDepth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.splitDepth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Room Padding</span>
+          <ParameterToggle
+            checked={controls.roomPadding.randomize}
+            onChange={(checked) => onUpdate("roomPadding", { randomize: checked })}
+          />
+        </div>
+        {controls.roomPadding.randomize ? (
+          <div className="fieldHint">Leaves more wall margin around each carved room.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={BSP_ROOM_PARTITIONER_ROOM_PADDING_MIN}
+              max={BSP_ROOM_PARTITIONER_ROOM_PADDING_MAX}
+              step={1}
+              value={controls.roomPadding.value}
+              onChange={(event) => onUpdate("roomPadding", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.roomPadding.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Corridor Width</span>
+          <ParameterToggle
+            checked={controls.corridorWidth.randomize}
+            onChange={(checked) => onUpdate("corridorWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.corridorWidth.randomize ? (
+          <div className="fieldHint">Adjusts how thick the BSP reconnection hallways are.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MIN}
+              max={BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MAX}
+              step={1}
+              value={controls.corridorWidth.value}
+              onChange={(event) => onUpdate("corridorWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.corridorWidth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function CorridorGridSettingsPanel({
+  controls,
+  onUpdate,
+}: CorridorGridSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Corridor Grid</h3>
+      <div className="fieldHint">
+        Draws a Manhattan-style wall grid and punches deterministic door openings through it.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Column Spacing</span>
+          <ParameterToggle
+            checked={controls.columnSpacing.randomize}
+            onChange={(checked) => onUpdate("columnSpacing", { randomize: checked })}
+          />
+        </div>
+        {controls.columnSpacing.randomize ? (
+          <div className="fieldHint">Sets the distance between vertical wall bands.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CORRIDOR_GRID_COLUMN_SPACING_MIN}
+              max={CORRIDOR_GRID_COLUMN_SPACING_MAX}
+              step={1}
+              value={controls.columnSpacing.value}
+              onChange={(event) => onUpdate("columnSpacing", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.columnSpacing.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Row Spacing</span>
+          <ParameterToggle
+            checked={controls.rowSpacing.randomize}
+            onChange={(checked) => onUpdate("rowSpacing", { randomize: checked })}
+          />
+        </div>
+        {controls.rowSpacing.randomize ? (
+          <div className="fieldHint">Sets the distance between horizontal wall bands.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CORRIDOR_GRID_ROW_SPACING_MIN}
+              max={CORRIDOR_GRID_ROW_SPACING_MAX}
+              step={1}
+              value={controls.rowSpacing.value}
+              onChange={(event) => onUpdate("rowSpacing", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.rowSpacing.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Wall Thickness</span>
+          <ParameterToggle
+            checked={controls.wallThickness.randomize}
+            onChange={(checked) => onUpdate("wallThickness", { randomize: checked })}
+          />
+        </div>
+        {controls.wallThickness.randomize ? (
+          <div className="fieldHint">Makes the grid walls more delicate or more blocky.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CORRIDOR_GRID_WALL_THICKNESS_MIN}
+              max={CORRIDOR_GRID_WALL_THICKNESS_MAX}
+              step={1}
+              value={controls.wallThickness.value}
+              onChange={(event) => onUpdate("wallThickness", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.wallThickness.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Door Chance</span>
+          <ParameterToggle
+            checked={controls.gapChance.randomize}
+            onChange={(checked) => onUpdate("gapChance", { randomize: checked })}
+          />
+        </div>
+        {controls.gapChance.randomize ? (
+          <div className="fieldHint">Higher values open more gaps through each wall segment.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CORRIDOR_GRID_GAP_CHANCE_MIN}
+              max={CORRIDOR_GRID_GAP_CHANCE_MAX}
+              step={CORRIDOR_GRID_GAP_CHANCE_STEP}
+              value={controls.gapChance.value}
+              onChange={(event) => onUpdate("gapChance", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.gapChance.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function RoomScatterSettingsPanel({
+  controls,
+  onUpdate,
+}: RoomScatterSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Room Scatter</h3>
+      <div className="fieldHint">
+        Drops independent rooms into the field, then optionally reconnects some of them.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Room Count</span>
+          <ParameterToggle
+            checked={controls.roomCount.randomize}
+            onChange={(checked) => onUpdate("roomCount", { randomize: checked })}
+          />
+        </div>
+        {controls.roomCount.randomize ? (
+          <div className="fieldHint">Controls how many rooms get attempted before linking.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={ROOM_SCATTER_ROOM_COUNT_MIN}
+              max={ROOM_SCATTER_ROOM_COUNT_MAX}
+              step={1}
+              value={controls.roomCount.value}
+              onChange={(event) => onUpdate("roomCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.roomCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Room Size</span>
+          <ParameterToggle
+            checked={controls.roomSize.randomize}
+            onChange={(checked) => onUpdate("roomSize", { randomize: checked })}
+          />
+        </div>
+        {controls.roomSize.randomize ? (
+          <div className="fieldHint">Caps the maximum width and height of each scattered room.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={ROOM_SCATTER_ROOM_SIZE_MIN}
+              max={ROOM_SCATTER_ROOM_SIZE_MAX}
+              step={1}
+              value={controls.roomSize.value}
+              onChange={(event) => onUpdate("roomSize", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.roomSize.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Gap</span>
+          <ParameterToggle
+            checked={controls.gap.randomize}
+            onChange={(checked) => onUpdate("gap", { randomize: checked })}
+          />
+        </div>
+        {controls.gap.randomize ? (
+          <div className="fieldHint">Enforces extra wall space between neighboring rooms.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={ROOM_SCATTER_GAP_MIN}
+              max={ROOM_SCATTER_GAP_MAX}
+              step={1}
+              value={controls.gap.value}
+              onChange={(event) => onUpdate("gap", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.gap.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Connector Chance</span>
+          <ParameterToggle
+            checked={controls.connectorChance.randomize}
+            onChange={(checked) => onUpdate("connectorChance", { randomize: checked })}
+          />
+        </div>
+        {controls.connectorChance.randomize ? (
+          <div className="fieldHint">Higher values connect more rooms together with corridors.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={ROOM_SCATTER_CONNECTOR_CHANCE_MIN}
+              max={ROOM_SCATTER_CONNECTOR_CHANCE_MAX}
+              step={ROOM_SCATTER_CONNECTOR_CHANCE_STEP}
+              value={controls.connectorChance.value}
+              onChange={(event) =>
+                onUpdate("connectorChance", { value: Number(event.target.value) })
+              }
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.connectorChance.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function CourtyardGeneratorSettingsPanel({
+  controls,
+  onUpdate,
+}: CourtyardGeneratorSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Courtyard Generator</h3>
+      <div className="fieldHint">
+        Stacks nested rectangular walls and punches aligned gates through each ring.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Ring Count</span>
+          <ParameterToggle
+            checked={controls.ringCount.randomize}
+            onChange={(checked) => onUpdate("ringCount", { randomize: checked })}
+          />
+        </div>
+        {controls.ringCount.randomize ? (
+          <div className="fieldHint">Determines how many nested courtyards get drawn.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={COURTYARD_RING_COUNT_MIN}
+              max={COURTYARD_RING_COUNT_MAX}
+              step={1}
+              value={controls.ringCount.value}
+              onChange={(event) => onUpdate("ringCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.ringCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Ring Gap</span>
+          <ParameterToggle
+            checked={controls.ringGap.randomize}
+            onChange={(checked) => onUpdate("ringGap", { randomize: checked })}
+          />
+        </div>
+        {controls.ringGap.randomize ? (
+          <div className="fieldHint">Leaves more open courtyard space between rings.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={COURTYARD_RING_GAP_MIN}
+              max={COURTYARD_RING_GAP_MAX}
+              step={1}
+              value={controls.ringGap.value}
+              onChange={(event) => onUpdate("ringGap", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.ringGap.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Gate Width</span>
+          <ParameterToggle
+            checked={controls.gateWidth.randomize}
+            onChange={(checked) => onUpdate("gateWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.gateWidth.randomize ? (
+          <div className="fieldHint">Controls how wide each courtyard gate is carved.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={COURTYARD_GATE_WIDTH_MIN}
+              max={COURTYARD_GATE_WIDTH_MAX}
+              step={1}
+              value={controls.gateWidth.value}
+              onChange={(event) => onUpdate("gateWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.gateWidth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Gate Offset</span>
+          <ParameterToggle
+            checked={controls.offset.randomize}
+            onChange={(checked) => onUpdate("offset", { randomize: checked })}
+          />
+        </div>
+        {controls.offset.randomize ? (
+          <div className="fieldHint">
+            Shifts gate placement away from dead center for each ring.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={COURTYARD_OFFSET_MIN}
+              max={COURTYARD_OFFSET_MAX}
+              step={1}
+              value={controls.offset.value}
+              onChange={(event) => onUpdate("offset", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.offset.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function BlueprintGeneratorSettingsPanel({
+  controls,
+  onUpdate,
+}: BlueprintGeneratorSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Blueprint Generator</h3>
+      <div className="fieldHint">
+        Carves a central hall, selected wings, and optional pillar grids into a rigid floor plan.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Wing Count</span>
+          <ParameterToggle
+            checked={controls.wingCount.randomize}
+            onChange={(checked) => onUpdate("wingCount", { randomize: checked })}
+          />
+        </div>
+        {controls.wingCount.randomize ? (
+          <div className="fieldHint">Chooses how many of the four cardinal wings are active.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={BLUEPRINT_WING_COUNT_MIN}
+              max={BLUEPRINT_WING_COUNT_MAX}
+              step={1}
+              value={controls.wingCount.value}
+              onChange={(event) => onUpdate("wingCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.wingCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Hall Width</span>
+          <ParameterToggle
+            checked={controls.hallWidth.randomize}
+            onChange={(checked) => onUpdate("hallWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.hallWidth.randomize ? (
+          <div className="fieldHint">Sets the width of the main blueprint corridors.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={BLUEPRINT_HALL_WIDTH_MIN}
+              max={BLUEPRINT_HALL_WIDTH_MAX}
+              step={1}
+              value={controls.hallWidth.value}
+              onChange={(event) => onUpdate("hallWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.hallWidth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Pillar Spacing</span>
+          <ParameterToggle
+            checked={controls.pillarSpacing.randomize}
+            onChange={(checked) => onUpdate("pillarSpacing", { randomize: checked })}
+          />
+        </div>
+        {controls.pillarSpacing.randomize ? (
+          <div className="fieldHint">Zero disables pillars; larger values spread them out.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={BLUEPRINT_PILLAR_SPACING_MIN}
+              max={BLUEPRINT_PILLAR_SPACING_MAX}
+              step={1}
+              value={controls.pillarSpacing.value}
+              onChange={(event) => onUpdate("pillarSpacing", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.pillarSpacing.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Chamber Depth</span>
+          <ParameterToggle
+            checked={controls.chamberDepth.randomize}
+            onChange={(checked) => onUpdate("chamberDepth", { randomize: checked })}
+          />
+        </div>
+        {controls.chamberDepth.randomize ? (
+          <div className="fieldHint">Extends the outer wing chambers away from the main hall.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={BLUEPRINT_CHAMBER_DEPTH_MIN}
+              max={BLUEPRINT_CHAMBER_DEPTH_MAX}
+              step={1}
+              value={controls.chamberDepth.value}
+              onChange={(event) => onUpdate("chamberDepth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.chamberDepth.value}</div>
+          </div>
         )}
       </section>
 
@@ -3919,6 +4596,157 @@ function GeneratedRecordDetails({
             <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
+      ) : record.algorithm === "bsp-room-partitioner" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Split Depth</span>
+            <div>{record.params.splitDepth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Room Padding</span>
+            <div>{record.params.roomPadding}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Corridor Width</span>
+            <div>{record.params.corridorWidth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "corridor-grid" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Column Spacing</span>
+            <div>{record.params.columnSpacing}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Row Spacing</span>
+            <div>{record.params.rowSpacing}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Wall Thickness</span>
+            <div>{record.params.wallThickness}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Door Chance</span>
+            <div>{Math.round(record.params.gapChance * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "room-scatter" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Room Count</span>
+            <div>{record.params.roomCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Room Size</span>
+            <div>{record.params.roomSize}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Gap</span>
+            <div>{record.params.gap}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Connector Chance</span>
+            <div>{Math.round(record.params.connectorChance * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "courtyard-generator" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Ring Count</span>
+            <div>{record.params.ringCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Ring Gap</span>
+            <div>{record.params.ringGap}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Gate Width</span>
+            <div>{record.params.gateWidth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Gate Offset</span>
+            <div>{record.params.offset}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "blueprint-generator" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Wing Count</span>
+            <div>{record.params.wingCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Hall Width</span>
+            <div>{record.params.hallWidth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Pillar Spacing</span>
+            <div>{record.params.pillarSpacing}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Chamber Depth</span>
+            <div>{record.params.chamberDepth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
       ) : record.algorithm === "backtracking-generator" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -4211,6 +5039,18 @@ export function GenerateBrowserDialog({
     useState<TileableMotifRepeaterControlState>(() =>
       createDefaultTileableMotifRepeaterControlState(),
     );
+  const [bspRoomPartitionerControls, setBspRoomPartitionerControls] =
+    useState<BspRoomPartitionerControlState>(() => createDefaultBspRoomPartitionerControlState());
+  const [corridorGridControls, setCorridorGridControls] = useState<CorridorGridControlState>(() =>
+    createDefaultCorridorGridControlState(),
+  );
+  const [roomScatterControls, setRoomScatterControls] = useState<RoomScatterControlState>(() =>
+    createDefaultRoomScatterControlState(),
+  );
+  const [courtyardGeneratorControls, setCourtyardGeneratorControls] =
+    useState<CourtyardGeneratorControlState>(() => createDefaultCourtyardGeneratorControlState());
+  const [blueprintGeneratorControls, setBlueprintGeneratorControls] =
+    useState<BlueprintGeneratorControlState>(() => createDefaultBlueprintGeneratorControlState());
   const [backtrackingControls, setBacktrackingControls] = useState<BacktrackingControlState>(() =>
     createDefaultBacktrackingControlState(),
   );
@@ -4283,6 +5123,15 @@ export function GenerateBrowserDialog({
               selectedAlgorithm === "tileable-motif-repeater"
                 ? tileableMotifRepeaterControls
                 : null,
+            bspRoomPartitionerControls:
+              selectedAlgorithm === "bsp-room-partitioner" ? bspRoomPartitionerControls : null,
+            corridorGridControls:
+              selectedAlgorithm === "corridor-grid" ? corridorGridControls : null,
+            roomScatterControls: selectedAlgorithm === "room-scatter" ? roomScatterControls : null,
+            courtyardGeneratorControls:
+              selectedAlgorithm === "courtyard-generator" ? courtyardGeneratorControls : null,
+            blueprintGeneratorControls:
+              selectedAlgorithm === "blueprint-generator" ? blueprintGeneratorControls : null,
             backtrackingControls:
               selectedAlgorithm === "backtracking-generator" ? backtrackingControls : null,
             primsControls: selectedAlgorithm === "prims" ? primsControls : null,
@@ -4307,7 +5156,11 @@ export function GenerateBrowserDialog({
       aldousBroderControls,
       backtrackingControls,
       binaryTreeControls,
+      blueprintGeneratorControls,
+      bspRoomPartitionerControls,
       cellularAutomatonControls,
+      corridorGridControls,
+      courtyardGeneratorControls,
       domainWarpedNoiseControls,
       dungeonRoomsControls,
       ellersControls,
@@ -4322,6 +5175,7 @@ export function GenerateBrowserDialog({
       randomSeed,
       radialSymmetryControls,
       recursiveDivisionControls,
+      roomScatterControls,
       roseCurvesControls,
       selectedAlgorithm,
       sidewinderControls,
@@ -4485,6 +5339,71 @@ export function GenerateBrowserDialog({
     nextValue: Partial<TileableMotifRepeaterControlState[K]>,
   ): void {
     setTileableMotifRepeaterControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateBspRoomPartitionerControl<K extends keyof BspRoomPartitionerControlState>(
+    key: K,
+    nextValue: Partial<BspRoomPartitionerControlState[K]>,
+  ): void {
+    setBspRoomPartitionerControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateCorridorGridControl<K extends keyof CorridorGridControlState>(
+    key: K,
+    nextValue: Partial<CorridorGridControlState[K]>,
+  ): void {
+    setCorridorGridControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateRoomScatterControl<K extends keyof RoomScatterControlState>(
+    key: K,
+    nextValue: Partial<RoomScatterControlState[K]>,
+  ): void {
+    setRoomScatterControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateCourtyardGeneratorControl<K extends keyof CourtyardGeneratorControlState>(
+    key: K,
+    nextValue: Partial<CourtyardGeneratorControlState[K]>,
+  ): void {
+    setCourtyardGeneratorControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateBlueprintGeneratorControl<K extends keyof BlueprintGeneratorControlState>(
+    key: K,
+    nextValue: Partial<BlueprintGeneratorControlState[K]>,
+  ): void {
+    setBlueprintGeneratorControls((current) => ({
       ...current,
       [key]: {
         ...current[key],
@@ -4799,6 +5718,60 @@ export function GenerateBrowserDialog({
         jitter: { randomize: false, value: record.params.jitter },
         rotation: { randomize: false, value: record.params.rotation },
       });
+    } else if (record.algorithm === "bsp-room-partitioner") {
+      setSelectedAlgorithm("bsp-room-partitioner");
+      setBspRoomPartitionerControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        splitDepth: { randomize: false, value: record.params.splitDepth },
+        roomPadding: { randomize: false, value: record.params.roomPadding },
+        corridorWidth: { randomize: false, value: record.params.corridorWidth },
+      });
+    } else if (record.algorithm === "corridor-grid") {
+      setSelectedAlgorithm("corridor-grid");
+      setCorridorGridControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        columnSpacing: { randomize: false, value: record.params.columnSpacing },
+        rowSpacing: { randomize: false, value: record.params.rowSpacing },
+        wallThickness: { randomize: false, value: record.params.wallThickness },
+        gapChance: { randomize: false, value: record.params.gapChance },
+      });
+    } else if (record.algorithm === "room-scatter") {
+      setSelectedAlgorithm("room-scatter");
+      setRoomScatterControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        roomCount: { randomize: false, value: record.params.roomCount },
+        roomSize: { randomize: false, value: record.params.roomSize },
+        gap: { randomize: false, value: record.params.gap },
+        connectorChance: { randomize: false, value: record.params.connectorChance },
+      });
+    } else if (record.algorithm === "courtyard-generator") {
+      setSelectedAlgorithm("courtyard-generator");
+      setCourtyardGeneratorControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        ringCount: { randomize: false, value: record.params.ringCount },
+        ringGap: { randomize: false, value: record.params.ringGap },
+        gateWidth: { randomize: false, value: record.params.gateWidth },
+        offset: { randomize: false, value: record.params.offset },
+      });
+    } else if (record.algorithm === "blueprint-generator") {
+      setSelectedAlgorithm("blueprint-generator");
+      setBlueprintGeneratorControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        wingCount: { randomize: false, value: record.params.wingCount },
+        hallWidth: { randomize: false, value: record.params.hallWidth },
+        pillarSpacing: { randomize: false, value: record.params.pillarSpacing },
+        chamberDepth: { randomize: false, value: record.params.chamberDepth },
+      });
     } else if (record.algorithm === "backtracking-generator") {
       setSelectedAlgorithm("backtracking-generator");
       setBacktrackingControls({
@@ -5028,6 +6001,31 @@ export function GenerateBrowserDialog({
                   <TileableMotifRepeaterSettingsPanel
                     controls={tileableMotifRepeaterControls}
                     onUpdate={updateTileableMotifRepeaterControl}
+                  />
+                ) : selectedAlgorithm === "bsp-room-partitioner" ? (
+                  <BspRoomPartitionerSettingsPanel
+                    controls={bspRoomPartitionerControls}
+                    onUpdate={updateBspRoomPartitionerControl}
+                  />
+                ) : selectedAlgorithm === "corridor-grid" ? (
+                  <CorridorGridSettingsPanel
+                    controls={corridorGridControls}
+                    onUpdate={updateCorridorGridControl}
+                  />
+                ) : selectedAlgorithm === "room-scatter" ? (
+                  <RoomScatterSettingsPanel
+                    controls={roomScatterControls}
+                    onUpdate={updateRoomScatterControl}
+                  />
+                ) : selectedAlgorithm === "courtyard-generator" ? (
+                  <CourtyardGeneratorSettingsPanel
+                    controls={courtyardGeneratorControls}
+                    onUpdate={updateCourtyardGeneratorControl}
+                  />
+                ) : selectedAlgorithm === "blueprint-generator" ? (
+                  <BlueprintGeneratorSettingsPanel
+                    controls={blueprintGeneratorControls}
+                    onUpdate={updateBlueprintGeneratorControl}
                   />
                 ) : selectedAlgorithm === "backtracking-generator" ? (
                   <BacktrackingSettingsPanel

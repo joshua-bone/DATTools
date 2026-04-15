@@ -4,7 +4,11 @@ import {
   createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,
   createDefaultBinaryTreeControlState,
+  createDefaultBlueprintGeneratorControlState,
+  createDefaultBspRoomPartitionerControlState,
   createDefaultCellularAutomatonControlState,
+  createDefaultCorridorGridControlState,
+  createDefaultCourtyardGeneratorControlState,
   createDefaultDomainWarpedNoiseControlState,
   createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
@@ -18,6 +22,7 @@ import {
   createDefaultRandomNoiseControlState,
   createDefaultRadialSymmetryControlState,
   createDefaultRecursiveDivisionControlState,
+  createDefaultRoomScatterControlState,
   createDefaultRoseCurvesControlState,
   createDefaultSidewinderControlState,
   createDefaultThresholdedGradientNoiseControlState,
@@ -60,6 +65,11 @@ describe("generated layouts", () => {
           record.algorithm === "l-system-turtle" ||
           record.algorithm === "rose-curves" ||
           record.algorithm === "tileable-motif-repeater" ||
+          record.algorithm === "bsp-room-partitioner" ||
+          record.algorithm === "corridor-grid" ||
+          record.algorithm === "room-scatter" ||
+          record.algorithm === "courtyard-generator" ||
+          record.algorithm === "blueprint-generator" ||
           record.algorithm === "backtracking-generator" ||
           record.algorithm === "growing-tree" ||
           record.algorithm === "prims" ||
@@ -599,6 +609,249 @@ describe("generated layouts", () => {
           record.params.motifSize === 3 &&
           record.params.jitter === 2 &&
           record.params.rotation === 90,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic bsp-room-partitioner layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "bsp-room-partitioner",
+      count: 6,
+      seed: 72727,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "bsp-room-partitioner",
+      count: 6,
+      seed: 72727,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "bsp-room-partitioner")).toBe(true);
+  });
+
+  it("keeps locked bsp-room-partitioner parameters fixed across generated cards", () => {
+    const controls = createDefaultBspRoomPartitionerControlState();
+    const records = generateLayoutRecords({
+      algorithm: "bsp-room-partitioner",
+      count: 6,
+      seed: 73737,
+      bspRoomPartitionerControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: true },
+        splitDepth: { randomize: false, value: 5 },
+        roomPadding: { randomize: false, value: 2 },
+        corridorWidth: { randomize: false, value: 2 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "bsp-room-partitioner" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === true &&
+          record.params.splitDepth === 5 &&
+          record.params.roomPadding === 2 &&
+          record.params.corridorWidth === 2,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic corridor-grid layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "corridor-grid",
+      count: 6,
+      seed: 74747,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "corridor-grid",
+      count: 6,
+      seed: 74747,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "corridor-grid")).toBe(true);
+  });
+
+  it("keeps locked corridor-grid parameters fixed across generated cards", () => {
+    const controls = createDefaultCorridorGridControlState();
+    const records = generateLayoutRecords({
+      algorithm: "corridor-grid",
+      count: 6,
+      seed: 75757,
+      corridorGridControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        invert: { randomize: false, value: false },
+        columnSpacing: { randomize: false, value: 7 },
+        rowSpacing: { randomize: false, value: 5 },
+        wallThickness: { randomize: false, value: 2 },
+        gapChance: { randomize: false, value: 0.45 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "corridor-grid" &&
+          record.params.blockSize === 1 &&
+          record.params.invert === false &&
+          record.params.columnSpacing === 7 &&
+          record.params.rowSpacing === 5 &&
+          record.params.wallThickness === 2 &&
+          record.params.gapChance === 0.45,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic room-scatter layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "room-scatter",
+      count: 6,
+      seed: 76767,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "room-scatter",
+      count: 6,
+      seed: 76767,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "room-scatter")).toBe(true);
+  });
+
+  it("keeps locked room-scatter parameters fixed across generated cards", () => {
+    const controls = createDefaultRoomScatterControlState();
+    const records = generateLayoutRecords({
+      algorithm: "room-scatter",
+      count: 6,
+      seed: 77777,
+      roomScatterControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 3 },
+        invert: { randomize: false, value: true },
+        roomCount: { randomize: false, value: 8 },
+        roomSize: { randomize: false, value: 6 },
+        gap: { randomize: false, value: 2 },
+        connectorChance: { randomize: false, value: 0.6 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "room-scatter" &&
+          record.params.blockSize === 3 &&
+          record.params.invert === true &&
+          record.params.roomCount === 8 &&
+          record.params.roomSize === 6 &&
+          record.params.gap === 2 &&
+          record.params.connectorChance === 0.6,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic courtyard-generator layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "courtyard-generator",
+      count: 6,
+      seed: 78787,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "courtyard-generator",
+      count: 6,
+      seed: 78787,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "courtyard-generator")).toBe(true);
+  });
+
+  it("keeps locked courtyard-generator parameters fixed across generated cards", () => {
+    const controls = createDefaultCourtyardGeneratorControlState();
+    const records = generateLayoutRecords({
+      algorithm: "courtyard-generator",
+      count: 6,
+      seed: 79797,
+      courtyardGeneratorControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: false },
+        ringCount: { randomize: false, value: 4 },
+        ringGap: { randomize: false, value: 2 },
+        gateWidth: { randomize: false, value: 3 },
+        offset: { randomize: false, value: 2 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "courtyard-generator" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === false &&
+          record.params.ringCount === 4 &&
+          record.params.ringGap === 2 &&
+          record.params.gateWidth === 3 &&
+          record.params.offset === 2,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic blueprint-generator layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "blueprint-generator",
+      count: 6,
+      seed: 80808,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "blueprint-generator",
+      count: 6,
+      seed: 80808,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "blueprint-generator")).toBe(true);
+  });
+
+  it("keeps locked blueprint-generator parameters fixed across generated cards", () => {
+    const controls = createDefaultBlueprintGeneratorControlState();
+    const records = generateLayoutRecords({
+      algorithm: "blueprint-generator",
+      count: 6,
+      seed: 81818,
+      blueprintGeneratorControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        invert: { randomize: false, value: true },
+        wingCount: { randomize: false, value: 4 },
+        hallWidth: { randomize: false, value: 6 },
+        pillarSpacing: { randomize: false, value: 4 },
+        chamberDepth: { randomize: false, value: 7 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "blueprint-generator" &&
+          record.params.blockSize === 1 &&
+          record.params.invert === true &&
+          record.params.wingCount === 4 &&
+          record.params.hallWidth === 6 &&
+          record.params.pillarSpacing === 4 &&
+          record.params.chamberDepth === 7,
       ),
     ).toBe(true);
   });

@@ -32,6 +32,11 @@ Currently implemented in the modal:
 - `L-System / Turtle Patterns`
 - `Rose Curves / Polar Patterns`
 - `Tileable Motif Repeater`
+- `BSP Room Partitioner`
+- `Corridor Grid`
+- `Room Scatter`
+- `Courtyard Generator`
+- `Blueprint Generator`
 - `Backtracking Generator`
 - `Growing Tree`
 - `Prim's`
@@ -95,11 +100,11 @@ These are good follow-up generators that are not primarily maze algorithms, but 
 
 ### Rooms And Architecture
 
-- `BSP Room Partitioner`: recursive room subdivision without requiring maze connectivity.
-- `Corridor Grid`: Manhattan-style street blocks, office floors, or dungeon grid plans.
-- `Room Scatter`: drop disconnected or loosely connected rooms with overlap, gap, and door controls.
-- `Courtyard Generator`: nested rectangles, courtyards, cloisters, and fortress plans.
-- `Blueprint Generator`: halls, pillars, chambers, and wing layouts with deliberate architectural bias.
+- Done: `BSP Room Partitioner`, with split-depth, room-padding, corridor-width, invert, and block-size controls.
+- Done: `Corridor Grid`, with column-spacing, row-spacing, wall-thickness, door-chance, invert, and block-size controls.
+- Done: `Room Scatter`, with room-count, room-size, gap, connector-chance, invert, and block-size controls.
+- Done: `Courtyard Generator`, with ring-count, ring-gap, gate-width, gate-offset, invert, and block-size controls.
+- Done: `Blueprint Generator`, with wing-count, hall-width, pillar-spacing, chamber-depth, invert, and block-size controls.
 
 ### Cellular And Growth Systems
 
@@ -127,7 +132,6 @@ These are good follow-up generators that are not primarily maze algorithms, but 
 
 ### Good Early Picks
 
-- `BSP Room Partitioner`: strong architectural contrast to the maze-heavy current catalog.
 - `Stamp Brush Generator`: cheap to implement and can cover a lot of visual ground fast.
 
 ## Modal Mapping Rules

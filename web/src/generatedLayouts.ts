@@ -81,6 +81,46 @@ export const TILEABLE_MOTIF_SIZE_MIN = 1;
 export const TILEABLE_MOTIF_SIZE_MAX = 4;
 export const TILEABLE_MOTIF_JITTER_MIN = 0;
 export const TILEABLE_MOTIF_JITTER_MAX = 2;
+export const BSP_ROOM_PARTITIONER_SPLIT_DEPTH_MIN = 2;
+export const BSP_ROOM_PARTITIONER_SPLIT_DEPTH_MAX = 6;
+export const BSP_ROOM_PARTITIONER_ROOM_PADDING_MIN = 0;
+export const BSP_ROOM_PARTITIONER_ROOM_PADDING_MAX = 3;
+export const BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MIN = 1;
+export const BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MAX = 3;
+export const CORRIDOR_GRID_COLUMN_SPACING_MIN = 4;
+export const CORRIDOR_GRID_COLUMN_SPACING_MAX = 10;
+export const CORRIDOR_GRID_ROW_SPACING_MIN = 4;
+export const CORRIDOR_GRID_ROW_SPACING_MAX = 10;
+export const CORRIDOR_GRID_WALL_THICKNESS_MIN = 1;
+export const CORRIDOR_GRID_WALL_THICKNESS_MAX = 3;
+export const CORRIDOR_GRID_GAP_CHANCE_MIN = 0;
+export const CORRIDOR_GRID_GAP_CHANCE_MAX = 0.75;
+export const CORRIDOR_GRID_GAP_CHANCE_STEP = 0.05;
+export const ROOM_SCATTER_ROOM_COUNT_MIN = 3;
+export const ROOM_SCATTER_ROOM_COUNT_MAX = 14;
+export const ROOM_SCATTER_ROOM_SIZE_MIN = 4;
+export const ROOM_SCATTER_ROOM_SIZE_MAX = 9;
+export const ROOM_SCATTER_GAP_MIN = 0;
+export const ROOM_SCATTER_GAP_MAX = 3;
+export const ROOM_SCATTER_CONNECTOR_CHANCE_MIN = 0;
+export const ROOM_SCATTER_CONNECTOR_CHANCE_MAX = 1;
+export const ROOM_SCATTER_CONNECTOR_CHANCE_STEP = 0.05;
+export const COURTYARD_RING_COUNT_MIN = 1;
+export const COURTYARD_RING_COUNT_MAX = 6;
+export const COURTYARD_RING_GAP_MIN = 1;
+export const COURTYARD_RING_GAP_MAX = 4;
+export const COURTYARD_GATE_WIDTH_MIN = 1;
+export const COURTYARD_GATE_WIDTH_MAX = 3;
+export const COURTYARD_OFFSET_MIN = 0;
+export const COURTYARD_OFFSET_MAX = 4;
+export const BLUEPRINT_WING_COUNT_MIN = 1;
+export const BLUEPRINT_WING_COUNT_MAX = 4;
+export const BLUEPRINT_HALL_WIDTH_MIN = 3;
+export const BLUEPRINT_HALL_WIDTH_MAX = 8;
+export const BLUEPRINT_PILLAR_SPACING_MIN = 0;
+export const BLUEPRINT_PILLAR_SPACING_MAX = 6;
+export const BLUEPRINT_CHAMBER_DEPTH_MIN = 4;
+export const BLUEPRINT_CHAMBER_DEPTH_MAX = 10;
 
 export const MAZE_SEED_MIN = 1;
 export const MAZE_SEED_MAX = 0x7ffffffe;
@@ -120,6 +160,11 @@ export type GenerateAlgorithmId =
   | "l-system-turtle"
   | "rose-curves"
   | "tileable-motif-repeater"
+  | "bsp-room-partitioner"
+  | "corridor-grid"
+  | "room-scatter"
+  | "courtyard-generator"
+  | "blueprint-generator"
   | "backtracking-generator"
   | "growing-tree"
   | "prims"
@@ -204,6 +249,12 @@ type OrnamentBaseParameters = Readonly<{
   invert: boolean;
 }>;
 
+type ArchitectureBaseParameters = Readonly<{
+  seed: number;
+  blockSize: number;
+  invert: boolean;
+}>;
+
 export type RadialSymmetryParameters = OrnamentBaseParameters &
   Readonly<{
     folds: number;
@@ -242,6 +293,45 @@ export type TileableMotifRepeaterParameters = OrnamentBaseParameters &
     motifSize: number;
     jitter: number;
     rotation: number;
+  }>;
+
+export type BspRoomPartitionerParameters = ArchitectureBaseParameters &
+  Readonly<{
+    splitDepth: number;
+    roomPadding: number;
+    corridorWidth: number;
+  }>;
+
+export type CorridorGridParameters = ArchitectureBaseParameters &
+  Readonly<{
+    columnSpacing: number;
+    rowSpacing: number;
+    wallThickness: number;
+    gapChance: number;
+  }>;
+
+export type RoomScatterParameters = ArchitectureBaseParameters &
+  Readonly<{
+    roomCount: number;
+    roomSize: number;
+    gap: number;
+    connectorChance: number;
+  }>;
+
+export type CourtyardGeneratorParameters = ArchitectureBaseParameters &
+  Readonly<{
+    ringCount: number;
+    ringGap: number;
+    gateWidth: number;
+    offset: number;
+  }>;
+
+export type BlueprintGeneratorParameters = ArchitectureBaseParameters &
+  Readonly<{
+    wingCount: number;
+    hallWidth: number;
+    pillarSpacing: number;
+    chamberDepth: number;
   }>;
 
 export type MazeAlgorithmParameters = Readonly<{
@@ -371,6 +461,12 @@ type OrnamentBaseControlState = Readonly<{
   invert: RandomizableValue<boolean>;
 }>;
 
+type ArchitectureBaseControlState = Readonly<{
+  seed: RandomizableValue<number>;
+  blockSize: RandomizableValue<number>;
+  invert: RandomizableValue<boolean>;
+}>;
+
 export type RadialSymmetryControlState = OrnamentBaseControlState &
   Readonly<{
     folds: RandomizableValue<number>;
@@ -409,6 +505,45 @@ export type TileableMotifRepeaterControlState = OrnamentBaseControlState &
     motifSize: RandomizableValue<number>;
     jitter: RandomizableValue<number>;
     rotation: RandomizableValue<number>;
+  }>;
+
+export type BspRoomPartitionerControlState = ArchitectureBaseControlState &
+  Readonly<{
+    splitDepth: RandomizableValue<number>;
+    roomPadding: RandomizableValue<number>;
+    corridorWidth: RandomizableValue<number>;
+  }>;
+
+export type CorridorGridControlState = ArchitectureBaseControlState &
+  Readonly<{
+    columnSpacing: RandomizableValue<number>;
+    rowSpacing: RandomizableValue<number>;
+    wallThickness: RandomizableValue<number>;
+    gapChance: RandomizableValue<number>;
+  }>;
+
+export type RoomScatterControlState = ArchitectureBaseControlState &
+  Readonly<{
+    roomCount: RandomizableValue<number>;
+    roomSize: RandomizableValue<number>;
+    gap: RandomizableValue<number>;
+    connectorChance: RandomizableValue<number>;
+  }>;
+
+export type CourtyardGeneratorControlState = ArchitectureBaseControlState &
+  Readonly<{
+    ringCount: RandomizableValue<number>;
+    ringGap: RandomizableValue<number>;
+    gateWidth: RandomizableValue<number>;
+    offset: RandomizableValue<number>;
+  }>;
+
+export type BlueprintGeneratorControlState = ArchitectureBaseControlState &
+  Readonly<{
+    wingCount: RandomizableValue<number>;
+    hallWidth: RandomizableValue<number>;
+    pillarSpacing: RandomizableValue<number>;
+    chamberDepth: RandomizableValue<number>;
   }>;
 
 type MazeBaseControlState = Readonly<{
@@ -485,6 +620,11 @@ type BaseGeneratedLayoutRecord<
     | LSystemTurtleParameters
     | RoseCurvesParameters
     | TileableMotifRepeaterParameters
+    | BspRoomPartitionerParameters
+    | CorridorGridParameters
+    | RoomScatterParameters
+    | CourtyardGeneratorParameters
+    | BlueprintGeneratorParameters
     | BacktrackingParameters
     | PrimsParameters
     | KruskalsParameters
@@ -564,6 +704,31 @@ export type TileableMotifRepeaterGeneratedLayoutRecord = BaseGeneratedLayoutReco
   TileableMotifRepeaterParameters
 >;
 
+export type BspRoomPartitionerGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "bsp-room-partitioner",
+  BspRoomPartitionerParameters
+>;
+
+export type CorridorGridGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "corridor-grid",
+  CorridorGridParameters
+>;
+
+export type RoomScatterGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "room-scatter",
+  RoomScatterParameters
+>;
+
+export type CourtyardGeneratorGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "courtyard-generator",
+  CourtyardGeneratorParameters
+>;
+
+export type BlueprintGeneratorGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "blueprint-generator",
+  BlueprintGeneratorParameters
+>;
+
 export type BacktrackingGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "backtracking-generator",
   BacktrackingParameters
@@ -632,6 +797,11 @@ export type GeneratedLayoutRecord =
   | LSystemTurtleGeneratedLayoutRecord
   | RoseCurvesGeneratedLayoutRecord
   | TileableMotifRepeaterGeneratedLayoutRecord
+  | BspRoomPartitionerGeneratedLayoutRecord
+  | CorridorGridGeneratedLayoutRecord
+  | RoomScatterGeneratedLayoutRecord
+  | CourtyardGeneratorGeneratedLayoutRecord
+  | BlueprintGeneratorGeneratedLayoutRecord
   | BacktrackingGeneratedLayoutRecord
   | PrimsGeneratedLayoutRecord
   | KruskalsGeneratedLayoutRecord
@@ -663,6 +833,11 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "l-system-turtle", label: "L-System / Turtle Patterns" },
   { value: "rose-curves", label: "Rose Curves / Polar Patterns" },
   { value: "tileable-motif-repeater", label: "Tileable Motif Repeater" },
+  { value: "bsp-room-partitioner", label: "BSP Room Partitioner" },
+  { value: "corridor-grid", label: "Corridor Grid" },
+  { value: "room-scatter", label: "Room Scatter" },
+  { value: "courtyard-generator", label: "Courtyard Generator" },
+  { value: "blueprint-generator", label: "Blueprint Generator" },
   { value: "backtracking-generator", label: "Backtracking Generator" },
   { value: "growing-tree", label: "Growing Tree" },
   { value: "prims", label: "Prim's" },
@@ -690,6 +865,11 @@ const KALEIDOSCOPE_LABEL = "Kaleidoscope";
 const LSYSTEM_TURTLE_LABEL = "L-System / Turtle Patterns";
 const ROSE_CURVES_LABEL = "Rose Curves / Polar Patterns";
 const TILEABLE_MOTIF_REPEATER_LABEL = "Tileable Motif Repeater";
+const BSP_ROOM_PARTITIONER_LABEL = "BSP Room Partitioner";
+const CORRIDOR_GRID_LABEL = "Corridor Grid";
+const ROOM_SCATTER_LABEL = "Room Scatter";
+const COURTYARD_GENERATOR_LABEL = "Courtyard Generator";
+const BLUEPRINT_GENERATOR_LABEL = "Blueprint Generator";
 const BACKTRACKING_LABEL = "Backtracking Generator";
 const PRIMS_LABEL = "Prim's";
 const KRUSKALS_LABEL = "Kruskal's";
@@ -718,6 +898,11 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "l-system-turtle",
   "rose-curves",
   "tileable-motif-repeater",
+  "bsp-room-partitioner",
+  "corridor-grid",
+  "room-scatter",
+  "courtyard-generator",
+  "blueprint-generator",
   "backtracking-generator",
   "growing-tree",
   "prims",
@@ -773,6 +958,24 @@ const ROSE_CURVE_ROTATION_VALUES = [0, 30, 45, 60, 90, 120, 150, 180, 210, 240, 
 const TILEABLE_MOTIF_SPACING_VALUES = [3, 4, 5, 6, 7, 8, 9, 10];
 const TILEABLE_MOTIF_SIZE_VALUES = [1, 2, 3, 4];
 const TILEABLE_MOTIF_JITTER_VALUES = [0, 1, 2];
+const BSP_ROOM_PARTITIONER_SPLIT_DEPTH_VALUES = [2, 3, 4, 5, 6];
+const BSP_ROOM_PARTITIONER_ROOM_PADDING_VALUES = [0, 1, 2, 3];
+const BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_VALUES = [1, 2, 3];
+const CORRIDOR_GRID_SPACING_VALUES = [4, 5, 6, 7, 8, 9, 10];
+const CORRIDOR_GRID_WALL_THICKNESS_VALUES = [1, 2, 3];
+const CORRIDOR_GRID_GAP_CHANCE_VALUES = [0, 0.1, 0.2, 0.3, 0.45, 0.6, 0.75];
+const ROOM_SCATTER_ROOM_COUNT_VALUES = [3, 4, 5, 6, 8, 10, 12, 14];
+const ROOM_SCATTER_ROOM_SIZE_VALUES = [4, 5, 6, 7, 8, 9];
+const ROOM_SCATTER_GAP_VALUES = [0, 1, 2, 3];
+const ROOM_SCATTER_CONNECTOR_CHANCE_VALUES = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9];
+const COURTYARD_RING_COUNT_VALUES = [1, 2, 3, 4, 5, 6];
+const COURTYARD_RING_GAP_VALUES = [1, 2, 3, 4];
+const COURTYARD_GATE_WIDTH_VALUES = [1, 2, 3];
+const COURTYARD_OFFSET_VALUES = [0, 1, 2, 3, 4];
+const BLUEPRINT_WING_COUNT_VALUES = [1, 2, 3, 4];
+const BLUEPRINT_HALL_WIDTH_VALUES = [3, 4, 5, 6, 7, 8];
+const BLUEPRINT_PILLAR_SPACING_VALUES = [0, 3, 4, 5, 6];
+const BLUEPRINT_CHAMBER_DEPTH_VALUES = [4, 5, 6, 7, 8, 9, 10];
 export const LSYSTEM_PRESET_OPTIONS: ReadonlyArray<LSystemPreset> = ["plant", "dragon", "bush"];
 export const TILEABLE_MOTIF_TYPE_OPTIONS: ReadonlyArray<TileableMotifType> = [
   "cross",
@@ -820,6 +1023,11 @@ export function generateLayoutRecords(
     lSystemTurtleControls?: LSystemTurtleControlState | null;
     roseCurvesControls?: RoseCurvesControlState | null;
     tileableMotifRepeaterControls?: TileableMotifRepeaterControlState | null;
+    bspRoomPartitionerControls?: BspRoomPartitionerControlState | null;
+    corridorGridControls?: CorridorGridControlState | null;
+    roomScatterControls?: RoomScatterControlState | null;
+    courtyardGeneratorControls?: CourtyardGeneratorControlState | null;
+    blueprintGeneratorControls?: BlueprintGeneratorControlState | null;
     backtrackingControls?: BacktrackingControlState | null;
     primsControls?: PrimsControlState | null;
     kruskalsControls?: KruskalsControlState | null;
@@ -856,6 +1064,11 @@ export function generateLayoutRecords(
       lSystemTurtleControls: options.lSystemTurtleControls ?? null,
       roseCurvesControls: options.roseCurvesControls ?? null,
       tileableMotifRepeaterControls: options.tileableMotifRepeaterControls ?? null,
+      bspRoomPartitionerControls: options.bspRoomPartitionerControls ?? null,
+      corridorGridControls: options.corridorGridControls ?? null,
+      roomScatterControls: options.roomScatterControls ?? null,
+      courtyardGeneratorControls: options.courtyardGeneratorControls ?? null,
+      blueprintGeneratorControls: options.blueprintGeneratorControls ?? null,
       backtrackingControls: options.backtrackingControls ?? null,
       primsControls: options.primsControls ?? null,
       kruskalsControls: options.kruskalsControls ?? null,
@@ -1013,6 +1226,65 @@ export function createDefaultTileableMotifRepeaterControlState(): TileableMotifR
   };
 }
 
+export function createDefaultBspRoomPartitionerControlState(): BspRoomPartitionerControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    splitDepth: { randomize: true, value: 4 },
+    roomPadding: { randomize: true, value: 1 },
+    corridorWidth: { randomize: true, value: 1 },
+  };
+}
+
+export function createDefaultCorridorGridControlState(): CorridorGridControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    columnSpacing: { randomize: true, value: 6 },
+    rowSpacing: { randomize: true, value: 6 },
+    wallThickness: { randomize: true, value: 1 },
+    gapChance: { randomize: true, value: 0.3 },
+  };
+}
+
+export function createDefaultRoomScatterControlState(): RoomScatterControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    roomCount: { randomize: true, value: 6 },
+    roomSize: { randomize: true, value: 7 },
+    gap: { randomize: true, value: 1 },
+    connectorChance: { randomize: true, value: 0.45 },
+  };
+}
+
+export function createDefaultCourtyardGeneratorControlState(): CourtyardGeneratorControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    ringCount: { randomize: true, value: 3 },
+    ringGap: { randomize: true, value: 2 },
+    gateWidth: { randomize: true, value: 2 },
+    offset: { randomize: true, value: 1 },
+  };
+}
+
+export function createDefaultBlueprintGeneratorControlState(): BlueprintGeneratorControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    wingCount: { randomize: true, value: 3 },
+    hallWidth: { randomize: true, value: 5 },
+    pillarSpacing: { randomize: true, value: 4 },
+    chamberDepth: { randomize: true, value: 6 },
+  };
+}
+
 export function createDefaultBacktrackingControlState(): BacktrackingControlState {
   return {
     seed: { randomize: true, value: 1 },
@@ -1153,6 +1425,11 @@ function generateRecordForAlgorithm(
     lSystemTurtleControls: LSystemTurtleControlState | null;
     roseCurvesControls: RoseCurvesControlState | null;
     tileableMotifRepeaterControls: TileableMotifRepeaterControlState | null;
+    bspRoomPartitionerControls: BspRoomPartitionerControlState | null;
+    corridorGridControls: CorridorGridControlState | null;
+    roomScatterControls: RoomScatterControlState | null;
+    courtyardGeneratorControls: CourtyardGeneratorControlState | null;
+    blueprintGeneratorControls: BlueprintGeneratorControlState | null;
     backtrackingControls: BacktrackingControlState | null;
     primsControls: PrimsControlState | null;
     kruskalsControls: KruskalsControlState | null;
@@ -1192,6 +1469,16 @@ function generateRecordForAlgorithm(
       return buildRoseCurvesRecord(rng, controls.roseCurvesControls);
     case "tileable-motif-repeater":
       return buildTileableMotifRepeaterRecord(rng, controls.tileableMotifRepeaterControls);
+    case "bsp-room-partitioner":
+      return buildBspRoomPartitionerRecord(rng, controls.bspRoomPartitionerControls);
+    case "corridor-grid":
+      return buildCorridorGridRecord(rng, controls.corridorGridControls);
+    case "room-scatter":
+      return buildRoomScatterRecord(rng, controls.roomScatterControls);
+    case "courtyard-generator":
+      return buildCourtyardGeneratorRecord(rng, controls.courtyardGeneratorControls);
+    case "blueprint-generator":
+      return buildBlueprintGeneratorRecord(rng, controls.blueprintGeneratorControls);
     case "backtracking-generator":
       return buildBacktrackingRecord(rng, controls.backtrackingControls);
     case "prims":
@@ -1609,6 +1896,181 @@ function buildTileableMotifRepeaterRecord(
     randomize: () => randomizeTileableMotifRepeaterParameters(rng, defaults),
     buildBytes: buildTileableMotifRepeaterMaskBytes,
     buildSummary: buildTileableMotifRepeaterSummary,
+    fallback,
+  });
+}
+
+function buildArchitectureRecord<
+  Algorithm extends
+    | "bsp-room-partitioner"
+    | "corridor-grid"
+    | "room-scatter"
+    | "courtyard-generator"
+    | "blueprint-generator",
+  Params extends
+    | BspRoomPartitionerParameters
+    | CorridorGridParameters
+    | RoomScatterParameters
+    | CourtyardGeneratorParameters
+    | BlueprintGeneratorParameters,
+>(
+  rng: () => number,
+  options: Readonly<{
+    algorithm: Algorithm;
+    title: string;
+    randomize: () => Params;
+    buildBytes: (params: Params) => Uint8Array;
+    buildSummary: (params: Params) => string;
+    fallback: Params;
+  }>,
+): BaseGeneratedLayoutRecord<Algorithm, Params> {
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const params = options.randomize();
+    const bytes = options.buildBytes(params);
+    const wallCount = countSetBits(bytes);
+    if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
+      continue;
+
+    return {
+      wallKey: wallMaskKeyFromBytes(bytes),
+      algorithm: options.algorithm,
+      title: options.title,
+      summary: options.buildSummary(params),
+      seedLabel: `Seed ${params.seed}`,
+      params,
+    };
+  }
+
+  return {
+    wallKey: wallMaskKeyFromBytes(options.buildBytes(options.fallback)),
+    algorithm: options.algorithm,
+    title: options.title,
+    summary: options.buildSummary(options.fallback),
+    seedLabel: `Seed ${options.fallback.seed}`,
+    params: options.fallback,
+  };
+}
+
+function buildBspRoomPartitionerRecord(
+  rng: () => number,
+  controls: BspRoomPartitionerControlState | null,
+): BspRoomPartitionerGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultBspRoomPartitionerControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    splitDepth: 4,
+    roomPadding: 1,
+    corridorWidth: 1,
+  } satisfies BspRoomPartitionerParameters;
+
+  return buildArchitectureRecord(rng, {
+    algorithm: "bsp-room-partitioner",
+    title: BSP_ROOM_PARTITIONER_LABEL,
+    randomize: () => randomizeBspRoomPartitionerParameters(rng, defaults),
+    buildBytes: buildBspRoomPartitionerMaskBytes,
+    buildSummary: buildBspRoomPartitionerSummary,
+    fallback,
+  });
+}
+
+function buildCorridorGridRecord(
+  rng: () => number,
+  controls: CorridorGridControlState | null,
+): CorridorGridGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultCorridorGridControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    columnSpacing: 6,
+    rowSpacing: 6,
+    wallThickness: 1,
+    gapChance: 0.3,
+  } satisfies CorridorGridParameters;
+
+  return buildArchitectureRecord(rng, {
+    algorithm: "corridor-grid",
+    title: CORRIDOR_GRID_LABEL,
+    randomize: () => randomizeCorridorGridParameters(rng, defaults),
+    buildBytes: buildCorridorGridMaskBytes,
+    buildSummary: buildCorridorGridSummary,
+    fallback,
+  });
+}
+
+function buildRoomScatterRecord(
+  rng: () => number,
+  controls: RoomScatterControlState | null,
+): RoomScatterGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultRoomScatterControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    roomCount: 6,
+    roomSize: 7,
+    gap: 1,
+    connectorChance: 0.45,
+  } satisfies RoomScatterParameters;
+
+  return buildArchitectureRecord(rng, {
+    algorithm: "room-scatter",
+    title: ROOM_SCATTER_LABEL,
+    randomize: () => randomizeRoomScatterParameters(rng, defaults),
+    buildBytes: buildRoomScatterMaskBytes,
+    buildSummary: buildRoomScatterSummary,
+    fallback,
+  });
+}
+
+function buildCourtyardGeneratorRecord(
+  rng: () => number,
+  controls: CourtyardGeneratorControlState | null,
+): CourtyardGeneratorGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultCourtyardGeneratorControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    ringCount: 3,
+    ringGap: 2,
+    gateWidth: 2,
+    offset: 1,
+  } satisfies CourtyardGeneratorParameters;
+
+  return buildArchitectureRecord(rng, {
+    algorithm: "courtyard-generator",
+    title: COURTYARD_GENERATOR_LABEL,
+    randomize: () => randomizeCourtyardGeneratorParameters(rng, defaults),
+    buildBytes: buildCourtyardGeneratorMaskBytes,
+    buildSummary: buildCourtyardGeneratorSummary,
+    fallback,
+  });
+}
+
+function buildBlueprintGeneratorRecord(
+  rng: () => number,
+  controls: BlueprintGeneratorControlState | null,
+): BlueprintGeneratorGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultBlueprintGeneratorControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    wingCount: 3,
+    hallWidth: 5,
+    pillarSpacing: 4,
+    chamberDepth: 6,
+  } satisfies BlueprintGeneratorParameters;
+
+  return buildArchitectureRecord(rng, {
+    algorithm: "blueprint-generator",
+    title: BLUEPRINT_GENERATOR_LABEL,
+    randomize: () => randomizeBlueprintGeneratorParameters(rng, defaults),
+    buildBytes: buildBlueprintGeneratorMaskBytes,
+    buildSummary: buildBlueprintGeneratorSummary,
     fallback,
   });
 }
@@ -2258,6 +2720,174 @@ function randomizeTileableMotifRepeaterParameters(
   };
 }
 
+function randomizeArchitectureBaseParameters(
+  rng: () => number,
+  defaults: ArchitectureBaseControlState,
+): ArchitectureBaseParameters {
+  return {
+    seed: resolveRandomizableValue(
+      defaults.seed,
+      () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
+      sanitizeSeed,
+    ),
+    blockSize: resolveRandomizableValue(
+      defaults.blockSize,
+      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
+      sampleClosestNoiseBlockSize,
+    ),
+    invert: resolveRandomizableValue(
+      defaults.invert,
+      () => rng() < 0.12,
+      (value) => !!value,
+    ),
+  };
+}
+
+function randomizeBspRoomPartitionerParameters(
+  rng: () => number,
+  defaults: BspRoomPartitionerControlState,
+): BspRoomPartitionerParameters {
+  const base = randomizeArchitectureBaseParameters(rng, defaults);
+  return {
+    ...base,
+    splitDepth: resolveRandomizableValue(
+      defaults.splitDepth,
+      () => sampleOne(rng, BSP_ROOM_PARTITIONER_SPLIT_DEPTH_VALUES),
+      sanitizeBspRoomPartitionerSplitDepth,
+    ),
+    roomPadding: resolveRandomizableValue(
+      defaults.roomPadding,
+      () => sampleOne(rng, BSP_ROOM_PARTITIONER_ROOM_PADDING_VALUES),
+      sanitizeBspRoomPartitionerRoomPadding,
+    ),
+    corridorWidth: resolveRandomizableValue(
+      defaults.corridorWidth,
+      () => sampleOne(rng, BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_VALUES),
+      sanitizeBspRoomPartitionerCorridorWidth,
+    ),
+  };
+}
+
+function randomizeCorridorGridParameters(
+  rng: () => number,
+  defaults: CorridorGridControlState,
+): CorridorGridParameters {
+  const base = randomizeArchitectureBaseParameters(rng, defaults);
+  return {
+    ...base,
+    columnSpacing: resolveRandomizableValue(
+      defaults.columnSpacing,
+      () => sampleOne(rng, CORRIDOR_GRID_SPACING_VALUES),
+      sanitizeCorridorGridSpacing,
+    ),
+    rowSpacing: resolveRandomizableValue(
+      defaults.rowSpacing,
+      () => sampleOne(rng, CORRIDOR_GRID_SPACING_VALUES),
+      sanitizeCorridorGridSpacing,
+    ),
+    wallThickness: resolveRandomizableValue(
+      defaults.wallThickness,
+      () => sampleOne(rng, CORRIDOR_GRID_WALL_THICKNESS_VALUES),
+      sanitizeCorridorGridWallThickness,
+    ),
+    gapChance: resolveRandomizableValue(
+      defaults.gapChance,
+      () => sampleOne(rng, CORRIDOR_GRID_GAP_CHANCE_VALUES),
+      sanitizeCorridorGridGapChance,
+    ),
+  };
+}
+
+function randomizeRoomScatterParameters(
+  rng: () => number,
+  defaults: RoomScatterControlState,
+): RoomScatterParameters {
+  const base = randomizeArchitectureBaseParameters(rng, defaults);
+  return {
+    ...base,
+    roomCount: resolveRandomizableValue(
+      defaults.roomCount,
+      () => sampleOne(rng, ROOM_SCATTER_ROOM_COUNT_VALUES),
+      sanitizeRoomScatterRoomCount,
+    ),
+    roomSize: resolveRandomizableValue(
+      defaults.roomSize,
+      () => sampleOne(rng, ROOM_SCATTER_ROOM_SIZE_VALUES),
+      sanitizeRoomScatterRoomSize,
+    ),
+    gap: resolveRandomizableValue(
+      defaults.gap,
+      () => sampleOne(rng, ROOM_SCATTER_GAP_VALUES),
+      sanitizeRoomScatterGap,
+    ),
+    connectorChance: resolveRandomizableValue(
+      defaults.connectorChance,
+      () => sampleOne(rng, ROOM_SCATTER_CONNECTOR_CHANCE_VALUES),
+      sanitizeRoomScatterConnectorChance,
+    ),
+  };
+}
+
+function randomizeCourtyardGeneratorParameters(
+  rng: () => number,
+  defaults: CourtyardGeneratorControlState,
+): CourtyardGeneratorParameters {
+  const base = randomizeArchitectureBaseParameters(rng, defaults);
+  return {
+    ...base,
+    ringCount: resolveRandomizableValue(
+      defaults.ringCount,
+      () => sampleOne(rng, COURTYARD_RING_COUNT_VALUES),
+      sanitizeCourtyardRingCount,
+    ),
+    ringGap: resolveRandomizableValue(
+      defaults.ringGap,
+      () => sampleOne(rng, COURTYARD_RING_GAP_VALUES),
+      sanitizeCourtyardRingGap,
+    ),
+    gateWidth: resolveRandomizableValue(
+      defaults.gateWidth,
+      () => sampleOne(rng, COURTYARD_GATE_WIDTH_VALUES),
+      sanitizeCourtyardGateWidth,
+    ),
+    offset: resolveRandomizableValue(
+      defaults.offset,
+      () => sampleOne(rng, COURTYARD_OFFSET_VALUES),
+      sanitizeCourtyardOffset,
+    ),
+  };
+}
+
+function randomizeBlueprintGeneratorParameters(
+  rng: () => number,
+  defaults: BlueprintGeneratorControlState,
+): BlueprintGeneratorParameters {
+  const base = randomizeArchitectureBaseParameters(rng, defaults);
+  return {
+    ...base,
+    wingCount: resolveRandomizableValue(
+      defaults.wingCount,
+      () => sampleOne(rng, BLUEPRINT_WING_COUNT_VALUES),
+      sanitizeBlueprintWingCount,
+    ),
+    hallWidth: resolveRandomizableValue(
+      defaults.hallWidth,
+      () => sampleOne(rng, BLUEPRINT_HALL_WIDTH_VALUES),
+      sanitizeBlueprintHallWidth,
+    ),
+    pillarSpacing: resolveRandomizableValue(
+      defaults.pillarSpacing,
+      () => sampleOne(rng, BLUEPRINT_PILLAR_SPACING_VALUES),
+      sanitizeBlueprintPillarSpacing,
+    ),
+    chamberDepth: resolveRandomizableValue(
+      defaults.chamberDepth,
+      () => sampleOne(rng, BLUEPRINT_CHAMBER_DEPTH_VALUES),
+      sanitizeBlueprintChamberDepth,
+    ),
+  };
+}
+
 function randomizeMazeBaseParameters(
   rng: () => number,
   defaults: MazeBaseControlState,
@@ -2743,6 +3373,540 @@ function buildTileableMotifRepeaterMaskBytes(params: TileableMotifRepeaterParame
         params.motifSize,
         params.rotation,
       );
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildBspRoomPartitionerMaskBytes(params: BspRoomPartitionerParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createFilledPatternSourceGrid(params.blockSize);
+  const root = {
+    x: 1,
+    y: 1,
+    width: Math.max(3, grid.width - 2),
+    height: Math.max(3, grid.height - 2),
+  };
+  const minLeafSpan = Math.max(4, params.roomPadding * 2 + params.corridorWidth + 3);
+
+  const buildLeaf = (
+    region: PatternRect,
+  ): Readonly<{ center: Readonly<{ x: number; y: number }> }> => {
+    const availableWidth = Math.max(3, region.width - params.roomPadding * 2);
+    const availableHeight = Math.max(3, region.height - params.roomPadding * 2);
+    const roomWidth = clamp(
+      randomInt(rng, Math.max(3, availableWidth - 2), availableWidth),
+      3,
+      availableWidth,
+    );
+    const roomHeight = clamp(
+      randomInt(rng, Math.max(3, availableHeight - 2), availableHeight),
+      3,
+      availableHeight,
+    );
+    const minX = region.x + params.roomPadding;
+    const minY = region.y + params.roomPadding;
+    const roomX = randomInt(rng, minX, Math.max(minX, region.x + region.width - roomWidth));
+    const roomY = randomInt(rng, minY, Math.max(minY, region.y + region.height - roomHeight));
+    fillPatternRect(grid.cells, grid.width, grid.height, roomX, roomY, roomWidth, roomHeight, 0);
+    return {
+      center: patternRectCenter({ x: roomX, y: roomY, width: roomWidth, height: roomHeight }),
+    };
+  };
+
+  const splitRegion = (
+    region: PatternRect,
+    depth: number,
+  ): Readonly<{ center: Readonly<{ x: number; y: number }> }> => {
+    const canSplitVertical = region.width >= minLeafSpan * 2;
+    const canSplitHorizontal = region.height >= minLeafSpan * 2;
+
+    if (depth <= 0 || (!canSplitVertical && !canSplitHorizontal)) {
+      return buildLeaf(region);
+    }
+
+    let splitVertical = canSplitVertical;
+    if (canSplitVertical && canSplitHorizontal) {
+      if (region.width > region.height + 2) splitVertical = true;
+      else if (region.height > region.width + 2) splitVertical = false;
+      else splitVertical = rng() < 0.5;
+    } else {
+      splitVertical = canSplitVertical;
+    }
+
+    if (splitVertical) {
+      const splitOffset = randomInt(rng, minLeafSpan, region.width - minLeafSpan);
+      const left = splitRegion(
+        { x: region.x, y: region.y, width: splitOffset, height: region.height },
+        depth - 1,
+      );
+      const right = splitRegion(
+        {
+          x: region.x + splitOffset,
+          y: region.y,
+          width: region.width - splitOffset,
+          height: region.height,
+        },
+        depth - 1,
+      );
+      carvePatternCorridor(
+        grid.cells,
+        grid.width,
+        grid.height,
+        left.center,
+        right.center,
+        params.corridorWidth,
+        rng,
+      );
+      return rng() < 0.5 ? left : right;
+    }
+
+    const splitOffset = randomInt(rng, minLeafSpan, region.height - minLeafSpan);
+    const top = splitRegion(
+      { x: region.x, y: region.y, width: region.width, height: splitOffset },
+      depth - 1,
+    );
+    const bottom = splitRegion(
+      {
+        x: region.x,
+        y: region.y + splitOffset,
+        width: region.width,
+        height: region.height - splitOffset,
+      },
+      depth - 1,
+    );
+    carvePatternCorridor(
+      grid.cells,
+      grid.width,
+      grid.height,
+      top.center,
+      bottom.center,
+      params.corridorWidth,
+      rng,
+    );
+    return rng() < 0.5 ? top : bottom;
+  };
+
+  splitRegion(root, params.splitDepth);
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildCorridorGridMaskBytes(params: CorridorGridParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  strokePatternRect(grid.cells, grid.width, grid.height, 0, 0, grid.width, grid.height, 1, 1);
+
+  const startX = 1 + randomInt(rng, 0, Math.max(0, params.columnSpacing - 1));
+  const startY = 1 + randomInt(rng, 0, Math.max(0, params.rowSpacing - 1));
+  const verticalLines: number[] = [];
+  const horizontalLines: number[] = [];
+
+  for (let x = startX; x < grid.width - 1; x += params.columnSpacing) {
+    verticalLines.push(x);
+    fillPatternRect(
+      grid.cells,
+      grid.width,
+      grid.height,
+      x,
+      1,
+      params.wallThickness,
+      Math.max(0, grid.height - 2),
+      1,
+    );
+  }
+
+  for (let y = startY; y < grid.height - 1; y += params.rowSpacing) {
+    horizontalLines.push(y);
+    fillPatternRect(
+      grid.cells,
+      grid.width,
+      grid.height,
+      1,
+      y,
+      Math.max(0, grid.width - 2),
+      params.wallThickness,
+      1,
+    );
+  }
+
+  const horizontalBounds = [...horizontalLines, grid.height - 1];
+  for (const x of verticalLines) {
+    let segmentStart = 1;
+    for (const boundary of horizontalBounds) {
+      const segmentEnd = boundary - 1;
+      if (segmentEnd >= segmentStart) {
+        const doorCount =
+          1 + (rng() < params.gapChance ? 1 : 0) + (rng() < params.gapChance * 0.35 ? 1 : 0);
+        for (let index = 0; index < doorCount; index++) {
+          const doorY = randomInt(rng, segmentStart, segmentEnd);
+          fillPatternRect(
+            grid.cells,
+            grid.width,
+            grid.height,
+            x,
+            doorY,
+            params.wallThickness,
+            1,
+            0,
+          );
+        }
+      }
+      segmentStart = boundary + params.wallThickness;
+    }
+  }
+
+  const verticalBounds = [...verticalLines, grid.width - 1];
+  for (const y of horizontalLines) {
+    let segmentStart = 1;
+    for (const boundary of verticalBounds) {
+      const segmentEnd = boundary - 1;
+      if (segmentEnd >= segmentStart) {
+        const doorCount =
+          1 + (rng() < params.gapChance ? 1 : 0) + (rng() < params.gapChance * 0.35 ? 1 : 0);
+        for (let index = 0; index < doorCount; index++) {
+          const doorX = randomInt(rng, segmentStart, segmentEnd);
+          fillPatternRect(
+            grid.cells,
+            grid.width,
+            grid.height,
+            doorX,
+            y,
+            1,
+            params.wallThickness,
+            0,
+          );
+        }
+      }
+      segmentStart = boundary + params.wallThickness;
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildRoomScatterMaskBytes(params: RoomScatterParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createFilledPatternSourceGrid(params.blockSize);
+  const rooms: PatternRect[] = [];
+  const maxRoomSize = Math.min(params.roomSize, grid.width - 2, grid.height - 2);
+  const attempts = Math.max(24, params.roomCount * 12);
+
+  for (let attempt = 0; attempt < attempts && rooms.length < params.roomCount; attempt++) {
+    const roomWidth = randomInt(rng, Math.min(3, maxRoomSize), maxRoomSize);
+    const roomHeight = randomInt(rng, Math.min(3, maxRoomSize), maxRoomSize);
+    const room = {
+      x: randomInt(rng, 1, Math.max(1, grid.width - roomWidth - 1)),
+      y: randomInt(rng, 1, Math.max(1, grid.height - roomHeight - 1)),
+      width: roomWidth,
+      height: roomHeight,
+    };
+    if (rooms.some((existing) => rectsOverlapWithGap(existing, room, params.gap))) continue;
+    fillPatternRect(
+      grid.cells,
+      grid.width,
+      grid.height,
+      room.x,
+      room.y,
+      room.width,
+      room.height,
+      0,
+    );
+    rooms.push(room);
+  }
+
+  if (rooms.length === 0) {
+    fillPatternRect(
+      grid.cells,
+      grid.width,
+      grid.height,
+      Math.max(1, Math.floor(grid.width / 4)),
+      Math.max(1, Math.floor(grid.height / 4)),
+      Math.max(3, Math.floor(grid.width / 2)),
+      Math.max(3, Math.floor(grid.height / 2)),
+      0,
+    );
+  }
+
+  for (let index = 1; index < rooms.length; index++) {
+    if (index !== 1 && rng() > params.connectorChance) continue;
+    const room = rooms[index]!;
+    let closest = rooms[0]!;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let candidateIndex = 0; candidateIndex < index; candidateIndex++) {
+      const candidate = rooms[candidateIndex]!;
+      const candidateDistance = rectCenterDistance(room, candidate);
+      if (candidateDistance >= bestDistance) continue;
+      closest = candidate;
+      bestDistance = candidateDistance;
+    }
+    carvePatternCorridor(
+      grid.cells,
+      grid.width,
+      grid.height,
+      patternRectCenter(room),
+      patternRectCenter(closest),
+      1,
+      rng,
+    );
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildCourtyardGeneratorMaskBytes(params: CourtyardGeneratorParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  const centerX = Math.floor(grid.width / 2);
+  const centerY = Math.floor(grid.height / 2);
+  const step = params.ringGap + 2;
+
+  for (let ringIndex = 0; ringIndex < params.ringCount; ringIndex++) {
+    const inset = 1 + ringIndex * step;
+    const rect: PatternRect = {
+      x: inset,
+      y: inset,
+      width: grid.width - inset * 2,
+      height: grid.height - inset * 2,
+    };
+    if (rect.width < 4 || rect.height < 4) break;
+
+    strokePatternRect(
+      grid.cells,
+      grid.width,
+      grid.height,
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height,
+      1,
+      1,
+    );
+
+    const northX = clamp(
+      centerX + randomInt(rng, -params.offset, params.offset) - Math.floor(params.gateWidth / 2),
+      rect.x + 1,
+      rect.x + rect.width - params.gateWidth - 1,
+    );
+    const southX = clamp(
+      centerX + randomInt(rng, -params.offset, params.offset) - Math.floor(params.gateWidth / 2),
+      rect.x + 1,
+      rect.x + rect.width - params.gateWidth - 1,
+    );
+    const westY = clamp(
+      centerY + randomInt(rng, -params.offset, params.offset) - Math.floor(params.gateWidth / 2),
+      rect.y + 1,
+      rect.y + rect.height - params.gateWidth - 1,
+    );
+    const eastY = clamp(
+      centerY + randomInt(rng, -params.offset, params.offset) - Math.floor(params.gateWidth / 2),
+      rect.y + 1,
+      rect.y + rect.height - params.gateWidth - 1,
+    );
+
+    fillPatternRect(grid.cells, grid.width, grid.height, northX, rect.y, params.gateWidth, 1, 0);
+    fillPatternRect(
+      grid.cells,
+      grid.width,
+      grid.height,
+      southX,
+      rect.y + rect.height - 1,
+      params.gateWidth,
+      1,
+      0,
+    );
+    fillPatternRect(grid.cells, grid.width, grid.height, rect.x, westY, 1, params.gateWidth, 0);
+    fillPatternRect(
+      grid.cells,
+      grid.width,
+      grid.height,
+      rect.x + rect.width - 1,
+      eastY,
+      1,
+      params.gateWidth,
+      0,
+    );
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildBlueprintGeneratorMaskBytes(params: BlueprintGeneratorParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createFilledPatternSourceGrid(params.blockSize);
+  const centerX = Math.floor(grid.width / 2);
+  const centerY = Math.floor(grid.height / 2);
+  const hallWidth = Math.min(params.hallWidth, grid.width - 4, grid.height - 4);
+  const hallHalf = Math.floor(hallWidth / 2);
+  const hallMargin = clamp(
+    Math.floor(params.chamberDepth / 2) + 1,
+    2,
+    Math.max(2, Math.floor(Math.min(grid.width, grid.height) / 4)),
+  );
+  const verticalHall: PatternRect = {
+    x: clamp(centerX - hallHalf, 1, Math.max(1, grid.width - hallWidth - 1)),
+    y: hallMargin,
+    width: hallWidth,
+    height: Math.max(3, grid.height - hallMargin * 2),
+  };
+  const horizontalHall: PatternRect = {
+    x: hallMargin,
+    y: clamp(centerY - hallHalf, 1, Math.max(1, grid.height - hallWidth - 1)),
+    width: Math.max(3, grid.width - hallMargin * 2),
+    height: hallWidth,
+  };
+
+  fillPatternRect(
+    grid.cells,
+    grid.width,
+    grid.height,
+    verticalHall.x,
+    verticalHall.y,
+    verticalHall.width,
+    verticalHall.height,
+    0,
+  );
+  fillPatternRect(
+    grid.cells,
+    grid.width,
+    grid.height,
+    horizontalHall.x,
+    horizontalHall.y,
+    horizontalHall.width,
+    horizontalHall.height,
+    0,
+  );
+
+  const directions: Array<"N" | "E" | "S" | "W"> = ["N", "E", "S", "W"];
+  shuffleInPlace(directions, rng);
+  const selectedDirections = directions.slice(0, params.wingCount);
+  for (const direction of selectedDirections) {
+    const chamberBreadth = clamp(
+      hallWidth + randomInt(rng, 2, Math.max(2, Math.floor(Math.min(grid.width, grid.height) / 4))),
+      hallWidth + 1,
+      Math.max(hallWidth + 1, Math.min(grid.width, grid.height) - 2),
+    );
+
+    if (direction === "N") {
+      fillPatternRect(
+        grid.cells,
+        grid.width,
+        grid.height,
+        clamp(
+          centerX - Math.floor(chamberBreadth / 2),
+          1,
+          Math.max(1, grid.width - chamberBreadth - 1),
+        ),
+        1,
+        Math.min(chamberBreadth, grid.width - 2),
+        Math.min(params.chamberDepth, verticalHall.y + hallWidth),
+        0,
+      );
+    } else if (direction === "S") {
+      fillPatternRect(
+        grid.cells,
+        grid.width,
+        grid.height,
+        clamp(
+          centerX - Math.floor(chamberBreadth / 2),
+          1,
+          Math.max(1, grid.width - chamberBreadth - 1),
+        ),
+        Math.max(1, grid.height - params.chamberDepth - 1),
+        Math.min(chamberBreadth, grid.width - 2),
+        Math.min(params.chamberDepth, grid.height - 2),
+        0,
+      );
+    } else if (direction === "W") {
+      fillPatternRect(
+        grid.cells,
+        grid.width,
+        grid.height,
+        1,
+        clamp(
+          centerY - Math.floor(chamberBreadth / 2),
+          1,
+          Math.max(1, grid.height - chamberBreadth - 1),
+        ),
+        Math.min(params.chamberDepth, horizontalHall.x + hallWidth),
+        Math.min(chamberBreadth, grid.height - 2),
+        0,
+      );
+    } else {
+      fillPatternRect(
+        grid.cells,
+        grid.width,
+        grid.height,
+        Math.max(1, grid.width - params.chamberDepth - 1),
+        clamp(
+          centerY - Math.floor(chamberBreadth / 2),
+          1,
+          Math.max(1, grid.height - chamberBreadth - 1),
+        ),
+        Math.min(params.chamberDepth, grid.width - 2),
+        Math.min(chamberBreadth, grid.height - 2),
+        0,
+      );
+    }
+  }
+
+  if (params.pillarSpacing > 0) {
+    for (
+      let y = horizontalHall.y + 1;
+      y < horizontalHall.y + horizontalHall.height - 1;
+      y += params.pillarSpacing
+    ) {
+      for (
+        let x = horizontalHall.x + 1;
+        x < horizontalHall.x + horizontalHall.width - 1;
+        x += params.pillarSpacing
+      ) {
+        setPatternCell(grid.cells, grid.width, grid.height, x, y, 1);
+      }
+    }
+    for (
+      let y = verticalHall.y + 1;
+      y < verticalHall.y + verticalHall.height - 1;
+      y += params.pillarSpacing
+    ) {
+      for (
+        let x = verticalHall.x + 1;
+        x < verticalHall.x + verticalHall.width - 1;
+        x += params.pillarSpacing
+      ) {
+        setPatternCell(grid.cells, grid.width, grid.height, x, y, 1);
+      }
     }
   }
 
@@ -3527,6 +4691,57 @@ function buildTileableMotifRepeaterSummary(params: TileableMotifRepeaterParamete
   );
 }
 
+function buildBspRoomPartitionerSummary(params: BspRoomPartitionerParameters): string {
+  return buildArchitectureSummary(
+    [
+      `${params.splitDepth} splits`,
+      `${params.roomPadding} pad`,
+      `${params.corridorWidth}-wide halls`,
+    ],
+    params,
+  );
+}
+
+function buildCorridorGridSummary(params: CorridorGridParameters): string {
+  return buildArchitectureSummary(
+    [
+      `${params.columnSpacing}x${params.rowSpacing} grid`,
+      `${params.wallThickness}-wide walls`,
+      `${Math.round(params.gapChance * 100)}% doors`,
+    ],
+    params,
+  );
+}
+
+function buildRoomScatterSummary(params: RoomScatterParameters): string {
+  return buildArchitectureSummary(
+    [
+      `${params.roomCount} rooms`,
+      `${params.roomSize} max span`,
+      `${Math.round(params.connectorChance * 100)}% connectors`,
+    ],
+    params,
+  );
+}
+
+function buildCourtyardGeneratorSummary(params: CourtyardGeneratorParameters): string {
+  return buildArchitectureSummary(
+    [`${params.ringCount} rings`, `${params.ringGap} gap`, `${params.gateWidth}-wide gates`],
+    params,
+  );
+}
+
+function buildBlueprintGeneratorSummary(params: BlueprintGeneratorParameters): string {
+  return buildArchitectureSummary(
+    [
+      `${params.wingCount} wings`,
+      `${params.hallWidth}-wide hall`,
+      params.pillarSpacing > 0 ? `${params.pillarSpacing} pillar spacing` : "no pillars",
+    ],
+    params,
+  );
+}
+
 function buildNoiseTerrainSummary(parts: string[], params: NoiseTerrainBaseParameters): string {
   return [
     `${params.blockSize}x${params.blockSize} blocks`,
@@ -3539,6 +4754,16 @@ function buildNoiseTerrainSummary(parts: string[], params: NoiseTerrainBaseParam
 }
 
 function buildOrnamentSummary(parts: string[], params: OrnamentBaseParameters): string {
+  return [
+    `${params.blockSize}x${params.blockSize} blocks`,
+    ...parts,
+    params.invert ? "inverted" : null,
+  ]
+    .filter((value): value is string => value !== null)
+    .join(" • ");
+}
+
+function buildArchitectureSummary(parts: string[], params: ArchitectureBaseParameters): string {
   return [
     `${params.blockSize}x${params.blockSize} blocks`,
     ...parts,
@@ -3662,6 +4887,21 @@ function createPatternSourceGrid(
   };
 }
 
+type PatternRect = Readonly<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
+function createFilledPatternSourceGrid(
+  blockSize: number,
+): Readonly<{ cells: Uint8Array; width: number; height: number }> {
+  const grid = createPatternSourceGrid(blockSize);
+  grid.cells.fill(1);
+  return grid;
+}
+
 function expandPatternCellsToMaskBytes(
   cells: Uint8Array,
   width: number,
@@ -3678,6 +4918,124 @@ function expandPatternCellsToMaskBytes(
     }
   }
   return bytes;
+}
+
+function fillPatternRect(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  rectWidth: number,
+  rectHeight: number,
+  value: 0 | 1,
+): void {
+  const startX = clamp(Math.floor(x), 0, width);
+  const startY = clamp(Math.floor(y), 0, height);
+  const endX = clamp(Math.floor(x + rectWidth), 0, width);
+  const endY = clamp(Math.floor(y + rectHeight), 0, height);
+  for (let drawY = startY; drawY < endY; drawY++) {
+    for (let drawX = startX; drawX < endX; drawX++) {
+      cells[drawY * width + drawX] = value;
+    }
+  }
+}
+
+function strokePatternRect(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  rectWidth: number,
+  rectHeight: number,
+  strokeWidth: number,
+  value: 0 | 1,
+): void {
+  if (rectWidth <= 0 || rectHeight <= 0) return;
+  const thickness = Math.max(1, Math.min(strokeWidth, rectWidth, rectHeight));
+  fillPatternRect(cells, width, height, x, y, rectWidth, thickness, value);
+  fillPatternRect(cells, width, height, x, y + rectHeight - thickness, rectWidth, thickness, value);
+  fillPatternRect(cells, width, height, x, y, thickness, rectHeight, value);
+  fillPatternRect(cells, width, height, x + rectWidth - thickness, y, thickness, rectHeight, value);
+}
+
+function carvePatternCorridor(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  from: Readonly<{ x: number; y: number }>,
+  to: Readonly<{ x: number; y: number }>,
+  corridorWidth: number,
+  rng: () => number,
+): void {
+  const thickness = Math.max(1, corridorWidth);
+  const half = Math.floor(thickness / 2);
+  if (rng() < 0.5) {
+    fillPatternRect(
+      cells,
+      width,
+      height,
+      Math.min(from.x, to.x),
+      from.y - half,
+      Math.abs(to.x - from.x) + 1,
+      thickness,
+      0,
+    );
+    fillPatternRect(
+      cells,
+      width,
+      height,
+      to.x - half,
+      Math.min(from.y, to.y),
+      thickness,
+      Math.abs(to.y - from.y) + 1,
+      0,
+    );
+    return;
+  }
+  fillPatternRect(
+    cells,
+    width,
+    height,
+    from.x - half,
+    Math.min(from.y, to.y),
+    thickness,
+    Math.abs(to.y - from.y) + 1,
+    0,
+  );
+  fillPatternRect(
+    cells,
+    width,
+    height,
+    Math.min(from.x, to.x),
+    to.y - half,
+    Math.abs(to.x - from.x) + 1,
+    thickness,
+    0,
+  );
+}
+
+function patternRectCenter(rect: PatternRect): Readonly<{ x: number; y: number }> {
+  return {
+    x: rect.x + Math.floor(rect.width / 2),
+    y: rect.y + Math.floor(rect.height / 2),
+  };
+}
+
+function rectsOverlapWithGap(first: PatternRect, second: PatternRect, gap: number): boolean {
+  return !(
+    first.x + first.width + gap <= second.x ||
+    second.x + second.width + gap <= first.x ||
+    first.y + first.height + gap <= second.y ||
+    second.y + second.height + gap <= first.y
+  );
+}
+
+function rectCenterDistance(first: PatternRect, second: PatternRect): number {
+  const firstCenter = patternRectCenter(first);
+  const secondCenter = patternRectCenter(second);
+  return Math.abs(firstCenter.x - secondCenter.x) + Math.abs(firstCenter.y - secondCenter.y);
 }
 
 function setPatternCell(
@@ -4933,6 +6291,108 @@ function sanitizeTileableMotifJitter(value: number): number {
 
 function sanitizeRightAngleRotation(value: number): number {
   return RIGHT_ANGLE_ROTATION_OPTIONS.includes(value) ? value : 0;
+}
+
+function sanitizeBspRoomPartitionerSplitDepth(value: number): number {
+  return clamp(
+    Math.round(value),
+    BSP_ROOM_PARTITIONER_SPLIT_DEPTH_MIN,
+    BSP_ROOM_PARTITIONER_SPLIT_DEPTH_MAX,
+  );
+}
+
+function sanitizeBspRoomPartitionerRoomPadding(value: number): number {
+  return clamp(
+    Math.round(value),
+    BSP_ROOM_PARTITIONER_ROOM_PADDING_MIN,
+    BSP_ROOM_PARTITIONER_ROOM_PADDING_MAX,
+  );
+}
+
+function sanitizeBspRoomPartitionerCorridorWidth(value: number): number {
+  return clamp(
+    Math.round(value),
+    BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MIN,
+    BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MAX,
+  );
+}
+
+function sanitizeCorridorGridSpacing(value: number): number {
+  return clamp(
+    Math.round(value),
+    CORRIDOR_GRID_COLUMN_SPACING_MIN,
+    CORRIDOR_GRID_COLUMN_SPACING_MAX,
+  );
+}
+
+function sanitizeCorridorGridWallThickness(value: number): number {
+  return clamp(
+    Math.round(value),
+    CORRIDOR_GRID_WALL_THICKNESS_MIN,
+    CORRIDOR_GRID_WALL_THICKNESS_MAX,
+  );
+}
+
+function sanitizeCorridorGridGapChance(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    CORRIDOR_GRID_GAP_CHANCE_STEP,
+    CORRIDOR_GRID_GAP_CHANCE_MIN,
+    CORRIDOR_GRID_GAP_CHANCE_MAX,
+  );
+}
+
+function sanitizeRoomScatterRoomCount(value: number): number {
+  return clamp(Math.round(value), ROOM_SCATTER_ROOM_COUNT_MIN, ROOM_SCATTER_ROOM_COUNT_MAX);
+}
+
+function sanitizeRoomScatterRoomSize(value: number): number {
+  return clamp(Math.round(value), ROOM_SCATTER_ROOM_SIZE_MIN, ROOM_SCATTER_ROOM_SIZE_MAX);
+}
+
+function sanitizeRoomScatterGap(value: number): number {
+  return clamp(Math.round(value), ROOM_SCATTER_GAP_MIN, ROOM_SCATTER_GAP_MAX);
+}
+
+function sanitizeRoomScatterConnectorChance(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    ROOM_SCATTER_CONNECTOR_CHANCE_STEP,
+    ROOM_SCATTER_CONNECTOR_CHANCE_MIN,
+    ROOM_SCATTER_CONNECTOR_CHANCE_MAX,
+  );
+}
+
+function sanitizeCourtyardRingCount(value: number): number {
+  return clamp(Math.round(value), COURTYARD_RING_COUNT_MIN, COURTYARD_RING_COUNT_MAX);
+}
+
+function sanitizeCourtyardRingGap(value: number): number {
+  return clamp(Math.round(value), COURTYARD_RING_GAP_MIN, COURTYARD_RING_GAP_MAX);
+}
+
+function sanitizeCourtyardGateWidth(value: number): number {
+  return clamp(Math.round(value), COURTYARD_GATE_WIDTH_MIN, COURTYARD_GATE_WIDTH_MAX);
+}
+
+function sanitizeCourtyardOffset(value: number): number {
+  return clamp(Math.round(value), COURTYARD_OFFSET_MIN, COURTYARD_OFFSET_MAX);
+}
+
+function sanitizeBlueprintWingCount(value: number): number {
+  return clamp(Math.round(value), BLUEPRINT_WING_COUNT_MIN, BLUEPRINT_WING_COUNT_MAX);
+}
+
+function sanitizeBlueprintHallWidth(value: number): number {
+  return clamp(Math.round(value), BLUEPRINT_HALL_WIDTH_MIN, BLUEPRINT_HALL_WIDTH_MAX);
+}
+
+function sanitizeBlueprintPillarSpacing(value: number): number {
+  return clamp(Math.round(value), BLUEPRINT_PILLAR_SPACING_MIN, BLUEPRINT_PILLAR_SPACING_MAX);
+}
+
+function sanitizeBlueprintChamberDepth(value: number): number {
+  return clamp(Math.round(value), BLUEPRINT_CHAMBER_DEPTH_MIN, BLUEPRINT_CHAMBER_DEPTH_MAX);
 }
 
 function resolveRandomizableValue<T>(
