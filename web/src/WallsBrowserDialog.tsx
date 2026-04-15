@@ -40,6 +40,7 @@ type WallsRecordCardProps = Readonly<{
   starred: boolean;
   hidden: boolean;
   onSelect: (wallKey: string) => void;
+  onImport: (wallKey: string) => void;
   onToggleStar: (wallKey: string) => void;
   onToggleHidden: (wallKey: string) => void;
   onOpenDetails: (wallKey: string) => void;
@@ -82,6 +83,7 @@ function WallsRecordCard({
   starred,
   hidden,
   onSelect,
+  onImport,
   onToggleStar,
   onToggleHidden,
   onOpenDetails,
@@ -95,6 +97,7 @@ function WallsRecordCard({
       className={`wallsCard ${selected ? "selected" : ""}`}
       title={cardTitle}
       onClick={() => onSelect(record.wallKey)}
+      onDoubleClick={() => onImport(record.wallKey)}
       onPointerDown={stopEvent}
     >
       <div className="wallsCardPreview">
@@ -284,6 +287,7 @@ export function WallsBrowserDialog({
                     starred={starredKeys.has(record.wallKey)}
                     hidden={hiddenKeys.has(record.wallKey)}
                     onSelect={setSelectedWallKey}
+                    onImport={onImport}
                     onToggleStar={onToggleStar}
                     onToggleHidden={onToggleHidden}
                     onOpenDetails={setDetailsWallKey}
