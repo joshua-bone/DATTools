@@ -26,6 +26,9 @@ Currently implemented in the modal:
 - `Growing Tree`
 - `Prim's`
 - `Recursive Division`
+- `Kruskal's`
+- `Sidewinder`
+- `Binary Tree`
 
 ## Generators To Implement
 
@@ -37,9 +40,9 @@ These are the upstream generation algorithms from `mazelib` that fit this modal.
 | Done     | Growing Tree           | `backtrack_chance`                    | Implemented with seed, block size, explicit start cell controls, and backtrack chance.                               |
 | Done     | Prim's                 | start seed only                       | Implemented with seed, block size, and explicit start cell controls.                                                 |
 | Done     | Recursive Division     | bias mode / cut strategy              | Implemented with seed and block size. Bias/cut-strategy controls can still be added later if we want more variety.   |
-| 2        | Kruskal's              | start seed only                       | Another strong baseline spanning-tree generator with a different texture.                                            |
-| 2        | Sidewinder             | `skew`                                | Very cheap to generate and visually distinct.                                                                        |
-| 2        | Binary Tree            | `skew` (`NW`, `NE`, `SE`, `SW`)       | Extremely simple and fast; useful even though it is intentionally biased.                                            |
+| Done     | Kruskal's              | start seed only                       | Implemented with seed and block size.                                                                                |
+| Done     | Sidewinder             | `skew`                                | Implemented with seed, block size, and skew.                                                                         |
+| Done     | Binary Tree            | `skew` (`NW`, `NE`, `SE`, `SW`)       | Implemented with seed, block size, and directional skew.                                                             |
 | 2        | Hunt-and-Kill          | `hunt_order` (`random`, `serpentine`) | Good variety and fits the modal well.                                                                                |
 | 2        | Wilson's               | `hunt_order` (`random`, `serpentine`) | Important unbiased generator, slower but high value.                                                                 |
 | 3        | Aldous-Broder          | start seed only                       | Also unbiased, but slower; still worth having for completeness.                                                      |
@@ -51,8 +54,8 @@ These are the upstream generation algorithms from `mazelib` that fit this modal.
 ## Recommended Implementation Order
 
 1. Keep `Random Noise` as the fast fallback and test harness.
-2. Add the cheap directional set: `Binary Tree`, `Sidewinder`, `Eller's`.
-3. Add the slower completeness set: `Kruskal's`, `Hunt-and-Kill`, `Wilson's`, `Aldous-Broder`.
+2. Add the next spanning-tree set: `Hunt-and-Kill`, `Wilson's`, `Aldous-Broder`.
+3. Add the row-wise follow-up: `Eller's`.
 4. Add the imperfect/specialized set: `Cellular Automaton`, `Dungeon Rooms`, `Trivial Maze`.
 
 ## Modal Mapping Rules

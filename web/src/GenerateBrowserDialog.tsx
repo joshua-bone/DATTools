@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type JSX, type SyntheticEvent } from "rea
 
 import { wallMaskBytesFromKey } from "@/src/dat/wallsBank";
 import {
+  BINARY_TREE_SKEW_OPTIONS,
   GENERATE_ALGORITHM_OPTIONS,
   GENERATED_LAYOUT_CARD_COUNT,
   GENERATED_LAYOUT_GRID_SIZE,
@@ -18,25 +19,35 @@ import {
   RANDOM_NOISE_MIRROR_OPTIONS,
   RANDOM_NOISE_SEED_MAX,
   RANDOM_NOISE_SEED_MIN,
+  SIDEWINDER_SKEW_MAX,
+  SIDEWINDER_SKEW_MIN,
+  SIDEWINDER_SKEW_STEP,
   createDefaultBacktrackingControlState,
+  createDefaultBinaryTreeControlState,
   createDefaultGrowingTreeControlState,
+  createDefaultKruskalsControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
   createDefaultRecursiveDivisionControlState,
+  createDefaultSidewinderControlState,
   generateLayoutRecords,
   mazeGridDimensionsForBlockSize,
   nextRandomSeed,
   randomSeedFromClock,
   recordsFromStarredKeys,
   type BacktrackingControlState,
+  type BinaryTreeControlState,
+  type BinaryTreeSkew,
   type GeneratedLayoutRecord,
   type GenerateAlgorithmChoice,
   type GrowingTreeControlState,
+  type KruskalsControlState,
   type MazeBlockSize,
   type PrimsControlState,
   type RandomNoiseControlState,
   type RandomNoiseMirrorMode,
   type RecursiveDivisionControlState,
+  type SidewinderControlState,
 } from "@/web/src/generatedLayouts";
 
 type GenerateBrowserDialogProps = Readonly<{
@@ -100,6 +111,30 @@ type RecursiveDivisionSettingsPanelProps = Readonly<{
   ) => void;
 }>;
 
+type KruskalsSettingsPanelProps = Readonly<{
+  controls: KruskalsControlState;
+  onUpdate: <K extends keyof KruskalsControlState>(
+    key: K,
+    nextValue: Partial<KruskalsControlState[K]>,
+  ) => void;
+}>;
+
+type SidewinderSettingsPanelProps = Readonly<{
+  controls: SidewinderControlState;
+  onUpdate: <K extends keyof SidewinderControlState>(
+    key: K,
+    nextValue: Partial<SidewinderControlState[K]>,
+  ) => void;
+}>;
+
+type BinaryTreeSettingsPanelProps = Readonly<{
+  controls: BinaryTreeControlState;
+  onUpdate: <K extends keyof BinaryTreeControlState>(
+    key: K,
+    nextValue: Partial<BinaryTreeControlState[K]>,
+  ) => void;
+}>;
+
 function stopEvent(event: SyntheticEvent): void {
   event.stopPropagation();
 }
@@ -119,6 +154,19 @@ function formatMirrorLabel(mirror: RandomNoiseMirrorMode): string {
 
 function formatMazeBlockSizeLabel(blockSize: MazeBlockSize): string {
   return MAZE_BLOCK_SIZE_OPTIONS.find((option) => option.value === blockSize)?.label ?? "1x1";
+}
+
+function formatBinaryTreeSkewLabel(skew: BinaryTreeSkew): string {
+  switch (skew) {
+    case "NW":
+      return "North-West";
+    case "NE":
+      return "North-East";
+    case "SW":
+      return "South-West";
+    case "SE":
+      return "South-East";
+  }
 }
 
 function GeneratedMaskPreview({ wallKey }: Readonly<{ wallKey: string }>): JSX.Element {
@@ -370,7 +418,9 @@ function BacktrackingSettingsPanel({
           />
         </div>
         {controls.blockSize.randomize ? (
-          <div className="fieldHint">Chooses between 1x1, 2x2, 1x2, and 2x1 blocks.</div>
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
         ) : (
           <select
             className="generateSelect"
@@ -493,7 +543,9 @@ function PrimsSettingsPanel({ controls, onUpdate }: PrimsSettingsPanelProps): JS
           />
         </div>
         {controls.blockSize.randomize ? (
-          <div className="fieldHint">Chooses between 1x1, 2x2, 1x2, and 2x1 blocks.</div>
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
         ) : (
           <select
             className="generateSelect"
@@ -593,6 +645,257 @@ function PrimsSettingsPanel({ controls, onUpdate }: PrimsSettingsPanelProps): JS
   );
 }
 
+function KruskalsSettingsPanel({ controls, onUpdate }: KruskalsSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Kruskal&apos;s</h3>
+      <div className="fieldHint">
+        Builds a spanning tree by joining disjoint cell sets at random.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function SidewinderSettingsPanel({
+  controls,
+  onUpdate,
+}: SidewinderSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Sidewinder</h3>
+      <div className="fieldHint">
+        Carves long eastbound runs, then periodically punches one passage north.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Skew</span>
+          <ParameterToggle
+            checked={controls.skew.randomize}
+            onChange={(checked) => onUpdate("skew", { randomize: checked })}
+          />
+        </div>
+        {controls.skew.randomize ? (
+          <div className="fieldHint">
+            Varies how often a run closes upward instead of continuing east.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={SIDEWINDER_SKEW_MIN}
+              max={SIDEWINDER_SKEW_MAX}
+              step={SIDEWINDER_SKEW_STEP}
+              value={controls.skew.value}
+              onChange={(event) => onUpdate("skew", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.skew.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function BinaryTreeSettingsPanel({
+  controls,
+  onUpdate,
+}: BinaryTreeSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Binary Tree</h3>
+      <div className="fieldHint">Each cell carves one passage toward the selected corner bias.</div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Block Size</span>
+          <ParameterToggle
+            checked={controls.blockSize.randomize}
+            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
+          />
+        </div>
+        {controls.blockSize.randomize ? (
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.blockSize.value}
+            onChange={(event) =>
+              onUpdate("blockSize", { value: event.target.value as MazeBlockSize })
+            }
+          >
+            {MAZE_BLOCK_SIZE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Skew</span>
+          <ParameterToggle
+            checked={controls.skew.randomize}
+            onChange={(checked) => onUpdate("skew", { randomize: checked })}
+          />
+        </div>
+        {controls.skew.randomize ? (
+          <div className="fieldHint">Randomly picks a corner bias from NW, NE, SW, and SE.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.skew.value}
+            onChange={(event) => onUpdate("skew", { value: event.target.value as BinaryTreeSkew })}
+          >
+            {BINARY_TREE_SKEW_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {formatBinaryTreeSkewLabel(option)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed</span>
+          <ParameterToggle
+            checked={controls.seed.randomize}
+            onChange={(checked) => onUpdate("seed", { randomize: checked })}
+          />
+        </div>
+        {controls.seed.randomize ? (
+          <div className="fieldHint">Each card gets its own seed from the current reroll.</div>
+        ) : (
+          <input
+            type="number"
+            className="textInput"
+            min={MAZE_SEED_MIN}
+            max={MAZE_SEED_MAX}
+            step={1}
+            value={controls.seed.value}
+            onChange={(event) => onUpdate("seed", { value: Number(event.target.value) })}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
 function GrowingTreeSettingsPanel({
   controls,
   onUpdate,
@@ -617,7 +920,9 @@ function GrowingTreeSettingsPanel({
           />
         </div>
         {controls.blockSize.randomize ? (
-          <div className="fieldHint">Chooses between 1x1, 2x2, 1x2, and 2x1 blocks.</div>
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
         ) : (
           <select
             className="generateSelect"
@@ -768,7 +1073,9 @@ function RecursiveDivisionSettingsPanel({
           />
         </div>
         {controls.blockSize.randomize ? (
-          <div className="fieldHint">Chooses between 1x1, 2x2, 1x2, and 2x1 blocks.</div>
+          <div className="fieldHint">
+            Weighted randomization: 1x1 and 2x2 are favored over rectangular blocks.
+          </div>
         ) : (
           <select
             className="generateSelect"
@@ -925,6 +1232,47 @@ function GeneratedRecordDetails({
             <div>{record.params.startRow}</div>
           </div>
         </div>
+      ) : record.algorithm === "kruskals" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "sidewinder" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Skew</span>
+            <div>{Math.round(record.params.skew * 100)}%</div>
+          </div>
+        </div>
+      ) : record.algorithm === "binary-tree" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatMazeBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Skew</span>
+            <div>{formatBinaryTreeSkewLabel(record.params.skew)}</div>
+          </div>
+        </div>
       ) : record.algorithm === "growing-tree" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -995,6 +1343,15 @@ export function GenerateBrowserDialog({
   const [primsControls, setPrimsControls] = useState<PrimsControlState>(() =>
     createDefaultPrimsControlState(),
   );
+  const [kruskalsControls, setKruskalsControls] = useState<KruskalsControlState>(() =>
+    createDefaultKruskalsControlState(),
+  );
+  const [sidewinderControls, setSidewinderControls] = useState<SidewinderControlState>(() =>
+    createDefaultSidewinderControlState(),
+  );
+  const [binaryTreeControls, setBinaryTreeControls] = useState<BinaryTreeControlState>(() =>
+    createDefaultBinaryTreeControlState(),
+  );
   const [growingTreeControls, setGrowingTreeControls] = useState<GrowingTreeControlState>(() =>
     createDefaultGrowingTreeControlState(),
   );
@@ -1014,18 +1371,24 @@ export function GenerateBrowserDialog({
             backtrackingControls:
               selectedAlgorithm === "backtracking-generator" ? backtrackingControls : null,
             primsControls: selectedAlgorithm === "prims" ? primsControls : null,
+            kruskalsControls: selectedAlgorithm === "kruskals" ? kruskalsControls : null,
+            sidewinderControls: selectedAlgorithm === "sidewinder" ? sidewinderControls : null,
+            binaryTreeControls: selectedAlgorithm === "binary-tree" ? binaryTreeControls : null,
             growingTreeControls: selectedAlgorithm === "growing-tree" ? growingTreeControls : null,
             recursiveDivisionControls:
               selectedAlgorithm === "recursive-division" ? recursiveDivisionControls : null,
           }),
     [
       backtrackingControls,
+      binaryTreeControls,
       growingTreeControls,
+      kruskalsControls,
       primsControls,
       randomNoiseControls,
       randomSeed,
       recursiveDivisionControls,
       selectedAlgorithm,
+      sidewinderControls,
       starredKeys,
       starredOnly,
     ],
@@ -1077,6 +1440,45 @@ export function GenerateBrowserDialog({
     nextValue: Partial<GrowingTreeControlState[K]>,
   ): void {
     setGrowingTreeControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateKruskalsControl<K extends keyof KruskalsControlState>(
+    key: K,
+    nextValue: Partial<KruskalsControlState[K]>,
+  ): void {
+    setKruskalsControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateSidewinderControl<K extends keyof SidewinderControlState>(
+    key: K,
+    nextValue: Partial<SidewinderControlState[K]>,
+  ): void {
+    setSidewinderControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateBinaryTreeControl<K extends keyof BinaryTreeControlState>(
+    key: K,
+    nextValue: Partial<BinaryTreeControlState[K]>,
+  ): void {
+    setBinaryTreeControls((current) => ({
       ...current,
       [key]: {
         ...current[key],
@@ -1141,6 +1543,26 @@ export function GenerateBrowserDialog({
         blockSize: { randomize: false, value: record.params.blockSize },
         startColumn: { randomize: false, value: record.params.startColumn },
         startRow: { randomize: false, value: record.params.startRow },
+      });
+    } else if (record.algorithm === "kruskals") {
+      setSelectedAlgorithm("kruskals");
+      setKruskalsControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+      });
+    } else if (record.algorithm === "sidewinder") {
+      setSelectedAlgorithm("sidewinder");
+      setSidewinderControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        skew: { randomize: false, value: record.params.skew },
+      });
+    } else if (record.algorithm === "binary-tree") {
+      setSelectedAlgorithm("binary-tree");
+      setBinaryTreeControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        skew: { randomize: false, value: record.params.skew },
       });
     } else if (record.algorithm === "growing-tree") {
       setSelectedAlgorithm("growing-tree");
@@ -1241,6 +1663,21 @@ export function GenerateBrowserDialog({
                   />
                 ) : selectedAlgorithm === "prims" ? (
                   <PrimsSettingsPanel controls={primsControls} onUpdate={updatePrimsControl} />
+                ) : selectedAlgorithm === "kruskals" ? (
+                  <KruskalsSettingsPanel
+                    controls={kruskalsControls}
+                    onUpdate={updateKruskalsControl}
+                  />
+                ) : selectedAlgorithm === "sidewinder" ? (
+                  <SidewinderSettingsPanel
+                    controls={sidewinderControls}
+                    onUpdate={updateSidewinderControl}
+                  />
+                ) : selectedAlgorithm === "binary-tree" ? (
+                  <BinaryTreeSettingsPanel
+                    controls={binaryTreeControls}
+                    onUpdate={updateBinaryTreeControl}
+                  />
                 ) : selectedAlgorithm === "growing-tree" ? (
                   <GrowingTreeSettingsPanel
                     controls={growingTreeControls}

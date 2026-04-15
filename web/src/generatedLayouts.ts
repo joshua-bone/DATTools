@@ -29,17 +29,24 @@ export const MAZE_BLOCK_SIZE_OPTIONS = [
 export const GROWING_TREE_BACKTRACK_CHANCE_MIN = 0;
 export const GROWING_TREE_BACKTRACK_CHANCE_MAX = 1;
 export const GROWING_TREE_BACKTRACK_CHANCE_STEP = 0.05;
+export const SIDEWINDER_SKEW_MIN = 0;
+export const SIDEWINDER_SKEW_MAX = 1;
+export const SIDEWINDER_SKEW_STEP = 0.05;
 
 export type GenerateAlgorithmId =
   | "random-noise"
   | "backtracking-generator"
   | "growing-tree"
   | "prims"
-  | "recursive-division";
+  | "recursive-division"
+  | "kruskals"
+  | "sidewinder"
+  | "binary-tree";
 export type GenerateAlgorithmChoice = GenerateAlgorithmId | "any";
 export type GenerateRecordAlgorithm = GenerateAlgorithmId | "starred";
 export type RandomNoiseMirrorMode = "none" | "horizontal" | "vertical" | "quad";
 export type MazeBlockSize = (typeof MAZE_BLOCK_SIZE_OPTIONS)[number]["value"];
+export type BinaryTreeSkew = "NW" | "NE" | "SW" | "SE";
 
 export type RandomizableValue<T> = Readonly<{
   randomize: boolean;
@@ -63,6 +70,20 @@ export type MazeAlgorithmParameters = Readonly<{
 
 export type BacktrackingParameters = MazeAlgorithmParameters;
 export type PrimsParameters = MazeAlgorithmParameters;
+export type KruskalsParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+}>;
+export type SidewinderParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+  skew: number;
+}>;
+export type BinaryTreeParameters = Readonly<{
+  seed: number;
+  blockSize: MazeBlockSize;
+  skew: BinaryTreeSkew;
+}>;
 
 export type GrowingTreeParameters = MazeAlgorithmParameters &
   Readonly<{
@@ -89,18 +110,29 @@ type MazeBaseControlState = Readonly<{
   startRow: RandomizableValue<number>;
 }>;
 
+type MazeSeedBlockControlState = Readonly<{
+  seed: RandomizableValue<number>;
+  blockSize: RandomizableValue<MazeBlockSize>;
+}>;
+
 export type BacktrackingControlState = MazeBaseControlState;
 export type PrimsControlState = MazeBaseControlState;
+export type KruskalsControlState = MazeSeedBlockControlState;
+export type SidewinderControlState = MazeSeedBlockControlState &
+  Readonly<{
+    skew: RandomizableValue<number>;
+  }>;
+export type BinaryTreeControlState = MazeSeedBlockControlState &
+  Readonly<{
+    skew: RandomizableValue<BinaryTreeSkew>;
+  }>;
 
 export type GrowingTreeControlState = MazeBaseControlState &
   Readonly<{
     backtrackChance: RandomizableValue<number>;
   }>;
 
-export type RecursiveDivisionControlState = Readonly<{
-  seed: RandomizableValue<number>;
-  blockSize: RandomizableValue<MazeBlockSize>;
-}>;
+export type RecursiveDivisionControlState = MazeSeedBlockControlState;
 
 type BaseGeneratedLayoutRecord<
   Algorithm extends GenerateRecordAlgorithm,
@@ -108,6 +140,9 @@ type BaseGeneratedLayoutRecord<
     | RandomNoiseParameters
     | BacktrackingParameters
     | PrimsParameters
+    | KruskalsParameters
+    | SidewinderParameters
+    | BinaryTreeParameters
     | GrowingTreeParameters
     | RecursiveDivisionParameters
     | null,
@@ -132,6 +167,21 @@ export type BacktrackingGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
 
 export type PrimsGeneratedLayoutRecord = BaseGeneratedLayoutRecord<"prims", PrimsParameters>;
 
+export type KruskalsGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "kruskals",
+  KruskalsParameters
+>;
+
+export type SidewinderGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "sidewinder",
+  SidewinderParameters
+>;
+
+export type BinaryTreeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "binary-tree",
+  BinaryTreeParameters
+>;
+
 export type GrowingTreeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "growing-tree",
   GrowingTreeParameters
@@ -148,6 +198,9 @@ export type GeneratedLayoutRecord =
   | RandomNoiseGeneratedLayoutRecord
   | BacktrackingGeneratedLayoutRecord
   | PrimsGeneratedLayoutRecord
+  | KruskalsGeneratedLayoutRecord
+  | SidewinderGeneratedLayoutRecord
+  | BinaryTreeGeneratedLayoutRecord
   | GrowingTreeGeneratedLayoutRecord
   | RecursiveDivisionGeneratedLayoutRecord
   | StarredGeneratedLayoutRecord;
@@ -161,11 +214,17 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "growing-tree", label: "Growing Tree" },
   { value: "prims", label: "Prim's" },
   { value: "recursive-division", label: "Recursive Division" },
+  { value: "kruskals", label: "Kruskal's" },
+  { value: "sidewinder", label: "Sidewinder" },
+  { value: "binary-tree", label: "Binary Tree" },
 ];
 
 const RANDOM_NOISE_LABEL = "Random Noise";
 const BACKTRACKING_LABEL = "Backtracking Generator";
 const PRIMS_LABEL = "Prim's";
+const KRUSKALS_LABEL = "Kruskal's";
+const SIDEWINDER_LABEL = "Sidewinder";
+const BINARY_TREE_LABEL = "Binary Tree";
 const GROWING_TREE_LABEL = "Growing Tree";
 const RECURSIVE_DIVISION_LABEL = "Recursive Division";
 const GENERATED_LAYOUT_MIN_WALL_COUNT = 24;
@@ -176,8 +235,21 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "growing-tree",
   "prims",
   "recursive-division",
+  "kruskals",
+  "sidewinder",
+  "binary-tree",
+];
+const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = [
+  "1x1",
+  "1x1",
+  "2x2",
+  "2x2",
+  "1x2",
+  "2x1",
 ];
 const GROWING_TREE_BACKTRACK_CHANCE_VALUES = [0, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
+const SIDEWINDER_SKEW_VALUES = [0.15, 0.3, 0.5, 0.7, 0.85];
+export const BINARY_TREE_SKEW_OPTIONS: ReadonlyArray<BinaryTreeSkew> = ["NW", "NE", "SW", "SE"];
 
 export function randomSeedFromClock(): number {
   return Date.now() & 0x7fffffff;
@@ -205,6 +277,9 @@ export function generateLayoutRecords(
     randomNoiseControls?: RandomNoiseControlState | null;
     backtrackingControls?: BacktrackingControlState | null;
     primsControls?: PrimsControlState | null;
+    kruskalsControls?: KruskalsControlState | null;
+    sidewinderControls?: SidewinderControlState | null;
+    binaryTreeControls?: BinaryTreeControlState | null;
     growingTreeControls?: GrowingTreeControlState | null;
     recursiveDivisionControls?: RecursiveDivisionControlState | null;
   }>,
@@ -221,6 +296,9 @@ export function generateLayoutRecords(
       randomNoiseControls: options.randomNoiseControls ?? null,
       backtrackingControls: options.backtrackingControls ?? null,
       primsControls: options.primsControls ?? null,
+      kruskalsControls: options.kruskalsControls ?? null,
+      sidewinderControls: options.sidewinderControls ?? null,
+      binaryTreeControls: options.binaryTreeControls ?? null,
       growingTreeControls: options.growingTreeControls ?? null,
       recursiveDivisionControls: options.recursiveDivisionControls ?? null,
     });
@@ -265,6 +343,29 @@ export function createDefaultPrimsControlState(): PrimsControlState {
   };
 }
 
+export function createDefaultKruskalsControlState(): KruskalsControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+  };
+}
+
+export function createDefaultSidewinderControlState(): SidewinderControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    skew: { randomize: true, value: 0.5 },
+  };
+}
+
+export function createDefaultBinaryTreeControlState(): BinaryTreeControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: "1x1" },
+    skew: { randomize: true, value: "NW" },
+  };
+}
+
 export function createDefaultGrowingTreeControlState(): GrowingTreeControlState {
   return {
     seed: { randomize: true, value: 1 },
@@ -297,6 +398,9 @@ function generateRecordForAlgorithm(
     randomNoiseControls: RandomNoiseControlState | null;
     backtrackingControls: BacktrackingControlState | null;
     primsControls: PrimsControlState | null;
+    kruskalsControls: KruskalsControlState | null;
+    sidewinderControls: SidewinderControlState | null;
+    binaryTreeControls: BinaryTreeControlState | null;
     growingTreeControls: GrowingTreeControlState | null;
     recursiveDivisionControls: RecursiveDivisionControlState | null;
   }>,
@@ -308,6 +412,12 @@ function generateRecordForAlgorithm(
       return buildBacktrackingRecord(rng, controls.backtrackingControls);
     case "prims":
       return buildPrimsRecord(rng, controls.primsControls);
+    case "kruskals":
+      return buildKruskalsRecord(rng, controls.kruskalsControls);
+    case "sidewinder":
+      return buildSidewinderRecord(rng, controls.sidewinderControls);
+    case "binary-tree":
+      return buildBinaryTreeRecord(rng, controls.binaryTreeControls);
     case "growing-tree":
       return buildGrowingTreeRecord(rng, controls.growingTreeControls);
     case "recursive-division":
@@ -363,7 +473,9 @@ function buildBacktrackingRecord(
     controls ?? createDefaultBacktrackingControlState(),
   );
   return {
-    wallKey: wallMaskKeyFromBytes(buildMazeMaskBytes(params, "backtracking", rng)),
+    wallKey: wallMaskKeyFromBytes(
+      buildMazeMaskBytes(params, "backtracking", createSeededRandom(params.seed)),
+    ),
     algorithm: "backtracking-generator",
     title: BACKTRACKING_LABEL,
     summary: buildBacktrackingSummary(params),
@@ -378,10 +490,70 @@ function buildPrimsRecord(
 ): PrimsGeneratedLayoutRecord {
   const params = randomizeMazeBaseParameters(rng, controls ?? createDefaultPrimsControlState());
   return {
-    wallKey: wallMaskKeyFromBytes(buildMazeMaskBytes(params, "prims", rng)),
+    wallKey: wallMaskKeyFromBytes(
+      buildMazeMaskBytes(params, "prims", createSeededRandom(params.seed)),
+    ),
     algorithm: "prims",
     title: PRIMS_LABEL,
     summary: buildPrimsSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildKruskalsRecord(
+  rng: () => number,
+  controls: KruskalsControlState | null,
+): KruskalsGeneratedLayoutRecord {
+  const params = randomizeMazeSeedBlockParameters(
+    rng,
+    controls ?? createDefaultKruskalsControlState(),
+  );
+  return {
+    wallKey: wallMaskKeyFromBytes(buildKruskalsMaskBytes(params, createSeededRandom(params.seed))),
+    algorithm: "kruskals",
+    title: KRUSKALS_LABEL,
+    summary: buildKruskalsSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildSidewinderRecord(
+  rng: () => number,
+  controls: SidewinderControlState | null,
+): SidewinderGeneratedLayoutRecord {
+  const params = randomizeSidewinderParameters(
+    rng,
+    controls ?? createDefaultSidewinderControlState(),
+  );
+  return {
+    wallKey: wallMaskKeyFromBytes(
+      buildSidewinderMaskBytes(params, createSeededRandom(params.seed)),
+    ),
+    algorithm: "sidewinder",
+    title: SIDEWINDER_LABEL,
+    summary: buildSidewinderSummary(params),
+    seedLabel: `Seed ${params.seed}`,
+    params,
+  };
+}
+
+function buildBinaryTreeRecord(
+  rng: () => number,
+  controls: BinaryTreeControlState | null,
+): BinaryTreeGeneratedLayoutRecord {
+  const params = randomizeBinaryTreeParameters(
+    rng,
+    controls ?? createDefaultBinaryTreeControlState(),
+  );
+  return {
+    wallKey: wallMaskKeyFromBytes(
+      buildBinaryTreeMaskBytes(params, createSeededRandom(params.seed)),
+    ),
+    algorithm: "binary-tree",
+    title: BINARY_TREE_LABEL,
+    summary: buildBinaryTreeSummary(params),
     seedLabel: `Seed ${params.seed}`,
     params,
   };
@@ -393,7 +565,9 @@ function buildGrowingTreeRecord(
 ): GrowingTreeGeneratedLayoutRecord {
   const params = randomizeGrowingTreeParameters(rng, controls);
   return {
-    wallKey: wallMaskKeyFromBytes(buildMazeMaskBytes(params, "growing-tree", rng)),
+    wallKey: wallMaskKeyFromBytes(
+      buildMazeMaskBytes(params, "growing-tree", createSeededRandom(params.seed)),
+    ),
     algorithm: "growing-tree",
     title: GROWING_TREE_LABEL,
     summary: buildGrowingTreeSummary(params),
@@ -411,7 +585,9 @@ function buildRecursiveDivisionRecord(
     controls ?? createDefaultRecursiveDivisionControlState(),
   );
   return {
-    wallKey: wallMaskKeyFromBytes(buildRecursiveDivisionMaskBytes(params, rng)),
+    wallKey: wallMaskKeyFromBytes(
+      buildRecursiveDivisionMaskBytes(params, createSeededRandom(params.seed)),
+    ),
     algorithm: "recursive-division",
     title: RECURSIVE_DIVISION_LABEL,
     summary: buildRecursiveDivisionSummary(params),
@@ -463,23 +639,10 @@ function randomizeMazeBaseParameters(
   rng: () => number,
   defaults: MazeBaseControlState,
 ): MazeAlgorithmParameters {
-  const blockSize = resolveRandomizableValue(
-    defaults.blockSize,
-    () =>
-      sampleOne(
-        rng,
-        MAZE_BLOCK_SIZE_OPTIONS.map((option) => option.value),
-      ),
-    sanitizeMazeBlockSize,
-  );
-  const dims = mazeGridDimensionsForBlockSize(blockSize);
+  const base = randomizeMazeSeedBlockParameters(rng, defaults);
+  const dims = mazeGridDimensionsForBlockSize(base.blockSize);
   return {
-    seed: resolveRandomizableValue(
-      defaults.seed,
-      () => randomInt(rng, MAZE_SEED_MIN, MAZE_SEED_MAX),
-      (value) => clamp(Math.round(value), MAZE_SEED_MIN, MAZE_SEED_MAX),
-    ),
-    blockSize,
+    ...base,
     startColumn: resolveRandomizableValue(
       defaults.startColumn,
       () => randomInt(rng, MAZE_START_MIN, dims.columns),
@@ -490,6 +653,25 @@ function randomizeMazeBaseParameters(
       () => randomInt(rng, MAZE_START_MIN, dims.rows),
       (value) => clamp(Math.round(value), MAZE_START_MIN, dims.rows),
     ),
+  };
+}
+
+function randomizeMazeSeedBlockParameters(
+  rng: () => number,
+  defaults: MazeSeedBlockControlState,
+): Readonly<{ seed: number; blockSize: MazeBlockSize }> {
+  const blockSize = resolveRandomizableValue(
+    defaults.blockSize,
+    () => sampleOne(rng, MAZE_RANDOM_BLOCK_SIZE_VALUES),
+    sanitizeMazeBlockSize,
+  );
+  return {
+    seed: resolveRandomizableValue(
+      defaults.seed,
+      () => randomInt(rng, MAZE_SEED_MIN, MAZE_SEED_MAX),
+      (value) => clamp(Math.round(value), MAZE_SEED_MIN, MAZE_SEED_MAX),
+    ),
+    blockSize,
   };
 }
 
@@ -515,26 +697,41 @@ function randomizeGrowingTreeParameters(
   };
 }
 
+function randomizeSidewinderParameters(
+  rng: () => number,
+  defaults: SidewinderControlState,
+): SidewinderParameters {
+  const base = randomizeMazeSeedBlockParameters(rng, defaults);
+  return {
+    ...base,
+    skew: resolveRandomizableValue(
+      defaults.skew,
+      () => sampleOne(rng, SIDEWINDER_SKEW_VALUES),
+      (value) => clamp(value, SIDEWINDER_SKEW_MIN, SIDEWINDER_SKEW_MAX),
+    ),
+  };
+}
+
+function randomizeBinaryTreeParameters(
+  rng: () => number,
+  defaults: BinaryTreeControlState,
+): BinaryTreeParameters {
+  const base = randomizeMazeSeedBlockParameters(rng, defaults);
+  return {
+    ...base,
+    skew: resolveRandomizableValue(
+      defaults.skew,
+      () => sampleOne(rng, BINARY_TREE_SKEW_OPTIONS),
+      sanitizeBinaryTreeSkew,
+    ),
+  };
+}
+
 function randomizeRecursiveDivisionParameters(
   rng: () => number,
   defaults: RecursiveDivisionControlState,
 ): RecursiveDivisionParameters {
-  return {
-    seed: resolveRandomizableValue(
-      defaults.seed,
-      () => randomInt(rng, MAZE_SEED_MIN, MAZE_SEED_MAX),
-      (value) => clamp(Math.round(value), MAZE_SEED_MIN, MAZE_SEED_MAX),
-    ),
-    blockSize: resolveRandomizableValue(
-      defaults.blockSize,
-      () =>
-        sampleOne(
-          rng,
-          MAZE_BLOCK_SIZE_OPTIONS.map((option) => option.value),
-        ),
-      sanitizeMazeBlockSize,
-    ),
-  };
+  return randomizeMazeSeedBlockParameters(rng, defaults);
 }
 
 function buildRandomNoiseMaskBytes(params: RandomNoiseParameters): Uint8Array {
@@ -575,8 +772,7 @@ function buildMazeMaskBytes(
   rng: () => number,
 ): Uint8Array {
   const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = new Uint8Array(GENERATED_LAYOUT_GRID_SIZE * GENERATED_LAYOUT_GRID_SIZE);
-  walls.fill(1);
+  const walls = createFilledMazeWalls();
   const visited = new Uint8Array(metrics.columns * metrics.rows);
   const start = {
     x: clamp(params.startColumn, MAZE_START_MIN, metrics.columns) - 1,
@@ -666,12 +862,114 @@ function buildMazeMaskBytes(
     }
   }
 
-  const bytes = new Uint8Array(128);
-  for (let index = 0; index < walls.length; index++) {
-    if (walls[index] !== 1) continue;
-    setMaskBit(bytes, index);
+  return wallsToMaskBytes(walls);
+}
+
+function buildKruskalsMaskBytes(params: KruskalsParameters, rng: () => number): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const walls = createFilledMazeWalls();
+  const cellCount = metrics.columns * metrics.rows;
+  const parent = Array.from({ length: cellCount }, (_, index) => index);
+  const rank = new Uint8Array(cellCount);
+  const edges: Array<
+    Readonly<{
+      from: Readonly<{ x: number; y: number }>;
+      to: Readonly<{ x: number; y: number }>;
+    }>
+  > = [];
+
+  for (let y = 0; y < metrics.rows; y++) {
+    for (let x = 0; x < metrics.columns; x++) {
+      carveMazeCell(walls, metrics, x, y);
+      if (x + 1 < metrics.columns) {
+        edges.push({
+          from: { x, y },
+          to: { x: x + 1, y },
+        });
+      }
+      if (y + 1 < metrics.rows) {
+        edges.push({
+          from: { x, y },
+          to: { x, y: y + 1 },
+        });
+      }
+    }
   }
-  return bytes;
+
+  shuffleInPlace(edges, rng);
+
+  for (const edge of edges) {
+    const fromIndex = edge.from.y * metrics.columns + edge.from.x;
+    const toIndex = edge.to.y * metrics.columns + edge.to.x;
+    if (!unionDisjointSets(parent, rank, fromIndex, toIndex)) continue;
+    carveMazePassage(walls, metrics, edge.from, edge.to);
+  }
+
+  return wallsToMaskBytes(walls);
+}
+
+function buildSidewinderMaskBytes(params: SidewinderParameters, rng: () => number): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const walls = createFilledMazeWalls();
+  const topRowY = 0;
+
+  for (let x = 0; x < metrics.columns; x++) {
+    carveMazeCell(walls, metrics, x, topRowY);
+    if (x > 0) {
+      carveMazePassage(walls, metrics, { x: x - 1, y: topRowY }, { x, y: topRowY });
+    }
+  }
+
+  for (let y = 1; y < metrics.rows; y++) {
+    const run: Array<Readonly<{ x: number; y: number }>> = [];
+
+    for (let x = 0; x < metrics.columns; x++) {
+      const current = { x, y };
+      carveMazeCell(walls, metrics, current.x, current.y);
+      run.push(current);
+
+      const canCarveEast = x < metrics.columns - 1;
+      const carveEast = canCarveEast && rng() > params.skew;
+
+      if (carveEast) {
+        carveMazePassage(walls, metrics, current, { x: x + 1, y });
+        continue;
+      }
+
+      const north = sampleOne(rng, run);
+      carveMazePassage(walls, metrics, north, { x: north.x, y: north.y - 1 });
+      run.length = 0;
+    }
+  }
+
+  return wallsToMaskBytes(walls);
+}
+
+function buildBinaryTreeMaskBytes(params: BinaryTreeParameters, rng: () => number): Uint8Array {
+  const metrics = resolveMazeMetrics(params.blockSize);
+  const walls = createFilledMazeWalls();
+  const directionOffsets = resolveBinaryTreeDirectionOffsets(params.skew);
+
+  for (let y = 0; y < metrics.rows; y++) {
+    for (let x = 0; x < metrics.columns; x++) {
+      const current = { x, y };
+      const candidates = directionOffsets
+        .map((offset) => ({ x: x + offset.x, y: y + offset.y }))
+        .filter(
+          (candidate) =>
+            candidate.x >= 0 &&
+            candidate.x < metrics.columns &&
+            candidate.y >= 0 &&
+            candidate.y < metrics.rows,
+        );
+
+      carveMazeCell(walls, metrics, x, y);
+      if (candidates.length === 0) continue;
+      carveMazePassage(walls, metrics, current, sampleOne(rng, candidates));
+    }
+  }
+
+  return wallsToMaskBytes(walls);
 }
 
 function buildRecursiveDivisionMaskBytes(
@@ -760,12 +1058,7 @@ function buildRecursiveDivisionMaskBytes(
     }
   }
 
-  const bytes = new Uint8Array(128);
-  for (let index = 0; index < walls.length; index++) {
-    if (walls[index] !== 1) continue;
-    setMaskBit(bytes, index);
-  }
-  return bytes;
+  return wallsToMaskBytes(walls);
 }
 
 function sampleMirroredCell(
@@ -822,6 +1115,18 @@ function buildBacktrackingSummary(params: BacktrackingParameters): string {
 
 function buildPrimsSummary(params: PrimsParameters): string {
   return `${params.blockSize} blocks • start ${params.startColumn}, ${params.startRow}`;
+}
+
+function buildKruskalsSummary(params: KruskalsParameters): string {
+  return `${params.blockSize} blocks`;
+}
+
+function buildSidewinderSummary(params: SidewinderParameters): string {
+  return `${params.blockSize} blocks • ${Math.round(params.skew * 100)}% north carve`;
+}
+
+function buildBinaryTreeSummary(params: BinaryTreeParameters): string {
+  return `${params.blockSize} blocks • ${params.skew} bias`;
 }
 
 function buildGrowingTreeSummary(params: GrowingTreeParameters): string {
@@ -972,12 +1277,94 @@ function mazeTileIndex(x: number, y: number): number {
   return y * GENERATED_LAYOUT_GRID_SIZE + x;
 }
 
+function wallsToMaskBytes(walls: Uint8Array): Uint8Array {
+  const bytes = new Uint8Array(128);
+  for (let index = 0; index < walls.length; index++) {
+    if (walls[index] !== 1) continue;
+    setMaskBit(bytes, index);
+  }
+  return bytes;
+}
+
+function createFilledMazeWalls(): Uint8Array {
+  const walls = new Uint8Array(GENERATED_LAYOUT_GRID_SIZE * GENERATED_LAYOUT_GRID_SIZE);
+  walls.fill(1);
+  return walls;
+}
+
 function markVisited(visited: Uint8Array, width: number, x: number, y: number): void {
   visited[y * width + x] = 1;
 }
 
 function sanitizeMazeBlockSize(value: MazeBlockSize): MazeBlockSize {
   return MAZE_BLOCK_SIZE_OPTIONS.some((option) => option.value === value) ? value : "1x1";
+}
+
+function sanitizeBinaryTreeSkew(value: BinaryTreeSkew): BinaryTreeSkew {
+  return BINARY_TREE_SKEW_OPTIONS.includes(value) ? value : "NW";
+}
+
+function resolveBinaryTreeDirectionOffsets(
+  skew: BinaryTreeSkew,
+): ReadonlyArray<Readonly<{ x: number; y: number }>> {
+  switch (skew) {
+    case "NW":
+      return [
+        { x: 0, y: -1 },
+        { x: -1, y: 0 },
+      ];
+    case "NE":
+      return [
+        { x: 0, y: -1 },
+        { x: 1, y: 0 },
+      ];
+    case "SW":
+      return [
+        { x: 0, y: 1 },
+        { x: -1, y: 0 },
+      ];
+    case "SE":
+      return [
+        { x: 0, y: 1 },
+        { x: 1, y: 0 },
+      ];
+  }
+}
+
+function shuffleInPlace<T>(items: T[], rng: () => number): void {
+  for (let index = items.length - 1; index > 0; index--) {
+    const swapIndex = randomInt(rng, 0, index);
+    const current = items[index]!;
+    items[index] = items[swapIndex]!;
+    items[swapIndex] = current;
+  }
+}
+
+function unionDisjointSets(parent: number[], rank: Uint8Array, a: number, b: number): boolean {
+  const rootA = findDisjointSetRoot(parent, a);
+  const rootB = findDisjointSetRoot(parent, b);
+
+  if (rootA === rootB) return false;
+
+  if (rank[rootA]! < rank[rootB]!) {
+    parent[rootA] = rootB;
+  } else if (rank[rootA]! > rank[rootB]!) {
+    parent[rootB] = rootA;
+  } else {
+    parent[rootB] = rootA;
+    rank[rootA] = (rank[rootA] ?? 0) + 1;
+  }
+
+  return true;
+}
+
+function findDisjointSetRoot(parent: number[], index: number): number {
+  let current = index;
+  while (parent[current] !== current) {
+    parent[current] = parent[parent[current]!]!;
+    current = parent[current]!;
+  }
+  return current;
 }
 
 function setMaskBit(bytes: Uint8Array, index: number): void {

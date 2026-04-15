@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   createDefaultBacktrackingControlState,
+  createDefaultBinaryTreeControlState,
   createDefaultGrowingTreeControlState,
+  createDefaultKruskalsControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
   createDefaultRecursiveDivisionControlState,
+  createDefaultSidewinderControlState,
   generateLayoutRecords,
   recordsFromStarredKeys,
 } from "@/web/src/generatedLayouts";
@@ -33,7 +36,10 @@ describe("generated layouts", () => {
           record.algorithm === "backtracking-generator" ||
           record.algorithm === "growing-tree" ||
           record.algorithm === "prims" ||
-          record.algorithm === "recursive-division",
+          record.algorithm === "recursive-division" ||
+          record.algorithm === "kruskals" ||
+          record.algorithm === "sidewinder" ||
+          record.algorithm === "binary-tree",
       ),
     ).toBe(true);
   });
@@ -206,6 +212,125 @@ describe("generated layouts", () => {
     ).toBe(true);
   });
 
+  it("produces deterministic kruskal's layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "kruskals",
+      count: 6,
+      seed: 73124,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "kruskals",
+      count: 6,
+      seed: 73124,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "kruskals")).toBe(true);
+  });
+
+  it("keeps locked kruskal's parameters fixed across generated cards", () => {
+    const controls = createDefaultKruskalsControlState();
+    const records = generateLayoutRecords({
+      algorithm: "kruskals",
+      count: 6,
+      seed: 24816,
+      kruskalsControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "2x2" },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) => record.algorithm === "kruskals" && record.params.blockSize === "2x2",
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic sidewinder layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "sidewinder",
+      count: 6,
+      seed: 86420,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "sidewinder",
+      count: 6,
+      seed: 86420,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "sidewinder")).toBe(true);
+  });
+
+  it("keeps locked sidewinder parameters fixed across generated cards", () => {
+    const controls = createDefaultSidewinderControlState();
+    const records = generateLayoutRecords({
+      algorithm: "sidewinder",
+      count: 6,
+      seed: 97231,
+      sidewinderControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "1x2" },
+        skew: { randomize: false, value: 0.7 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "sidewinder" &&
+          record.params.blockSize === "1x2" &&
+          record.params.skew === 0.7,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic binary-tree layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "binary-tree",
+      count: 6,
+      seed: 32145,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "binary-tree",
+      count: 6,
+      seed: 32145,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "binary-tree")).toBe(true);
+  });
+
+  it("keeps locked binary-tree parameters fixed across generated cards", () => {
+    const controls = createDefaultBinaryTreeControlState();
+    const records = generateLayoutRecords({
+      algorithm: "binary-tree",
+      count: 6,
+      seed: 67890,
+      binaryTreeControls: {
+        ...controls,
+        blockSize: { randomize: false, value: "2x1" },
+        skew: { randomize: false, value: "SE" },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "binary-tree" &&
+          record.params.blockSize === "2x1" &&
+          record.params.skew === "SE",
+      ),
+    ).toBe(true);
+  });
+
   it("produces deterministic recursive-division layout sets for a seed", () => {
     const first = generateLayoutRecords({
       algorithm: "recursive-division",
@@ -241,5 +366,30 @@ describe("generated layouts", () => {
         (record) => record.algorithm === "recursive-division" && record.params.blockSize === "1x2",
       ),
     ).toBe(true);
+  });
+
+  it("weights random maze block sizes toward 1x1 and 2x2", () => {
+    const records = Array.from(
+      { length: 240 },
+      (_, index) =>
+        generateLayoutRecords({
+          algorithm: "recursive-division",
+          count: 1,
+          seed: index + 1,
+        })[0]!,
+    );
+    const counts = records.reduce<Record<string, number>>((acc, record) => {
+      const blockSize =
+        record.algorithm === "recursive-division" ? record.params.blockSize : "nope";
+      acc[blockSize] = (acc[blockSize] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    expect(counts["1x1"]).toBeGreaterThan(60);
+    expect(counts["2x2"]).toBeGreaterThan(60);
+    expect(counts["1x2"]).toBeGreaterThan(20);
+    expect(counts["1x2"]).toBeLessThan(60);
+    expect(counts["2x1"]).toBeGreaterThan(20);
+    expect(counts["2x1"]).toBeLessThan(60);
   });
 });
