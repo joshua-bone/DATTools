@@ -3693,7 +3693,9 @@ export default function App() {
   }, [currentDesktopAppVersion, latestDesktopReleaseLoadState, openDialog]);
 
   useEffect(() => {
-    if (openDialog !== "wallsBrowser" || wallsBankLoadState !== "idle") return;
+    if (openDialog !== "wallsBrowser" || wallsBank !== null || wallsBankLoadState === "loading") {
+      return;
+    }
 
     const controller = new AbortController();
     setWallsBankLoadState("loading");
@@ -3711,7 +3713,7 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [openDialog, wallsBankLoadState]);
+  }, [openDialog, wallsBank]);
 
   function loadDocument(nextDoc: DatLevelsetJsonV1, nextFileName?: string | null): void {
     resetWorkspaceUiState();
@@ -4984,7 +4986,7 @@ export default function App() {
                         setOpenDialog("wallsBrowser");
                       }}
                     >
-                      Walls
+                      Browse Walls
                     </button>
                     <button
                       type="button"
