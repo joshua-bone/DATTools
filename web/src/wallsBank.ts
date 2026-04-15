@@ -9,6 +9,7 @@ type RuntimeImportMeta = ImportMeta & {
 const baseUrl = (import.meta as RuntimeImportMeta).env?.BASE_URL ?? "/";
 
 export const WALLS_BANK_URL = `${baseUrl}walls/walls-bank.json`;
+const BLOCKLISTED_SET_NAMES = new Set<string>(["Bad_Apple"]);
 
 export type WallsBankRecord = Readonly<{
   wallKey: string;
@@ -39,17 +40,24 @@ function buildSearchText(entries: ReadonlyArray<WallsBankOccurrence>): string {
     .join("\n");
 }
 
+function isBlocklistedOccurrence(entry: WallsBankOccurrence): boolean {
+  return BLOCKLISTED_SET_NAMES.has(entry.setName);
+}
+
 function buildWallsBankRecords(bank: WallsBankJson): WallsBankRecord[] {
-  return Object.entries(bank.masks).map(([wallKey, entries]) => {
-    const primaryEntry = entries[0];
+  return Object.entries(bank.masks).flatMap(([wallKey, entries]) => {
+    const visibleEntries = entries.filter((entry) => !isBlocklistedOccurrence(entry));
+    if (visibleEntries.length === 0) return [];
+
+    const primaryEntry = visibleEntries[0];
     if (!primaryEntry) throw new Error(`Wall mask '${wallKey}' has no occurrences`);
 
     return {
       wallKey,
-      entries,
-      occurrenceCount: entries.length,
+      entries: visibleEntries,
+      occurrenceCount: visibleEntries.length,
       primaryEntry,
-      searchText: buildSearchText(entries),
+      searchText: buildSearchText(visibleEntries),
     };
   });
 }

@@ -192,7 +192,7 @@ export function WallsBrowserDialog({
   }, [selectedRecord, selectedWallKey, visibleRecords]);
 
   const matchingCount = filteredRecords.length;
-  const totalCount = wallsBank?.bank.source.uniqueWallCount ?? 0;
+  const totalCount = allRecords.length;
 
   return (
     <>

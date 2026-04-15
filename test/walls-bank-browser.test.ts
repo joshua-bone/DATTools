@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { wallMaskKeyFromBytes } from "@/src/dat/wallsBank";
 import {
   filterWallsBankRecords,
   findWallsBankRecord,
+  loadWallsBank,
   pickRandomWallsBankRecords,
   type WallsBankRecord,
 } from "@/web/src/wallsBank";
@@ -30,6 +32,12 @@ function makeRecord(
     primaryEntry,
     searchText: `${setName} ${levelNumber} ${levelTitle} ${author ?? ""}`.toLowerCase(),
   };
+}
+
+function makeWallKey(firstByte: number): string {
+  const bytes = new Uint8Array(128);
+  bytes[0] = firstByte;
+  return wallMaskKeyFromBytes(bytes);
 }
 
 describe("walls bank browser helpers", () => {
@@ -84,5 +92,69 @@ describe("walls bank browser helpers", () => {
     expect(new Set(first.map((record) => record.wallKey)).size).toBe(2);
     expect(findWallsBankRecord(records, first[0]!.wallKey)).toEqual(first[0]);
     expect(findWallsBankRecord(records, null)).toBeNull();
+  });
+
+  it("filters blocklisted set occurrences when loading the bank", async () => {
+    const originalFetch = globalThis.fetch;
+    const alphaKey = makeWallKey(0x80);
+    const betaKey = makeWallKey(0x40);
+
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        json: async () => ({
+          schema: "datTools.walls.bank.v1",
+          generatedAt: "2026-04-15T00:00:00.000Z",
+          source: {
+            apiBaseUrl: "https://api.bitbusters.club/custom-packs/cc1",
+            downloadablePackCount: 2,
+            skippedPackCount: 0,
+            failedPackCount: 0,
+            levelCount: 2,
+            uniqueWallCount: 2,
+            wallTileNames: ["WALL"],
+          },
+          masks: {
+            [alphaKey]: [
+              {
+                packId: 1,
+                setName: "Bad_Apple",
+                packType: "Regular set",
+                fileName: "bad_apple.dat",
+                levelNumber: 1,
+                levelTitle: "Blocked",
+              },
+            ],
+            [betaKey]: [
+              {
+                packId: 2,
+                setName: "Bad_Apple",
+                packType: "Regular set",
+                fileName: "bad_apple.dat",
+                levelNumber: 2,
+                levelTitle: "Shared blocked",
+              },
+              {
+                packId: 3,
+                setName: "Good_Set",
+                packType: "Regular set",
+                fileName: "good.dat",
+                levelNumber: 7,
+                levelTitle: "Shared visible",
+              },
+            ],
+          },
+        }),
+      }) as Response;
+
+    try {
+      const loaded = await loadWallsBank();
+      expect(loaded.records).toHaveLength(1);
+      expect(loaded.records[0]?.wallKey).toBe(betaKey);
+      expect(loaded.records[0]?.occurrenceCount).toBe(1);
+      expect(loaded.records[0]?.primaryEntry.setName).toBe("Good_Set");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
