@@ -3,10 +3,19 @@ import { wallMaskKeyFromBytes } from "@/src/dat/wallsBank";
 export const GENERATED_LAYOUT_CARD_COUNT = 18;
 export const GENERATED_LAYOUT_GRID_SIZE = 32;
 export const GENERATED_LAYOUT_PREVIEW_SIZE = 128;
+export const RANDOM_NOISE_SEED_MIN = 1;
+export const RANDOM_NOISE_SEED_MAX = 0x7ffffffe;
+export const RANDOM_NOISE_DENSITY_MIN = 0.12;
+export const RANDOM_NOISE_DENSITY_MAX = 0.66;
+export const RANDOM_NOISE_DENSITY_STEP = 0.02;
 
 export type GenerateAlgorithmId = "random-noise";
 export type GenerateAlgorithmChoice = GenerateAlgorithmId | "any";
 export type RandomNoiseMirrorMode = "none" | "horizontal" | "vertical" | "quad";
+export type RandomizableValue<T> = Readonly<{
+  randomize: boolean;
+  value: T;
+}>;
 
 export type RandomNoiseParameters = Readonly<{
   seed: number;
@@ -14,6 +23,14 @@ export type RandomNoiseParameters = Readonly<{
   blockSize: number;
   mirror: RandomNoiseMirrorMode;
   invert: boolean;
+}>;
+
+export type RandomNoiseControlState = Readonly<{
+  seed: RandomizableValue<number>;
+  density: RandomizableValue<number>;
+  blockSize: RandomizableValue<number>;
+  mirror: RandomizableValue<RandomNoiseMirrorMode>;
+  invert: RandomizableValue<boolean>;
 }>;
 
 export type GeneratedLayoutRecord = Readonly<{
@@ -36,7 +53,8 @@ const RANDOM_NOISE_LABEL = "Random Noise";
 const GENERATED_LAYOUT_MIN_WALL_COUNT = 24;
 const GENERATED_LAYOUT_MAX_WALL_COUNT = 1000;
 const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = ["random-noise"];
-const RANDOM_NOISE_MIRROR_OPTIONS: ReadonlyArray<RandomNoiseMirrorMode> = [
+export const RANDOM_NOISE_BLOCK_SIZE_OPTIONS: ReadonlyArray<number> = [1, 2, 3, 4];
+export const RANDOM_NOISE_MIRROR_OPTIONS: ReadonlyArray<RandomNoiseMirrorMode> = [
   "none",
   "horizontal",
   "vertical",
@@ -56,6 +74,7 @@ export function generateLayoutRecords(
     algorithm: GenerateAlgorithmChoice;
     count?: number;
     seed: number;
+    randomNoiseControls?: RandomNoiseControlState | null;
   }>,
 ): GeneratedLayoutRecord[] {
   const count = Math.max(1, options.count ?? GENERATED_LAYOUT_CARD_COUNT);
@@ -66,7 +85,9 @@ export function generateLayoutRecords(
 
   for (let attempt = 0; attempt < maxAttempts && records.length < count; attempt++) {
     const algorithm = pickAlgorithm(options.algorithm, rng);
-    const record = generateRecordForAlgorithm(algorithm, rng);
+    const record = generateRecordForAlgorithm(algorithm, rng, {
+      randomNoiseControls: options.randomNoiseControls ?? null,
+    });
     if (seen.has(record.wallKey)) continue;
     seen.add(record.wallKey);
     records.push(record);
@@ -85,6 +106,16 @@ export function recordsFromStarredKeys(
   return records.filter((record) => record.algorithm === selectedAlgorithm);
 }
 
+export function createDefaultRandomNoiseControlState(): RandomNoiseControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    density: { randomize: true, value: 0.36 },
+    blockSize: { randomize: true, value: 1 },
+    mirror: { randomize: true, value: "none" },
+    invert: { randomize: true, value: false },
+  };
+}
+
 function pickAlgorithm(
   selectedAlgorithm: GenerateAlgorithmChoice,
   rng: () => number,
@@ -96,16 +127,22 @@ function pickAlgorithm(
 function generateRecordForAlgorithm(
   algorithm: GenerateAlgorithmId,
   rng: () => number,
+  controls: Readonly<{
+    randomNoiseControls: RandomNoiseControlState | null;
+  }>,
 ): GeneratedLayoutRecord {
   switch (algorithm) {
     case "random-noise":
-      return buildRandomNoiseRecord(rng);
+      return buildRandomNoiseRecord(rng, controls.randomNoiseControls);
   }
 }
 
-function buildRandomNoiseRecord(rng: () => number): GeneratedLayoutRecord {
+function buildRandomNoiseRecord(
+  rng: () => number,
+  controls: RandomNoiseControlState | null,
+): GeneratedLayoutRecord {
   for (let attempt = 0; attempt < 24; attempt++) {
-    const params = randomizeRandomNoiseParameters(rng);
+    const params = randomizeRandomNoiseParameters(rng, controls);
     const bytes = buildRandomNoiseMaskBytes(params);
     const wallCount = countSetBits(bytes);
     if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
@@ -139,15 +176,42 @@ function buildRandomNoiseRecord(rng: () => number): GeneratedLayoutRecord {
   };
 }
 
-function randomizeRandomNoiseParameters(rng: () => number): RandomNoiseParameters {
-  const densitySteps = [0.12, 0.18, 0.24, 0.3, 0.36, 0.42, 0.48, 0.54, 0.6, 0.66];
-  const blockSizeOptions = [1, 1, 1, 2, 2, 2, 3, 4];
+function randomizeRandomNoiseParameters(
+  rng: () => number,
+  controls: RandomNoiseControlState | null,
+): RandomNoiseParameters {
+  const defaults = controls ?? createDefaultRandomNoiseControlState();
   return {
-    seed: randomInt(rng, 1, 0x7ffffffe),
-    density: sampleOne(rng, densitySteps),
-    blockSize: sampleOne(rng, blockSizeOptions),
-    mirror: sampleOne(rng, RANDOM_NOISE_MIRROR_OPTIONS),
-    invert: rng() < 0.18,
+    seed: resolveRandomizableValue(
+      defaults.seed,
+      () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
+      (value) => clamp(Math.round(value), RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
+    ),
+    density: resolveRandomizableValue(
+      defaults.density,
+      () => sampleOne(rng, [0.12, 0.18, 0.24, 0.3, 0.36, 0.42, 0.48, 0.54, 0.6, 0.66]),
+      (value) =>
+        clamp(
+          Math.round(value / RANDOM_NOISE_DENSITY_STEP) * RANDOM_NOISE_DENSITY_STEP,
+          RANDOM_NOISE_DENSITY_MIN,
+          RANDOM_NOISE_DENSITY_MAX,
+        ),
+    ),
+    blockSize: resolveRandomizableValue(
+      defaults.blockSize,
+      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
+      (value) => sampleClosestBlockSize(value),
+    ),
+    mirror: resolveRandomizableValue(
+      defaults.mirror,
+      () => sampleOne(rng, RANDOM_NOISE_MIRROR_OPTIONS),
+      (value) => (RANDOM_NOISE_MIRROR_OPTIONS.includes(value) ? value : "none"),
+    ),
+    invert: resolveRandomizableValue(
+      defaults.invert,
+      () => rng() < 0.18,
+      (value) => !!value,
+    ),
   };
 }
 
@@ -268,8 +332,27 @@ function sampleOne<T>(rng: () => number, options: ReadonlyArray<T>): T {
   return options[index]!;
 }
 
+function sampleClosestBlockSize(value: number): number {
+  return RANDOM_NOISE_BLOCK_SIZE_OPTIONS.reduce((closest, current) =>
+    Math.abs(current - value) < Math.abs(closest - value) ? current : closest,
+  );
+}
+
+function resolveRandomizableValue<T>(
+  control: RandomizableValue<T>,
+  randomize: () => T,
+  sanitize: (value: T) => T,
+): T {
+  if (control.randomize) return randomize();
+  return sanitize(control.value);
+}
+
 function randomInt(rng: () => number, min: number, max: number): number {
   return min + Math.floor(rng() * (max - min + 1));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function createSeededRandom(seed: number): () => number {

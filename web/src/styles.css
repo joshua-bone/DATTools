@@ -1703,7 +1703,7 @@ button:disabled {
 }
 
 .generateDialogCard {
-  width: min(1120px, calc(100vw - 40px));
+  width: min(1380px, calc(100vw - 40px));
   max-height: calc(100vh - 40px);
 }
 
@@ -1748,11 +1748,77 @@ button:disabled {
   align-self: flex-end;
 }
 
+.generateWorkspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.generateWorkspace.withParameters {
+  grid-template-columns: 248px minmax(0, 1fr) 240px;
+}
+
+.generateSidebar {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(47, 70, 81, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  overflow: auto;
+}
+
+.generateCardsPane {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.generateSettingCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(47, 70, 81, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.generateParameterToggle,
+.generateBooleanField {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.generateSettingBody {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.generateRangeInput {
+  width: 100%;
+}
+
+.generateValueBadge {
+  min-width: 56px;
+  justify-content: center;
+}
+
 .generateGrid {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 148px));
+  grid-template-columns: repeat(auto-fill, minmax(144px, 144px));
   justify-content: start;
   gap: 8px;
   overflow: auto;
@@ -1762,7 +1828,7 @@ button:disabled {
 .generateCard {
   display: flex;
   flex-direction: column;
-  width: 148px;
+  width: 144px;
   min-width: 0;
   border: 1px solid rgba(47, 70, 81, 0.12);
   border-radius: 12px;
@@ -1831,28 +1897,25 @@ button:disabled {
 }
 
 .generateCardTitle {
-  font-size: 11px;
+  min-height: 36px;
+  padding: 6px 8px 2px;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1.2;
-}
-
-.generateCardSummary {
-  min-height: 32px;
-  color: var(--muted);
-  font-size: 10px;
   line-height: 1.25;
-}
-
-.generateCardSeed {
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.2;
 }
 
 .generateCardFooter {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
   padding: 0 6px 6px;
+}
+
+.generateCardImportButton {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 10px;
 }
 
 .generateStarButton {
@@ -1871,6 +1934,37 @@ button:disabled {
   border-color: rgba(175, 133, 40, 0.34);
   background: linear-gradient(180deg, rgba(255, 251, 236, 0.98), rgba(248, 242, 206, 0.98));
   color: #8a6a16;
+}
+
+.generateSidebarPreview {
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  border: 1px solid rgba(47, 70, 81, 0.1);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0)),
+    linear-gradient(135deg, rgba(221, 229, 234, 0.6), rgba(236, 240, 243, 0.9));
+}
+
+.generateDetailList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.generateDetailRow {
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(47, 70, 81, 0.08);
+  font-size: 12px;
+}
+
+.generateDetailEmpty {
+  line-height: 1.5;
+}
+
+.generateDetailImportButton {
+  margin-top: auto;
 }
 
 .generateDialogActions {
@@ -1949,6 +2043,17 @@ button:disabled {
   }
 }
 
+@media (max-width: 1320px) {
+  .generateWorkspace,
+  .generateWorkspace.withParameters {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .generateDetailSidebar {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 1380px) {
   .editorLayout {
     --left-panel-width: 220px;
@@ -1980,6 +2085,15 @@ button:disabled {
 
   .panelMetaStrip {
     margin-top: 6px;
+  }
+
+  .generateWorkspace,
+  .generateWorkspace.withParameters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .generateSidebar {
+    max-height: none;
   }
 }
 
