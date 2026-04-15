@@ -100,10 +100,22 @@ function WallsRecordCard({
       <div className="wallsCardPreview">
         <WallsMaskPreview wallKey={record.wallKey} />
       </div>
-      <div className="wallsCardControls">
+      <div className="wallsCardFooter">
         <button
           type="button"
-          className={`wallsMiniButton ${hidden ? "active" : ""}`}
+          className="secondaryButton wallsInlineButton wallsCountButton"
+          aria-label={`Show ${record.occurrenceCount} matching levels`}
+          title={setLabel}
+          onClick={(event) => {
+            stopEvent(event);
+            onOpenDetails(record.wallKey);
+          }}
+        >
+          {record.occurrenceCount}
+        </button>
+        <button
+          type="button"
+          className={`secondaryButton wallsInlineButton wallsHideButton ${hidden ? "active" : ""}`}
           aria-label={hidden ? "Unhide wall layout" : "Hide wall layout"}
           title={hidden ? "Unhide wall layout" : "Hide wall layout"}
           onClick={(event) => {
@@ -126,18 +138,6 @@ function WallsRecordCard({
           {starred ? "★" : "☆"}
         </button>
       </div>
-      <button
-        type="button"
-        className="wallsCountBadge"
-        aria-label={`Show ${record.occurrenceCount} matching levels`}
-        title={setLabel}
-        onClick={(event) => {
-          stopEvent(event);
-          onOpenDetails(record.wallKey);
-        }}
-      >
-        {record.occurrenceCount}
-      </button>
     </article>
   );
 }

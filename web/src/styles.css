@@ -1575,16 +1575,14 @@ button:disabled {
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
-  gap: 8px;
+  gap: 6px;
   overflow: auto;
-  padding: 2px;
+  padding: 1px;
 }
 
 .wallsCard {
-  position: relative;
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   border: 1px solid rgba(47, 70, 81, 0.12);
   border-radius: 12px;
@@ -1612,11 +1610,11 @@ button:disabled {
 }
 
 .wallsCardPreview {
-  position: absolute;
-  inset: 0;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
-  padding: 14px;
+  aspect-ratio: 1;
+  padding: 4px 4px 2px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0)),
     linear-gradient(135deg, rgba(221, 229, 234, 0.6), rgba(236, 240, 243, 0.9));
@@ -1649,26 +1647,22 @@ button:disabled {
   background: #4e4e4e;
 }
 
-.wallsCardControls {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  right: 8px;
+.wallsCardFooter {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: flex-start;
+  gap: 4px;
+  align-items: center;
+  padding: 0 4px 4px;
 }
 
 .wallsMiniButton {
-  min-width: 30px;
-  min-height: 28px;
-  padding: 0 8px;
+  min-width: 28px;
+  min-height: 24px;
+  padding: 0 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 2px 8px rgba(23, 34, 41, 0.08);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1;
 }
 
@@ -1679,22 +1673,25 @@ button:disabled {
 }
 
 .wallsStarButton {
-  width: 30px;
+  flex: 0 0 auto;
+  width: 28px;
   padding: 0;
-  font-size: 17px;
+  font-size: 16px;
 }
 
-.wallsCountBadge {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
+.wallsInlineButton {
   min-height: 24px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 2px 8px rgba(23, 34, 41, 0.08);
-  color: var(--muted);
-  font-size: 11px;
+  padding: 0 7px;
+  font-size: 10px;
+}
+
+.wallsCountButton {
+  flex: 0 0 auto;
+  min-width: 32px;
+}
+
+.wallsHideButton {
+  flex: 1 1 auto;
 }
 
 .wallsDialogActions {
