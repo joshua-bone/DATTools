@@ -2,7 +2,6 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type JSX,
   type SyntheticEvent,
@@ -20,9 +19,6 @@ import {
 const WALLS_BROWSER_CARD_COUNT = 18;
 const WALLS_PREVIEW_GRID_SIZE = 32;
 const WALLS_PREVIEW_CELL_SIZE = 4;
-const WALLS_PREVIEW_PIXEL_SIZE = WALLS_PREVIEW_GRID_SIZE * WALLS_PREVIEW_CELL_SIZE;
-const WALLS_PREVIEW_FLOOR_FILL = "#d8d8d8";
-const WALLS_PREVIEW_WALL_FILL = "#4e4e4e";
 
 type WallsBankLoadState = "idle" | "loading" | "ready" | "error";
 
@@ -53,40 +49,31 @@ function nextRandomSeed(): number {
   return Math.floor(Math.random() * 0x7fffffff);
 }
 
+function randomSeedFromClock(): number {
+  return Date.now() & 0x7fffffff;
+}
+
 function stopEvent(event: SyntheticEvent): void {
   event.stopPropagation();
 }
 
 function WallsMaskPreview({ wallKey }: Readonly<{ wallKey: string }>): JSX.Element {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const maskBytes = useMemo(() => wallMaskBytesFromKey(wallKey), [wallKey]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    canvas.width = WALLS_PREVIEW_PIXEL_SIZE;
-    canvas.height = WALLS_PREVIEW_PIXEL_SIZE;
-
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    context.fillStyle = WALLS_PREVIEW_FLOOR_FILL;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    context.fillStyle = WALLS_PREVIEW_WALL_FILL;
-    for (let index = 0; index < WALLS_PREVIEW_GRID_SIZE * WALLS_PREVIEW_GRID_SIZE; index++) {
+  const cells = useMemo(() => {
+    const maskBytes = wallMaskBytesFromKey(wallKey);
+    return Array.from({ length: WALLS_PREVIEW_GRID_SIZE * WALLS_PREVIEW_GRID_SIZE }, (_, index) => {
       const byteIndex = Math.floor(index / 8);
       const bitIndex = 7 - (index % 8);
-      if (((maskBytes[byteIndex] ?? 0) & (1 << bitIndex)) === 0) continue;
+      return ((maskBytes[byteIndex] ?? 0) & (1 << bitIndex)) !== 0;
+    });
+  }, [wallKey]);
 
-      const x = (index % WALLS_PREVIEW_GRID_SIZE) * WALLS_PREVIEW_CELL_SIZE;
-      const y = Math.floor(index / WALLS_PREVIEW_GRID_SIZE) * WALLS_PREVIEW_CELL_SIZE;
-      context.fillRect(x, y, WALLS_PREVIEW_CELL_SIZE, WALLS_PREVIEW_CELL_SIZE);
-    }
-  }, [maskBytes]);
-
-  return <canvas ref={canvasRef} className="wallsPreviewCanvas" aria-hidden="true" />;
+  return (
+    <div className="wallsPreviewGrid" aria-hidden="true">
+      {cells.map((isWall, index) => (
+        <span key={index} className={`wallsPreviewCell ${isWall ? "wall" : "floor"}`} />
+      ))}
+    </div>
+  );
 }
 
 function WallsRecordCard({
@@ -175,7 +162,7 @@ export function WallsBrowserDialog({
   const deferredQuery = useDeferredValue(query);
   const [starredOnly, setStarredOnly] = useState(false);
   const [includeHidden, setIncludeHidden] = useState(false);
-  const [randomSeed, setRandomSeed] = useState(1);
+  const [randomSeed, setRandomSeed] = useState(() => randomSeedFromClock());
   const [selectedWallKey, setSelectedWallKey] = useState<string | null>(null);
   const [detailsWallKey, setDetailsWallKey] = useState<string | null>(null);
 
