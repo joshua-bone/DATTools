@@ -134,11 +134,11 @@ These are good follow-up generators that are not primarily maze algorithms, but 
 
 ### Chaotic And Procedural Art
 
-- `Drunk Walk Painter`: multiple walkers leaving trails, rooms, and scribble-like structures.
-- `Particle Flow Field`: agents follow a vector field and carve streamlines.
-- `Stamp Brush Generator`: repeatedly place primitive stamps like squares, circles, crosses, and bars.
-- `Cutout Collage`: boolean add/subtract of random primitives for bold poster-like layouts.
-- `Glitch Blocks`: broken scanlines, offsets, striping, and corrupted-grid aesthetics.
+- Done: `Drunk Walk Painter`, with walker-count, steps, brush-size, room-chance, invert, and block-size controls.
+- Done: `Particle Flow Field`, with agent-count, steps, field-scale, stroke-width, invert, and block-size controls.
+- Done: `Stamp Brush Generator`, with stamp-count, stamp-size, stamp-type, scatter, invert, and block-size controls.
+- Done: `Cutout Collage`, with shape-count, min-size, max-size, subtract-chance, invert, and block-size controls.
+- Done: `Glitch Blocks`, with band-count, offset-range, stripe-chance, cell-size, invert, and block-size controls.
 
 ### Good Early Picks
 

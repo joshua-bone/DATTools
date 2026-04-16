@@ -12,18 +12,22 @@ import {
   createDefaultConcentricBoxesControlState,
   createDefaultCorridorGridControlState,
   createDefaultCourtyardGeneratorControlState,
+  createDefaultCutoutCollageControlState,
   createDefaultDiffusionLimitedAggregationControlState,
+  createDefaultDrunkWalkPainterControlState,
   createDefaultDomainWarpedNoiseControlState,
   createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
   createDefaultErosionDilationPipelineControlState,
   createDefaultGameOfLifeVariantsControlState,
+  createDefaultGlitchBlocksControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
   createDefaultKaleidoscopeControlState,
   createDefaultKruskalsControlState,
   createDefaultLSystemTurtleControlState,
   createDefaultLineInterferenceControlState,
+  createDefaultParticleFlowFieldControlState,
   createDefaultPerlinNoiseControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
@@ -33,6 +37,7 @@ import {
   createDefaultRoomScatterControlState,
   createDefaultRoseCurvesControlState,
   createDefaultSidewinderControlState,
+  createDefaultStampBrushGeneratorControlState,
   createDefaultStripePlaidGeneratorControlState,
   createDefaultThresholdedGradientNoiseControlState,
   createDefaultTileableMotifRepeaterControlState,
@@ -85,6 +90,11 @@ describe("generated layouts", () => {
           record.algorithm === "concentric-boxes" ||
           record.algorithm === "line-interference" ||
           record.algorithm === "circle-packing" ||
+          record.algorithm === "drunk-walk-painter" ||
+          record.algorithm === "particle-flow-field" ||
+          record.algorithm === "stamp-brush-generator" ||
+          record.algorithm === "cutout-collage" ||
+          record.algorithm === "glitch-blocks" ||
           record.algorithm === "game-of-life-variants" ||
           record.algorithm === "diffusion-limited-aggregation" ||
           record.algorithm === "reaction-diffusion-approximation" ||
@@ -1117,6 +1127,251 @@ describe("generated layouts", () => {
           record.params.minRadius === 2 &&
           record.params.maxRadius === 5 &&
           record.params.outline === true,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic drunk-walk-painter layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "drunk-walk-painter",
+      count: 6,
+      seed: 70607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "drunk-walk-painter",
+      count: 6,
+      seed: 70607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "drunk-walk-painter")).toBe(true);
+  });
+
+  it("keeps locked drunk-walk-painter parameters fixed across generated cards", () => {
+    const controls = createDefaultDrunkWalkPainterControlState();
+    const records = generateLayoutRecords({
+      algorithm: "drunk-walk-painter",
+      count: 6,
+      seed: 71607,
+      drunkWalkPainterControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: true },
+        walkerCount: { randomize: false, value: 4 },
+        steps: { randomize: false, value: 80 },
+        brushSize: { randomize: false, value: 3 },
+        roomChance: { randomize: false, value: 0.2 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "drunk-walk-painter" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === true &&
+          record.params.walkerCount === 4 &&
+          record.params.steps === 80 &&
+          record.params.brushSize === 3 &&
+          record.params.roomChance === 0.2,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic particle-flow-field layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "particle-flow-field",
+      count: 6,
+      seed: 72607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "particle-flow-field",
+      count: 6,
+      seed: 72607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "particle-flow-field")).toBe(true);
+  });
+
+  it("keeps locked particle-flow-field parameters fixed across generated cards", () => {
+    const controls = createDefaultParticleFlowFieldControlState();
+    const records = generateLayoutRecords({
+      algorithm: "particle-flow-field",
+      count: 6,
+      seed: 73607,
+      particleFlowFieldControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: false },
+        agentCount: { randomize: false, value: 24 },
+        steps: { randomize: false, value: 32 },
+        fieldScale: { randomize: false, value: 3 },
+        strokeWidth: { randomize: false, value: 2 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "particle-flow-field" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === false &&
+          record.params.agentCount === 24 &&
+          record.params.steps === 32 &&
+          record.params.fieldScale === 3 &&
+          record.params.strokeWidth === 2,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic stamp-brush-generator layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "stamp-brush-generator",
+      count: 6,
+      seed: 74607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "stamp-brush-generator",
+      count: 6,
+      seed: 74607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "stamp-brush-generator")).toBe(true);
+  });
+
+  it("keeps locked stamp-brush-generator parameters fixed across generated cards", () => {
+    const controls = createDefaultStampBrushGeneratorControlState();
+    const records = generateLayoutRecords({
+      algorithm: "stamp-brush-generator",
+      count: 6,
+      seed: 75607,
+      stampBrushGeneratorControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        invert: { randomize: false, value: true },
+        stampCount: { randomize: false, value: 28 },
+        stampSize: { randomize: false, value: 3 },
+        stampType: { randomize: false, value: "cross" },
+        scatter: { randomize: false, value: 4 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "stamp-brush-generator" &&
+          record.params.blockSize === 1 &&
+          record.params.invert === true &&
+          record.params.stampCount === 28 &&
+          record.params.stampSize === 3 &&
+          record.params.stampType === "cross" &&
+          record.params.scatter === 4,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic cutout-collage layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "cutout-collage",
+      count: 6,
+      seed: 76607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "cutout-collage",
+      count: 6,
+      seed: 76607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "cutout-collage")).toBe(true);
+  });
+
+  it("keeps locked cutout-collage parameters fixed across generated cards", () => {
+    const controls = createDefaultCutoutCollageControlState();
+    const records = generateLayoutRecords({
+      algorithm: "cutout-collage",
+      count: 6,
+      seed: 77607,
+      cutoutCollageControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: false },
+        shapeCount: { randomize: false, value: 10 },
+        minSize: { randomize: false, value: 2 },
+        maxSize: { randomize: false, value: 8 },
+        subtractChance: { randomize: false, value: 0.55 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "cutout-collage" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === false &&
+          record.params.shapeCount === 10 &&
+          record.params.minSize === 2 &&
+          record.params.maxSize === 8 &&
+          record.params.subtractChance === 0.55,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic glitch-blocks layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "glitch-blocks",
+      count: 6,
+      seed: 78607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "glitch-blocks",
+      count: 6,
+      seed: 78607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "glitch-blocks")).toBe(true);
+  });
+
+  it("keeps locked glitch-blocks parameters fixed across generated cards", () => {
+    const controls = createDefaultGlitchBlocksControlState();
+    const records = generateLayoutRecords({
+      algorithm: "glitch-blocks",
+      count: 6,
+      seed: 79607,
+      glitchBlocksControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        invert: { randomize: false, value: true },
+        bandCount: { randomize: false, value: 12 },
+        offsetRange: { randomize: false, value: 4 },
+        stripeChance: { randomize: false, value: 0.65 },
+        cellSize: { randomize: false, value: 3 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "glitch-blocks" &&
+          record.params.blockSize === 1 &&
+          record.params.invert === true &&
+          record.params.bandCount === 12 &&
+          record.params.offsetRange === 4 &&
+          record.params.stripeChance === 0.65 &&
+          record.params.cellSize === 3,
       ),
     ).toBe(true);
   });

@@ -44,6 +44,15 @@ import {
   CONCENTRIC_BOX_RING_COUNT_MIN,
   CONCENTRIC_BOX_SPACING_MAX,
   CONCENTRIC_BOX_SPACING_MIN,
+  CUTOUT_COLLAGE_MAX_SIZE_MAX,
+  CUTOUT_COLLAGE_MAX_SIZE_MIN,
+  CUTOUT_COLLAGE_MIN_SIZE_MAX,
+  CUTOUT_COLLAGE_MIN_SIZE_MIN,
+  CUTOUT_COLLAGE_SHAPE_COUNT_MAX,
+  CUTOUT_COLLAGE_SHAPE_COUNT_MIN,
+  CUTOUT_COLLAGE_SUBTRACT_CHANCE_MAX,
+  CUTOUT_COLLAGE_SUBTRACT_CHANCE_MIN,
+  CUTOUT_COLLAGE_SUBTRACT_CHANCE_STEP,
   CORRIDOR_GRID_COLUMN_SPACING_MAX,
   CORRIDOR_GRID_COLUMN_SPACING_MIN,
   CORRIDOR_GRID_GAP_CHANCE_MAX,
@@ -71,6 +80,15 @@ import {
   DUNGEON_ROOM_COUNT_MIN,
   DUNGEON_ROOM_SIZE_MAX,
   DUNGEON_ROOM_SIZE_MIN,
+  DRUNK_WALK_BRUSH_SIZE_MAX,
+  DRUNK_WALK_BRUSH_SIZE_MIN,
+  DRUNK_WALK_ROOM_CHANCE_MAX,
+  DRUNK_WALK_ROOM_CHANCE_MIN,
+  DRUNK_WALK_ROOM_CHANCE_STEP,
+  DRUNK_WALK_STEPS_MAX,
+  DRUNK_WALK_STEPS_MIN,
+  DRUNK_WALK_WALKER_COUNT_MAX,
+  DRUNK_WALK_WALKER_COUNT_MIN,
   DOMAIN_WARP_SCALE_MAX,
   DOMAIN_WARP_SCALE_MIN,
   DOMAIN_WARP_SCALE_STEP,
@@ -96,6 +114,15 @@ import {
   GENERATE_ALGORITHM_OPTIONS,
   GENERATED_LAYOUT_CARD_COUNT,
   GENERATED_LAYOUT_GRID_SIZE,
+  GLITCH_BLOCK_BAND_COUNT_MAX,
+  GLITCH_BLOCK_BAND_COUNT_MIN,
+  GLITCH_BLOCK_CELL_SIZE_MAX,
+  GLITCH_BLOCK_CELL_SIZE_MIN,
+  GLITCH_BLOCK_OFFSET_RANGE_MAX,
+  GLITCH_BLOCK_OFFSET_RANGE_MIN,
+  GLITCH_BLOCK_STRIPE_CHANCE_MAX,
+  GLITCH_BLOCK_STRIPE_CHANCE_MIN,
+  GLITCH_BLOCK_STRIPE_CHANCE_STEP,
   GROWING_TREE_BACKTRACK_CHANCE_MAX,
   GROWING_TREE_BACKTRACK_CHANCE_MIN,
   GROWING_TREE_BACKTRACK_CHANCE_STEP,
@@ -124,6 +151,15 @@ import {
   NOISE_TERRAIN_THRESHOLD_MAX,
   NOISE_TERRAIN_THRESHOLD_MIN,
   NOISE_TERRAIN_THRESHOLD_STEP,
+  PARTICLE_FLOW_AGENT_COUNT_MAX,
+  PARTICLE_FLOW_AGENT_COUNT_MIN,
+  PARTICLE_FLOW_FIELD_SCALE_MAX,
+  PARTICLE_FLOW_FIELD_SCALE_MIN,
+  PARTICLE_FLOW_FIELD_SCALE_STEP,
+  PARTICLE_FLOW_STEPS_MAX,
+  PARTICLE_FLOW_STEPS_MIN,
+  PARTICLE_FLOW_STROKE_WIDTH_MAX,
+  PARTICLE_FLOW_STROKE_WIDTH_MIN,
   RANDOM_NOISE_BLOCK_SIZE_OPTIONS,
   RANDOM_NOISE_DENSITY_MAX,
   RANDOM_NOISE_DENSITY_MIN,
@@ -179,18 +215,22 @@ import {
   createDefaultConcentricBoxesControlState,
   createDefaultCorridorGridControlState,
   createDefaultCourtyardGeneratorControlState,
+  createDefaultCutoutCollageControlState,
   createDefaultDiffusionLimitedAggregationControlState,
+  createDefaultDrunkWalkPainterControlState,
   createDefaultDomainWarpedNoiseControlState,
   createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
   createDefaultErosionDilationPipelineControlState,
   createDefaultGameOfLifeVariantsControlState,
+  createDefaultGlitchBlocksControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
   createDefaultKaleidoscopeControlState,
   createDefaultKruskalsControlState,
   createDefaultLSystemTurtleControlState,
   createDefaultLineInterferenceControlState,
+  createDefaultParticleFlowFieldControlState,
   createDefaultPerlinNoiseControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
@@ -200,6 +240,7 @@ import {
   createDefaultRoomScatterControlState,
   createDefaultRoseCurvesControlState,
   createDefaultSidewinderControlState,
+  createDefaultStampBrushGeneratorControlState,
   createDefaultStripePlaidGeneratorControlState,
   createDefaultThresholdedGradientNoiseControlState,
   createDefaultTileableMotifRepeaterControlState,
@@ -227,8 +268,10 @@ import {
   type ConcentricBoxesControlState,
   type CorridorGridControlState,
   type CourtyardGeneratorControlState,
+  type CutoutCollageControlState,
   type DiffusionLimitedAggregationControlState,
   type DlaSeedMode,
+  type DrunkWalkPainterControlState,
   type DomainWarpedNoiseControlState,
   type DungeonRoomsControlState,
   type EllersControlState,
@@ -237,6 +280,7 @@ import {
   type GameOfLifeVariantsControlState,
   type GeneratedLayoutRecord,
   type GenerateAlgorithmChoice,
+  type GlitchBlocksControlState,
   type GrowingTreeControlState,
   type HuntAndKillControlState,
   type HuntOrder,
@@ -250,6 +294,7 @@ import {
   LINE_INTERFERENCE_STROKE_WIDTH_MIN,
   type LineInterferenceControlState,
   type MazeBlockSize,
+  type ParticleFlowFieldControlState,
   type PerlinNoiseControlState,
   type PrimsControlState,
   type RadialSymmetryControlState,
@@ -279,6 +324,15 @@ import {
   type RoomScatterControlState,
   type RoseCurvesControlState,
   type SidewinderControlState,
+  type StampBrushGeneratorControlState,
+  type StampBrushType,
+  STAMP_BRUSH_COUNT_MAX,
+  STAMP_BRUSH_COUNT_MIN,
+  STAMP_BRUSH_SCATTER_MAX,
+  STAMP_BRUSH_SCATTER_MIN,
+  STAMP_BRUSH_SIZE_MAX,
+  STAMP_BRUSH_SIZE_MIN,
+  STAMP_BRUSH_TYPE_OPTIONS,
   STRIPE_PLAID_BAND_WIDTH_MAX,
   STRIPE_PLAID_BAND_WIDTH_MIN,
   STRIPE_PLAID_MODE_OPTIONS,
@@ -504,6 +558,46 @@ type CirclePackingSettingsPanelProps = Readonly<{
   ) => void;
 }>;
 
+type DrunkWalkPainterSettingsPanelProps = Readonly<{
+  controls: DrunkWalkPainterControlState;
+  onUpdate: <K extends keyof DrunkWalkPainterControlState>(
+    key: K,
+    nextValue: Partial<DrunkWalkPainterControlState[K]>,
+  ) => void;
+}>;
+
+type ParticleFlowFieldSettingsPanelProps = Readonly<{
+  controls: ParticleFlowFieldControlState;
+  onUpdate: <K extends keyof ParticleFlowFieldControlState>(
+    key: K,
+    nextValue: Partial<ParticleFlowFieldControlState[K]>,
+  ) => void;
+}>;
+
+type StampBrushGeneratorSettingsPanelProps = Readonly<{
+  controls: StampBrushGeneratorControlState;
+  onUpdate: <K extends keyof StampBrushGeneratorControlState>(
+    key: K,
+    nextValue: Partial<StampBrushGeneratorControlState[K]>,
+  ) => void;
+}>;
+
+type CutoutCollageSettingsPanelProps = Readonly<{
+  controls: CutoutCollageControlState;
+  onUpdate: <K extends keyof CutoutCollageControlState>(
+    key: K,
+    nextValue: Partial<CutoutCollageControlState[K]>,
+  ) => void;
+}>;
+
+type GlitchBlocksSettingsPanelProps = Readonly<{
+  controls: GlitchBlocksControlState;
+  onUpdate: <K extends keyof GlitchBlocksControlState>(
+    key: K,
+    nextValue: Partial<GlitchBlocksControlState[K]>,
+  ) => void;
+}>;
+
 type GameOfLifeVariantsSettingsPanelProps = Readonly<{
   controls: GameOfLifeVariantsControlState;
   onUpdate: <K extends keyof GameOfLifeVariantsControlState>(
@@ -726,6 +820,21 @@ function formatCheckerDiamondLatticeStyleLabel(style: CheckerDiamondLatticeStyle
       return "Diamond";
     case "lattice":
       return "Lattice";
+  }
+}
+
+function formatStampBrushTypeLabel(type: StampBrushType): string {
+  switch (type) {
+    case "mixed":
+      return "Mixed";
+    case "square":
+      return "Square";
+    case "circle":
+      return "Circle";
+    case "cross":
+      return "Cross";
+    case "bar":
+      return "Bar";
   }
 }
 
@@ -3585,6 +3694,644 @@ function CirclePackingSettingsPanel({
   );
 }
 
+function DrunkWalkPainterSettingsPanel({
+  controls,
+  onUpdate,
+}: DrunkWalkPainterSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Drunk Walk Painter</h3>
+      <div className="fieldHint">
+        Sends wandering painters through the grid, occasionally stamping chunky rooms into the
+        scribble.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Walker Count</span>
+          <ParameterToggle
+            checked={controls.walkerCount.randomize}
+            onChange={(checked) => onUpdate("walkerCount", { randomize: checked })}
+          />
+        </div>
+        {controls.walkerCount.randomize ? (
+          <div className="fieldHint">More walkers create layered trails and thicker tangles.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DRUNK_WALK_WALKER_COUNT_MIN}
+              max={DRUNK_WALK_WALKER_COUNT_MAX}
+              step={1}
+              value={controls.walkerCount.value}
+              onChange={(event) => onUpdate("walkerCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.walkerCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Steps</span>
+          <ParameterToggle
+            checked={controls.steps.randomize}
+            onChange={(checked) => onUpdate("steps", { randomize: checked })}
+          />
+        </div>
+        {controls.steps.randomize ? (
+          <div className="fieldHint">
+            Longer walks drift farther and overlap into bolder masses.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DRUNK_WALK_STEPS_MIN}
+              max={DRUNK_WALK_STEPS_MAX}
+              step={1}
+              value={controls.steps.value}
+              onChange={(event) => onUpdate("steps", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.steps.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Brush Size</span>
+          <ParameterToggle
+            checked={controls.brushSize.randomize}
+            onChange={(checked) => onUpdate("brushSize", { randomize: checked })}
+          />
+        </div>
+        {controls.brushSize.randomize ? (
+          <div className="fieldHint">A larger brush thickens paths and smears out corners.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DRUNK_WALK_BRUSH_SIZE_MIN}
+              max={DRUNK_WALK_BRUSH_SIZE_MAX}
+              step={1}
+              value={controls.brushSize.value}
+              onChange={(event) => onUpdate("brushSize", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.brushSize.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Room Chance</span>
+          <ParameterToggle
+            checked={controls.roomChance.randomize}
+            onChange={(checked) => onUpdate("roomChance", { randomize: checked })}
+          />
+        </div>
+        {controls.roomChance.randomize ? (
+          <div className="fieldHint">
+            Occasional room stamps break trails into chambered graffiti.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DRUNK_WALK_ROOM_CHANCE_MIN}
+              max={DRUNK_WALK_ROOM_CHANCE_MAX}
+              step={DRUNK_WALK_ROOM_CHANCE_STEP}
+              value={controls.roomChance.value}
+              onChange={(event) => onUpdate("roomChance", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.roomChance.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function ParticleFlowFieldSettingsPanel({
+  controls,
+  onUpdate,
+}: ParticleFlowFieldSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Particle Flow Field</h3>
+      <div className="fieldHint">
+        Releases agents into a seeded vector field and traces their streamlines into wall ribbons.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Agent Count</span>
+          <ParameterToggle
+            checked={controls.agentCount.randomize}
+            onChange={(checked) => onUpdate("agentCount", { randomize: checked })}
+          />
+        </div>
+        {controls.agentCount.randomize ? (
+          <div className="fieldHint">More agents produce denser braided currents.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={PARTICLE_FLOW_AGENT_COUNT_MIN}
+              max={PARTICLE_FLOW_AGENT_COUNT_MAX}
+              step={1}
+              value={controls.agentCount.value}
+              onChange={(event) => onUpdate("agentCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.agentCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Steps</span>
+          <ParameterToggle
+            checked={controls.steps.randomize}
+            onChange={(checked) => onUpdate("steps", { randomize: checked })}
+          />
+        </div>
+        {controls.steps.randomize ? (
+          <div className="fieldHint">Longer traces let each particle ride the field farther.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={PARTICLE_FLOW_STEPS_MIN}
+              max={PARTICLE_FLOW_STEPS_MAX}
+              step={1}
+              value={controls.steps.value}
+              onChange={(event) => onUpdate("steps", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.steps.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Field Scale</span>
+          <ParameterToggle
+            checked={controls.fieldScale.randomize}
+            onChange={(checked) => onUpdate("fieldScale", { randomize: checked })}
+          />
+        </div>
+        {controls.fieldScale.randomize ? (
+          <div className="fieldHint">
+            Higher scale makes the flow twist and change direction faster.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={PARTICLE_FLOW_FIELD_SCALE_MIN}
+              max={PARTICLE_FLOW_FIELD_SCALE_MAX}
+              step={PARTICLE_FLOW_FIELD_SCALE_STEP}
+              value={controls.fieldScale.value}
+              onChange={(event) => onUpdate("fieldScale", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {formatCompactNumber(controls.fieldScale.value)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Stroke Width</span>
+          <ParameterToggle
+            checked={controls.strokeWidth.randomize}
+            onChange={(checked) => onUpdate("strokeWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.strokeWidth.randomize ? (
+          <div className="fieldHint">Wider strokes turn the field into bolder flowing bands.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={PARTICLE_FLOW_STROKE_WIDTH_MIN}
+              max={PARTICLE_FLOW_STROKE_WIDTH_MAX}
+              step={1}
+              value={controls.strokeWidth.value}
+              onChange={(event) => onUpdate("strokeWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.strokeWidth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function StampBrushGeneratorSettingsPanel({
+  controls,
+  onUpdate,
+}: StampBrushGeneratorSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Stamp Brush Generator</h3>
+      <div className="fieldHint">
+        Repeats simple stamp primitives across the source grid for poster-like and glyph-like
+        compositions.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Stamp Type</span>
+          <ParameterToggle
+            checked={controls.stampType.randomize}
+            onChange={(checked) => onUpdate("stampType", { randomize: checked })}
+          />
+        </div>
+        {controls.stampType.randomize ? (
+          <div className="fieldHint">Can mix squares, circles, crosses, and bars.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.stampType.value}
+            onChange={(event) =>
+              onUpdate("stampType", { value: event.target.value as StampBrushType })
+            }
+          >
+            {STAMP_BRUSH_TYPE_OPTIONS.map((type) => (
+              <option key={type} value={type}>
+                {formatStampBrushTypeLabel(type)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Stamp Count</span>
+          <ParameterToggle
+            checked={controls.stampCount.randomize}
+            onChange={(checked) => onUpdate("stampCount", { randomize: checked })}
+          />
+        </div>
+        {controls.stampCount.randomize ? (
+          <div className="fieldHint">More stamps make the layout feel busier and more layered.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={STAMP_BRUSH_COUNT_MIN}
+              max={STAMP_BRUSH_COUNT_MAX}
+              step={1}
+              value={controls.stampCount.value}
+              onChange={(event) => onUpdate("stampCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.stampCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Stamp Size</span>
+          <ParameterToggle
+            checked={controls.stampSize.randomize}
+            onChange={(checked) => onUpdate("stampSize", { randomize: checked })}
+          />
+        </div>
+        {controls.stampSize.randomize ? (
+          <div className="fieldHint">Larger primitives read more like symbols than texture.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={STAMP_BRUSH_SIZE_MIN}
+              max={STAMP_BRUSH_SIZE_MAX}
+              step={1}
+              value={controls.stampSize.value}
+              onChange={(event) => onUpdate("stampSize", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.stampSize.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Scatter</span>
+          <ParameterToggle
+            checked={controls.scatter.randomize}
+            onChange={(checked) => onUpdate("scatter", { randomize: checked })}
+          />
+        </div>
+        {controls.scatter.randomize ? (
+          <div className="fieldHint">
+            Scatter loosens the lattice and makes the stamping less orderly.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={STAMP_BRUSH_SCATTER_MIN}
+              max={STAMP_BRUSH_SCATTER_MAX}
+              step={1}
+              value={controls.scatter.value}
+              onChange={(event) => onUpdate("scatter", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.scatter.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function CutoutCollageSettingsPanel({
+  controls,
+  onUpdate,
+}: CutoutCollageSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Cutout Collage</h3>
+      <div className="fieldHint">
+        Adds and subtracts bold primitives to build chunky silhouettes and hard-edged holes.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Shape Count</span>
+          <ParameterToggle
+            checked={controls.shapeCount.randomize}
+            onChange={(checked) => onUpdate("shapeCount", { randomize: checked })}
+          />
+        </div>
+        {controls.shapeCount.randomize ? (
+          <div className="fieldHint">More shapes create richer overlaps and cutout layering.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CUTOUT_COLLAGE_SHAPE_COUNT_MIN}
+              max={CUTOUT_COLLAGE_SHAPE_COUNT_MAX}
+              step={1}
+              value={controls.shapeCount.value}
+              onChange={(event) => onUpdate("shapeCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.shapeCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Min Size</span>
+          <ParameterToggle
+            checked={controls.minSize.randomize}
+            onChange={(checked) => onUpdate("minSize", { randomize: checked })}
+          />
+        </div>
+        {controls.minSize.randomize ? (
+          <div className="fieldHint">Controls the smallest primitive that can appear.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CUTOUT_COLLAGE_MIN_SIZE_MIN}
+              max={CUTOUT_COLLAGE_MIN_SIZE_MAX}
+              step={1}
+              value={controls.minSize.value}
+              onChange={(event) => onUpdate("minSize", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.minSize.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Max Size</span>
+          <ParameterToggle
+            checked={controls.maxSize.randomize}
+            onChange={(checked) => onUpdate("maxSize", { randomize: checked })}
+          />
+        </div>
+        {controls.maxSize.randomize ? (
+          <div className="fieldHint">
+            Larger maximums let a few shapes dominate the composition.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CUTOUT_COLLAGE_MAX_SIZE_MIN}
+              max={CUTOUT_COLLAGE_MAX_SIZE_MAX}
+              step={1}
+              value={controls.maxSize.value}
+              onChange={(event) => onUpdate("maxSize", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.maxSize.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Subtract Chance</span>
+          <ParameterToggle
+            checked={controls.subtractChance.randomize}
+            onChange={(checked) => onUpdate("subtractChance", { randomize: checked })}
+          />
+        </div>
+        {controls.subtractChance.randomize ? (
+          <div className="fieldHint">
+            Higher subtraction punches more holes through the collage.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CUTOUT_COLLAGE_SUBTRACT_CHANCE_MIN}
+              max={CUTOUT_COLLAGE_SUBTRACT_CHANCE_MAX}
+              step={CUTOUT_COLLAGE_SUBTRACT_CHANCE_STEP}
+              value={controls.subtractChance.value}
+              onChange={(event) =>
+                onUpdate("subtractChance", { value: Number(event.target.value) })
+              }
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.subtractChance.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function GlitchBlocksSettingsPanel({
+  controls,
+  onUpdate,
+}: GlitchBlocksSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Glitch Blocks</h3>
+      <div className="fieldHint">
+        Breaks scanlines and bands into offset fragments for corrupted-grid and video-noise layouts.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Band Count</span>
+          <ParameterToggle
+            checked={controls.bandCount.randomize}
+            onChange={(checked) => onUpdate("bandCount", { randomize: checked })}
+          />
+        </div>
+        {controls.bandCount.randomize ? (
+          <div className="fieldHint">
+            More bands add more broken scanlines and interference bars.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={GLITCH_BLOCK_BAND_COUNT_MIN}
+              max={GLITCH_BLOCK_BAND_COUNT_MAX}
+              step={1}
+              value={controls.bandCount.value}
+              onChange={(event) => onUpdate("bandCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.bandCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Offset Range</span>
+          <ParameterToggle
+            checked={controls.offsetRange.randomize}
+            onChange={(checked) => onUpdate("offsetRange", { randomize: checked })}
+          />
+        </div>
+        {controls.offsetRange.randomize ? (
+          <div className="fieldHint">
+            Wider offsets make the fragments look more torn and unstable.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={GLITCH_BLOCK_OFFSET_RANGE_MIN}
+              max={GLITCH_BLOCK_OFFSET_RANGE_MAX}
+              step={1}
+              value={controls.offsetRange.value}
+              onChange={(event) => onUpdate("offsetRange", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.offsetRange.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Stripe Chance</span>
+          <ParameterToggle
+            checked={controls.stripeChance.randomize}
+            onChange={(checked) => onUpdate("stripeChance", { randomize: checked })}
+          />
+        </div>
+        {controls.stripeChance.randomize ? (
+          <div className="fieldHint">
+            Higher stripe chance fills more of each band with fragments.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={GLITCH_BLOCK_STRIPE_CHANCE_MIN}
+              max={GLITCH_BLOCK_STRIPE_CHANCE_MAX}
+              step={GLITCH_BLOCK_STRIPE_CHANCE_STEP}
+              value={controls.stripeChance.value}
+              onChange={(event) => onUpdate("stripeChance", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.stripeChance.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Cell Size</span>
+          <ParameterToggle
+            checked={controls.cellSize.randomize}
+            onChange={(checked) => onUpdate("cellSize", { randomize: checked })}
+          />
+        </div>
+        {controls.cellSize.randomize ? (
+          <div className="fieldHint">
+            Small cells look noisy; large cells look like broken macroblocks.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={GLITCH_BLOCK_CELL_SIZE_MIN}
+              max={GLITCH_BLOCK_CELL_SIZE_MAX}
+              step={1}
+              value={controls.cellSize.value}
+              onChange={(event) => onUpdate("cellSize", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.cellSize.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
 function GameOfLifeVariantsSettingsPanel({
   controls,
   onUpdate,
@@ -6300,6 +7047,161 @@ function GeneratedRecordDetails({
             <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
+      ) : record.algorithm === "drunk-walk-painter" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Walker Count</span>
+            <div>{record.params.walkerCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Steps</span>
+            <div>{record.params.steps}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Brush Size</span>
+            <div>{record.params.brushSize}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Room Chance</span>
+            <div>{Math.round(record.params.roomChance * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "particle-flow-field" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Agent Count</span>
+            <div>{record.params.agentCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Steps</span>
+            <div>{record.params.steps}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Field Scale</span>
+            <div>{formatCompactNumber(record.params.fieldScale)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Stroke Width</span>
+            <div>{record.params.strokeWidth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "stamp-brush-generator" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Stamp Type</span>
+            <div>{formatStampBrushTypeLabel(record.params.stampType)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Stamp Count</span>
+            <div>{record.params.stampCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Stamp Size</span>
+            <div>{record.params.stampSize}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Scatter</span>
+            <div>{record.params.scatter}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "cutout-collage" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Shape Count</span>
+            <div>{record.params.shapeCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Min Size</span>
+            <div>{record.params.minSize}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Max Size</span>
+            <div>{record.params.maxSize}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Subtract Chance</span>
+            <div>{Math.round(record.params.subtractChance * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "glitch-blocks" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Band Count</span>
+            <div>{record.params.bandCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Offset Range</span>
+            <div>{record.params.offsetRange}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Stripe Chance</span>
+            <div>{Math.round(record.params.stripeChance * 100)}%</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Cell Size</span>
+            <div>{record.params.cellSize}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
       ) : record.algorithm === "backtracking-generator" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -6619,6 +7521,18 @@ export function GenerateBrowserDialog({
   const [circlePackingControls, setCirclePackingControls] = useState<CirclePackingControlState>(
     () => createDefaultCirclePackingControlState(),
   );
+  const [drunkWalkPainterControls, setDrunkWalkPainterControls] =
+    useState<DrunkWalkPainterControlState>(() => createDefaultDrunkWalkPainterControlState());
+  const [particleFlowFieldControls, setParticleFlowFieldControls] =
+    useState<ParticleFlowFieldControlState>(() => createDefaultParticleFlowFieldControlState());
+  const [stampBrushGeneratorControls, setStampBrushGeneratorControls] =
+    useState<StampBrushGeneratorControlState>(() => createDefaultStampBrushGeneratorControlState());
+  const [cutoutCollageControls, setCutoutCollageControls] = useState<CutoutCollageControlState>(
+    () => createDefaultCutoutCollageControlState(),
+  );
+  const [glitchBlocksControls, setGlitchBlocksControls] = useState<GlitchBlocksControlState>(() =>
+    createDefaultGlitchBlocksControlState(),
+  );
   const [gameOfLifeVariantsControls, setGameOfLifeVariantsControls] =
     useState<GameOfLifeVariantsControlState>(() => createDefaultGameOfLifeVariantsControlState());
   const [diffusionLimitedAggregationControls, setDiffusionLimitedAggregationControls] =
@@ -6728,6 +7642,16 @@ export function GenerateBrowserDialog({
               selectedAlgorithm === "line-interference" ? lineInterferenceControls : null,
             circlePackingControls:
               selectedAlgorithm === "circle-packing" ? circlePackingControls : null,
+            drunkWalkPainterControls:
+              selectedAlgorithm === "drunk-walk-painter" ? drunkWalkPainterControls : null,
+            particleFlowFieldControls:
+              selectedAlgorithm === "particle-flow-field" ? particleFlowFieldControls : null,
+            stampBrushGeneratorControls:
+              selectedAlgorithm === "stamp-brush-generator" ? stampBrushGeneratorControls : null,
+            cutoutCollageControls:
+              selectedAlgorithm === "cutout-collage" ? cutoutCollageControls : null,
+            glitchBlocksControls:
+              selectedAlgorithm === "glitch-blocks" ? glitchBlocksControls : null,
             gameOfLifeVariantsControls:
               selectedAlgorithm === "game-of-life-variants" ? gameOfLifeVariantsControls : null,
             diffusionLimitedAggregationControls:
@@ -6776,18 +7700,22 @@ export function GenerateBrowserDialog({
       checkerDiamondLatticeControls,
       circlePackingControls,
       concentricBoxesControls,
+      cutoutCollageControls,
       diffusionLimitedAggregationControls,
+      drunkWalkPainterControls,
       domainWarpedNoiseControls,
       dungeonRoomsControls,
       erosionDilationPipelineControls,
       ellersControls,
       gameOfLifeVariantsControls,
+      glitchBlocksControls,
       growingTreeControls,
       huntAndKillControls,
       kaleidoscopeControls,
       kruskalsControls,
       lSystemTurtleControls,
       lineInterferenceControls,
+      particleFlowFieldControls,
       perlinNoiseControls,
       primsControls,
       randomNoiseControls,
@@ -6799,6 +7727,7 @@ export function GenerateBrowserDialog({
       roseCurvesControls,
       selectedAlgorithm,
       sidewinderControls,
+      stampBrushGeneratorControls,
       stripePlaidGeneratorControls,
       starredKeys,
       starredOnly,
@@ -7091,6 +8020,71 @@ export function GenerateBrowserDialog({
     nextValue: Partial<CirclePackingControlState[K]>,
   ): void {
     setCirclePackingControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateDrunkWalkPainterControl<K extends keyof DrunkWalkPainterControlState>(
+    key: K,
+    nextValue: Partial<DrunkWalkPainterControlState[K]>,
+  ): void {
+    setDrunkWalkPainterControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateParticleFlowFieldControl<K extends keyof ParticleFlowFieldControlState>(
+    key: K,
+    nextValue: Partial<ParticleFlowFieldControlState[K]>,
+  ): void {
+    setParticleFlowFieldControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateStampBrushGeneratorControl<K extends keyof StampBrushGeneratorControlState>(
+    key: K,
+    nextValue: Partial<StampBrushGeneratorControlState[K]>,
+  ): void {
+    setStampBrushGeneratorControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateCutoutCollageControl<K extends keyof CutoutCollageControlState>(
+    key: K,
+    nextValue: Partial<CutoutCollageControlState[K]>,
+  ): void {
+    setCutoutCollageControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateGlitchBlocksControl<K extends keyof GlitchBlocksControlState>(
+    key: K,
+    nextValue: Partial<GlitchBlocksControlState[K]>,
+  ): void {
+    setGlitchBlocksControls((current) => ({
       ...current,
       [key]: {
         ...current[key],
@@ -7576,6 +8570,61 @@ export function GenerateBrowserDialog({
         maxRadius: { randomize: false, value: record.params.maxRadius },
         outline: { randomize: false, value: record.params.outline },
       });
+    } else if (record.algorithm === "drunk-walk-painter") {
+      setSelectedAlgorithm("drunk-walk-painter");
+      setDrunkWalkPainterControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        walkerCount: { randomize: false, value: record.params.walkerCount },
+        steps: { randomize: false, value: record.params.steps },
+        brushSize: { randomize: false, value: record.params.brushSize },
+        roomChance: { randomize: false, value: record.params.roomChance },
+      });
+    } else if (record.algorithm === "particle-flow-field") {
+      setSelectedAlgorithm("particle-flow-field");
+      setParticleFlowFieldControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        agentCount: { randomize: false, value: record.params.agentCount },
+        steps: { randomize: false, value: record.params.steps },
+        fieldScale: { randomize: false, value: record.params.fieldScale },
+        strokeWidth: { randomize: false, value: record.params.strokeWidth },
+      });
+    } else if (record.algorithm === "stamp-brush-generator") {
+      setSelectedAlgorithm("stamp-brush-generator");
+      setStampBrushGeneratorControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        stampCount: { randomize: false, value: record.params.stampCount },
+        stampSize: { randomize: false, value: record.params.stampSize },
+        stampType: { randomize: false, value: record.params.stampType },
+        scatter: { randomize: false, value: record.params.scatter },
+      });
+    } else if (record.algorithm === "cutout-collage") {
+      setSelectedAlgorithm("cutout-collage");
+      setCutoutCollageControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        shapeCount: { randomize: false, value: record.params.shapeCount },
+        minSize: { randomize: false, value: record.params.minSize },
+        maxSize: { randomize: false, value: record.params.maxSize },
+        subtractChance: { randomize: false, value: record.params.subtractChance },
+      });
+    } else if (record.algorithm === "glitch-blocks") {
+      setSelectedAlgorithm("glitch-blocks");
+      setGlitchBlocksControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        bandCount: { randomize: false, value: record.params.bandCount },
+        offsetRange: { randomize: false, value: record.params.offsetRange },
+        stripeChance: { randomize: false, value: record.params.stripeChance },
+        cellSize: { randomize: false, value: record.params.cellSize },
+      });
     } else if (record.algorithm === "game-of-life-variants") {
       setSelectedAlgorithm("game-of-life-variants");
       setGameOfLifeVariantsControls({
@@ -7907,6 +8956,31 @@ export function GenerateBrowserDialog({
                   <CirclePackingSettingsPanel
                     controls={circlePackingControls}
                     onUpdate={updateCirclePackingControl}
+                  />
+                ) : selectedAlgorithm === "drunk-walk-painter" ? (
+                  <DrunkWalkPainterSettingsPanel
+                    controls={drunkWalkPainterControls}
+                    onUpdate={updateDrunkWalkPainterControl}
+                  />
+                ) : selectedAlgorithm === "particle-flow-field" ? (
+                  <ParticleFlowFieldSettingsPanel
+                    controls={particleFlowFieldControls}
+                    onUpdate={updateParticleFlowFieldControl}
+                  />
+                ) : selectedAlgorithm === "stamp-brush-generator" ? (
+                  <StampBrushGeneratorSettingsPanel
+                    controls={stampBrushGeneratorControls}
+                    onUpdate={updateStampBrushGeneratorControl}
+                  />
+                ) : selectedAlgorithm === "cutout-collage" ? (
+                  <CutoutCollageSettingsPanel
+                    controls={cutoutCollageControls}
+                    onUpdate={updateCutoutCollageControl}
+                  />
+                ) : selectedAlgorithm === "glitch-blocks" ? (
+                  <GlitchBlocksSettingsPanel
+                    controls={glitchBlocksControls}
+                    onUpdate={updateGlitchBlocksControl}
                   />
                 ) : selectedAlgorithm === "game-of-life-variants" ? (
                   <GameOfLifeVariantsSettingsPanel

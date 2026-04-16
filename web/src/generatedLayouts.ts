@@ -151,6 +151,48 @@ export const CIRCLE_PACKING_MIN_RADIUS_MIN = 1;
 export const CIRCLE_PACKING_MIN_RADIUS_MAX = 4;
 export const CIRCLE_PACKING_MAX_RADIUS_MIN = 2;
 export const CIRCLE_PACKING_MAX_RADIUS_MAX = 8;
+export const DRUNK_WALK_WALKER_COUNT_MIN = 1;
+export const DRUNK_WALK_WALKER_COUNT_MAX = 6;
+export const DRUNK_WALK_STEPS_MIN = 24;
+export const DRUNK_WALK_STEPS_MAX = 160;
+export const DRUNK_WALK_BRUSH_SIZE_MIN = 1;
+export const DRUNK_WALK_BRUSH_SIZE_MAX = 4;
+export const DRUNK_WALK_ROOM_CHANCE_MIN = 0;
+export const DRUNK_WALK_ROOM_CHANCE_MAX = 0.35;
+export const DRUNK_WALK_ROOM_CHANCE_STEP = 0.05;
+export const PARTICLE_FLOW_AGENT_COUNT_MIN = 8;
+export const PARTICLE_FLOW_AGENT_COUNT_MAX = 36;
+export const PARTICLE_FLOW_STEPS_MIN = 12;
+export const PARTICLE_FLOW_STEPS_MAX = 48;
+export const PARTICLE_FLOW_FIELD_SCALE_MIN = 0.75;
+export const PARTICLE_FLOW_FIELD_SCALE_MAX = 5;
+export const PARTICLE_FLOW_FIELD_SCALE_STEP = 0.25;
+export const PARTICLE_FLOW_STROKE_WIDTH_MIN = 1;
+export const PARTICLE_FLOW_STROKE_WIDTH_MAX = 3;
+export const STAMP_BRUSH_COUNT_MIN = 8;
+export const STAMP_BRUSH_COUNT_MAX = 48;
+export const STAMP_BRUSH_SIZE_MIN = 1;
+export const STAMP_BRUSH_SIZE_MAX = 5;
+export const STAMP_BRUSH_SCATTER_MIN = 0;
+export const STAMP_BRUSH_SCATTER_MAX = 6;
+export const CUTOUT_COLLAGE_SHAPE_COUNT_MIN = 4;
+export const CUTOUT_COLLAGE_SHAPE_COUNT_MAX = 18;
+export const CUTOUT_COLLAGE_MIN_SIZE_MIN = 1;
+export const CUTOUT_COLLAGE_MIN_SIZE_MAX = 4;
+export const CUTOUT_COLLAGE_MAX_SIZE_MIN = 3;
+export const CUTOUT_COLLAGE_MAX_SIZE_MAX = 10;
+export const CUTOUT_COLLAGE_SUBTRACT_CHANCE_MIN = 0.15;
+export const CUTOUT_COLLAGE_SUBTRACT_CHANCE_MAX = 0.75;
+export const CUTOUT_COLLAGE_SUBTRACT_CHANCE_STEP = 0.05;
+export const GLITCH_BLOCK_BAND_COUNT_MIN = 4;
+export const GLITCH_BLOCK_BAND_COUNT_MAX = 18;
+export const GLITCH_BLOCK_OFFSET_RANGE_MIN = 0;
+export const GLITCH_BLOCK_OFFSET_RANGE_MAX = 8;
+export const GLITCH_BLOCK_STRIPE_CHANCE_MIN = 0.2;
+export const GLITCH_BLOCK_STRIPE_CHANCE_MAX = 0.9;
+export const GLITCH_BLOCK_STRIPE_CHANCE_STEP = 0.05;
+export const GLITCH_BLOCK_CELL_SIZE_MIN = 1;
+export const GLITCH_BLOCK_CELL_SIZE_MAX = 5;
 
 export const MAZE_SEED_MIN = 1;
 export const MAZE_SEED_MAX = 0x7ffffffe;
@@ -238,6 +280,11 @@ export type GenerateAlgorithmId =
   | "concentric-boxes"
   | "line-interference"
   | "circle-packing"
+  | "drunk-walk-painter"
+  | "particle-flow-field"
+  | "stamp-brush-generator"
+  | "cutout-collage"
+  | "glitch-blocks"
   | "game-of-life-variants"
   | "diffusion-limited-aggregation"
   | "reaction-diffusion-approximation"
@@ -270,6 +317,7 @@ export type StripePlaidMode = "horizontal" | "vertical" | "plaid";
 export type CheckerDiamondLatticeStyle = "checker" | "diamond" | "lattice";
 export type GameOfLifeVariant = "life" | "highlife" | "maze";
 export type DlaSeedMode = "point" | "line" | "cross";
+export type StampBrushType = "mixed" | "square" | "circle" | "cross" | "bar";
 
 export type RandomizableValue<T> = Readonly<{
   randomize: boolean;
@@ -338,6 +386,12 @@ type ArchitectureBaseParameters = Readonly<{
 }>;
 
 type PatternedGeometricBaseParameters = Readonly<{
+  seed: number;
+  blockSize: number;
+  invert: boolean;
+}>;
+
+type ChaoticProceduralBaseParameters = Readonly<{
   seed: number;
   blockSize: number;
   invert: boolean;
@@ -466,6 +520,46 @@ export type CirclePackingParameters = PatternedGeometricBaseParameters &
     minRadius: number;
     maxRadius: number;
     outline: boolean;
+  }>;
+
+export type DrunkWalkPainterParameters = ChaoticProceduralBaseParameters &
+  Readonly<{
+    walkerCount: number;
+    steps: number;
+    brushSize: number;
+    roomChance: number;
+  }>;
+
+export type ParticleFlowFieldParameters = ChaoticProceduralBaseParameters &
+  Readonly<{
+    agentCount: number;
+    steps: number;
+    fieldScale: number;
+    strokeWidth: number;
+  }>;
+
+export type StampBrushGeneratorParameters = ChaoticProceduralBaseParameters &
+  Readonly<{
+    stampCount: number;
+    stampSize: number;
+    stampType: StampBrushType;
+    scatter: number;
+  }>;
+
+export type CutoutCollageParameters = ChaoticProceduralBaseParameters &
+  Readonly<{
+    shapeCount: number;
+    minSize: number;
+    maxSize: number;
+    subtractChance: number;
+  }>;
+
+export type GlitchBlocksParameters = ChaoticProceduralBaseParameters &
+  Readonly<{
+    bandCount: number;
+    offsetRange: number;
+    stripeChance: number;
+    cellSize: number;
   }>;
 
 export type GameOfLifeVariantsParameters = GrowthBaseParameters &
@@ -644,6 +738,12 @@ type PatternedGeometricBaseControlState = Readonly<{
   invert: RandomizableValue<boolean>;
 }>;
 
+type ChaoticProceduralBaseControlState = Readonly<{
+  seed: RandomizableValue<number>;
+  blockSize: RandomizableValue<number>;
+  invert: RandomizableValue<boolean>;
+}>;
+
 type GrowthBaseControlState = Readonly<{
   seed: RandomizableValue<number>;
   blockSize: RandomizableValue<number>;
@@ -769,6 +869,46 @@ export type CirclePackingControlState = PatternedGeometricBaseControlState &
     outline: RandomizableValue<boolean>;
   }>;
 
+export type DrunkWalkPainterControlState = ChaoticProceduralBaseControlState &
+  Readonly<{
+    walkerCount: RandomizableValue<number>;
+    steps: RandomizableValue<number>;
+    brushSize: RandomizableValue<number>;
+    roomChance: RandomizableValue<number>;
+  }>;
+
+export type ParticleFlowFieldControlState = ChaoticProceduralBaseControlState &
+  Readonly<{
+    agentCount: RandomizableValue<number>;
+    steps: RandomizableValue<number>;
+    fieldScale: RandomizableValue<number>;
+    strokeWidth: RandomizableValue<number>;
+  }>;
+
+export type StampBrushGeneratorControlState = ChaoticProceduralBaseControlState &
+  Readonly<{
+    stampCount: RandomizableValue<number>;
+    stampSize: RandomizableValue<number>;
+    stampType: RandomizableValue<StampBrushType>;
+    scatter: RandomizableValue<number>;
+  }>;
+
+export type CutoutCollageControlState = ChaoticProceduralBaseControlState &
+  Readonly<{
+    shapeCount: RandomizableValue<number>;
+    minSize: RandomizableValue<number>;
+    maxSize: RandomizableValue<number>;
+    subtractChance: RandomizableValue<number>;
+  }>;
+
+export type GlitchBlocksControlState = ChaoticProceduralBaseControlState &
+  Readonly<{
+    bandCount: RandomizableValue<number>;
+    offsetRange: RandomizableValue<number>;
+    stripeChance: RandomizableValue<number>;
+    cellSize: RandomizableValue<number>;
+  }>;
+
 export type GameOfLifeVariantsControlState = GrowthBaseControlState &
   Readonly<{
     density: RandomizableValue<number>;
@@ -890,6 +1030,11 @@ type BaseGeneratedLayoutRecord<
     | ConcentricBoxesParameters
     | LineInterferenceParameters
     | CirclePackingParameters
+    | DrunkWalkPainterParameters
+    | ParticleFlowFieldParameters
+    | StampBrushGeneratorParameters
+    | CutoutCollageParameters
+    | GlitchBlocksParameters
     | GameOfLifeVariantsParameters
     | DiffusionLimitedAggregationParameters
     | ReactionDiffusionApproximationParameters
@@ -1024,6 +1169,31 @@ export type CirclePackingGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   CirclePackingParameters
 >;
 
+export type DrunkWalkPainterGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "drunk-walk-painter",
+  DrunkWalkPainterParameters
+>;
+
+export type ParticleFlowFieldGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "particle-flow-field",
+  ParticleFlowFieldParameters
+>;
+
+export type StampBrushGeneratorGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "stamp-brush-generator",
+  StampBrushGeneratorParameters
+>;
+
+export type CutoutCollageGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "cutout-collage",
+  CutoutCollageParameters
+>;
+
+export type GlitchBlocksGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "glitch-blocks",
+  GlitchBlocksParameters
+>;
+
 export type GameOfLifeVariantsGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "game-of-life-variants",
   GameOfLifeVariantsParameters
@@ -1127,6 +1297,11 @@ export type GeneratedLayoutRecord =
   | ConcentricBoxesGeneratedLayoutRecord
   | LineInterferenceGeneratedLayoutRecord
   | CirclePackingGeneratedLayoutRecord
+  | DrunkWalkPainterGeneratedLayoutRecord
+  | ParticleFlowFieldGeneratedLayoutRecord
+  | StampBrushGeneratorGeneratedLayoutRecord
+  | CutoutCollageGeneratedLayoutRecord
+  | GlitchBlocksGeneratedLayoutRecord
   | GameOfLifeVariantsGeneratedLayoutRecord
   | DiffusionLimitedAggregationGeneratedLayoutRecord
   | ReactionDiffusionApproximationGeneratedLayoutRecord
@@ -1173,6 +1348,11 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "concentric-boxes", label: "Concentric Boxes" },
   { value: "line-interference", label: "Line Interference" },
   { value: "circle-packing", label: "Circle Packing" },
+  { value: "drunk-walk-painter", label: "Drunk Walk Painter" },
+  { value: "particle-flow-field", label: "Particle Flow Field" },
+  { value: "stamp-brush-generator", label: "Stamp Brush Generator" },
+  { value: "cutout-collage", label: "Cutout Collage" },
+  { value: "glitch-blocks", label: "Glitch Blocks" },
   { value: "game-of-life-variants", label: "Game of Life Variants" },
   { value: "diffusion-limited-aggregation", label: "Diffusion-Limited Aggregation" },
   {
@@ -1218,6 +1398,11 @@ const CHECKER_DIAMOND_LATTICE_LABEL = "Checker / Diamond / Lattice";
 const CONCENTRIC_BOXES_LABEL = "Concentric Boxes";
 const LINE_INTERFERENCE_LABEL = "Line Interference";
 const CIRCLE_PACKING_LABEL = "Circle Packing";
+const DRUNK_WALK_PAINTER_LABEL = "Drunk Walk Painter";
+const PARTICLE_FLOW_FIELD_LABEL = "Particle Flow Field";
+const STAMP_BRUSH_GENERATOR_LABEL = "Stamp Brush Generator";
+const CUTOUT_COLLAGE_LABEL = "Cutout Collage";
+const GLITCH_BLOCKS_LABEL = "Glitch Blocks";
 const GAME_OF_LIFE_VARIANTS_LABEL = "Game of Life Variants";
 const DIFFUSION_LIMITED_AGGREGATION_LABEL = "Diffusion-Limited Aggregation";
 const REACTION_DIFFUSION_APPROXIMATION_LABEL = "Reaction-Diffusion Approximation";
@@ -1261,6 +1446,11 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "concentric-boxes",
   "line-interference",
   "circle-packing",
+  "drunk-walk-painter",
+  "particle-flow-field",
+  "stamp-brush-generator",
+  "cutout-collage",
+  "glitch-blocks",
   "game-of-life-variants",
   "diffusion-limited-aggregation",
   "reaction-diffusion-approximation",
@@ -1354,6 +1544,25 @@ const LINE_INTERFERENCE_STROKE_WIDTH_VALUES = [1, 2, 3];
 const CIRCLE_PACKING_COUNT_VALUES = [3, 4, 5, 6, 7, 8, 10, 12, 14];
 const CIRCLE_PACKING_MIN_RADIUS_VALUES = [1, 2, 3, 4];
 const CIRCLE_PACKING_MAX_RADIUS_VALUES = [2, 3, 4, 5, 6, 7, 8];
+const DRUNK_WALK_WALKER_COUNT_VALUES = [1, 2, 3, 4, 5, 6];
+const DRUNK_WALK_STEPS_VALUES = [24, 36, 48, 64, 80, 96, 128, 160];
+const DRUNK_WALK_BRUSH_SIZE_VALUES = [1, 2, 3, 4];
+const DRUNK_WALK_ROOM_CHANCE_VALUES = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.35];
+const PARTICLE_FLOW_AGENT_COUNT_VALUES = [8, 12, 16, 20, 24, 30, 36];
+const PARTICLE_FLOW_STEPS_VALUES = [12, 18, 24, 32, 40, 48];
+const PARTICLE_FLOW_FIELD_SCALE_VALUES = [0.75, 1, 1.5, 2, 3, 4, 5];
+const PARTICLE_FLOW_STROKE_WIDTH_VALUES = [1, 2, 3];
+const STAMP_BRUSH_COUNT_VALUES = [8, 12, 16, 20, 28, 36, 48];
+const STAMP_BRUSH_SIZE_VALUES = [1, 2, 3, 4, 5];
+const STAMP_BRUSH_SCATTER_VALUES = [0, 1, 2, 3, 4, 5, 6];
+const CUTOUT_COLLAGE_SHAPE_COUNT_VALUES = [4, 6, 8, 10, 12, 15, 18];
+const CUTOUT_COLLAGE_MIN_SIZE_VALUES = [1, 2, 3, 4];
+const CUTOUT_COLLAGE_MAX_SIZE_VALUES = [3, 4, 5, 6, 8, 10];
+const CUTOUT_COLLAGE_SUBTRACT_CHANCE_VALUES = [0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75];
+const GLITCH_BLOCK_BAND_COUNT_VALUES = [4, 6, 8, 10, 12, 15, 18];
+const GLITCH_BLOCK_OFFSET_RANGE_VALUES = [0, 1, 2, 3, 4, 6, 8];
+const GLITCH_BLOCK_STRIPE_CHANCE_VALUES = [0.2, 0.35, 0.5, 0.65, 0.8, 0.9];
+const GLITCH_BLOCK_CELL_SIZE_VALUES = [1, 2, 3, 4, 5];
 const GAME_OF_LIFE_DENSITY_VALUES = [0.18, 0.24, 0.3, 0.36, 0.42, 0.48, 0.54, 0.6];
 const GAME_OF_LIFE_STEPS_VALUES = [2, 3, 4, 5, 6, 7, 8];
 const DLA_WALKER_VALUES = [120, 180, 240, 360, 480, 720, 960];
@@ -1385,6 +1594,13 @@ export const CHECKER_DIAMOND_LATTICE_STYLE_OPTIONS: ReadonlyArray<CheckerDiamond
   "checker",
   "diamond",
   "lattice",
+];
+export const STAMP_BRUSH_TYPE_OPTIONS: ReadonlyArray<StampBrushType> = [
+  "mixed",
+  "square",
+  "circle",
+  "cross",
+  "bar",
 ];
 export const RIGHT_ANGLE_ROTATION_OPTIONS: ReadonlyArray<number> = [0, 90, 180, 270];
 export const BINARY_TREE_SKEW_OPTIONS: ReadonlyArray<BinaryTreeSkew> = ["NW", "NE", "SW", "SE"];
@@ -1441,6 +1657,11 @@ export function generateLayoutRecords(
     concentricBoxesControls?: ConcentricBoxesControlState | null;
     lineInterferenceControls?: LineInterferenceControlState | null;
     circlePackingControls?: CirclePackingControlState | null;
+    drunkWalkPainterControls?: DrunkWalkPainterControlState | null;
+    particleFlowFieldControls?: ParticleFlowFieldControlState | null;
+    stampBrushGeneratorControls?: StampBrushGeneratorControlState | null;
+    cutoutCollageControls?: CutoutCollageControlState | null;
+    glitchBlocksControls?: GlitchBlocksControlState | null;
     gameOfLifeVariantsControls?: GameOfLifeVariantsControlState | null;
     diffusionLimitedAggregationControls?: DiffusionLimitedAggregationControlState | null;
     reactionDiffusionApproximationControls?: ReactionDiffusionApproximationControlState | null;
@@ -1492,6 +1713,11 @@ export function generateLayoutRecords(
       concentricBoxesControls: options.concentricBoxesControls ?? null,
       lineInterferenceControls: options.lineInterferenceControls ?? null,
       circlePackingControls: options.circlePackingControls ?? null,
+      drunkWalkPainterControls: options.drunkWalkPainterControls ?? null,
+      particleFlowFieldControls: options.particleFlowFieldControls ?? null,
+      stampBrushGeneratorControls: options.stampBrushGeneratorControls ?? null,
+      cutoutCollageControls: options.cutoutCollageControls ?? null,
+      glitchBlocksControls: options.glitchBlocksControls ?? null,
       gameOfLifeVariantsControls: options.gameOfLifeVariantsControls ?? null,
       diffusionLimitedAggregationControls: options.diffusionLimitedAggregationControls ?? null,
       reactionDiffusionApproximationControls:
@@ -1774,6 +2000,66 @@ export function createDefaultCirclePackingControlState(): CirclePackingControlSt
   };
 }
 
+export function createDefaultDrunkWalkPainterControlState(): DrunkWalkPainterControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    walkerCount: { randomize: true, value: 3 },
+    steps: { randomize: true, value: 64 },
+    brushSize: { randomize: true, value: 2 },
+    roomChance: { randomize: true, value: 0.15 },
+  };
+}
+
+export function createDefaultParticleFlowFieldControlState(): ParticleFlowFieldControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    agentCount: { randomize: true, value: 16 },
+    steps: { randomize: true, value: 24 },
+    fieldScale: { randomize: true, value: 2 },
+    strokeWidth: { randomize: true, value: 1 },
+  };
+}
+
+export function createDefaultStampBrushGeneratorControlState(): StampBrushGeneratorControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    stampCount: { randomize: true, value: 20 },
+    stampSize: { randomize: true, value: 2 },
+    stampType: { randomize: true, value: "mixed" },
+    scatter: { randomize: true, value: 2 },
+  };
+}
+
+export function createDefaultCutoutCollageControlState(): CutoutCollageControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    shapeCount: { randomize: true, value: 8 },
+    minSize: { randomize: true, value: 2 },
+    maxSize: { randomize: true, value: 6 },
+    subtractChance: { randomize: true, value: 0.45 },
+  };
+}
+
+export function createDefaultGlitchBlocksControlState(): GlitchBlocksControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    bandCount: { randomize: true, value: 10 },
+    offsetRange: { randomize: true, value: 3 },
+    stripeChance: { randomize: true, value: 0.5 },
+    cellSize: { randomize: true, value: 2 },
+  };
+}
+
 export function createDefaultGameOfLifeVariantsControlState(): GameOfLifeVariantsControlState {
   return {
     seed: { randomize: true, value: 1 },
@@ -1981,6 +2267,11 @@ function generateRecordForAlgorithm(
     concentricBoxesControls: ConcentricBoxesControlState | null;
     lineInterferenceControls: LineInterferenceControlState | null;
     circlePackingControls: CirclePackingControlState | null;
+    drunkWalkPainterControls: DrunkWalkPainterControlState | null;
+    particleFlowFieldControls: ParticleFlowFieldControlState | null;
+    stampBrushGeneratorControls: StampBrushGeneratorControlState | null;
+    cutoutCollageControls: CutoutCollageControlState | null;
+    glitchBlocksControls: GlitchBlocksControlState | null;
     gameOfLifeVariantsControls: GameOfLifeVariantsControlState | null;
     diffusionLimitedAggregationControls: DiffusionLimitedAggregationControlState | null;
     reactionDiffusionApproximationControls: ReactionDiffusionApproximationControlState | null;
@@ -2045,6 +2336,16 @@ function generateRecordForAlgorithm(
       return buildLineInterferenceRecord(rng, controls.lineInterferenceControls);
     case "circle-packing":
       return buildCirclePackingRecord(rng, controls.circlePackingControls);
+    case "drunk-walk-painter":
+      return buildDrunkWalkPainterRecord(rng, controls.drunkWalkPainterControls);
+    case "particle-flow-field":
+      return buildParticleFlowFieldRecord(rng, controls.particleFlowFieldControls);
+    case "stamp-brush-generator":
+      return buildStampBrushGeneratorRecord(rng, controls.stampBrushGeneratorControls);
+    case "cutout-collage":
+      return buildCutoutCollageRecord(rng, controls.cutoutCollageControls);
+    case "glitch-blocks":
+      return buildGlitchBlocksRecord(rng, controls.glitchBlocksControls);
     case "game-of-life-variants":
       return buildGameOfLifeVariantsRecord(rng, controls.gameOfLifeVariantsControls);
     case "diffusion-limited-aggregation":
@@ -2835,6 +3136,188 @@ function buildCirclePackingRecord(
     randomize: () => randomizeCirclePackingParameters(rng, defaults),
     buildBytes: buildCirclePackingMaskBytes,
     buildSummary: buildCirclePackingSummary,
+    fallback,
+  });
+}
+
+function buildChaoticProceduralRecord<
+  Algorithm extends
+    | "drunk-walk-painter"
+    | "particle-flow-field"
+    | "stamp-brush-generator"
+    | "cutout-collage"
+    | "glitch-blocks",
+  Params extends
+    | DrunkWalkPainterParameters
+    | ParticleFlowFieldParameters
+    | StampBrushGeneratorParameters
+    | CutoutCollageParameters
+    | GlitchBlocksParameters,
+>(
+  rng: () => number,
+  options: Readonly<{
+    algorithm: Algorithm;
+    title: string;
+    randomize: () => Params;
+    buildBytes: (params: Params) => Uint8Array;
+    buildSummary: (params: Params) => string;
+    fallback: Params;
+  }>,
+): BaseGeneratedLayoutRecord<Algorithm, Params> {
+  let lastAttempt: Readonly<{ params: Params; bytes: Uint8Array }> | null = null;
+
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const params = options.randomize();
+    const bytes = options.buildBytes(params);
+    lastAttempt = { params, bytes };
+    const wallCount = countSetBits(bytes);
+    if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
+      continue;
+
+    return {
+      wallKey: wallMaskKeyFromBytes(bytes),
+      algorithm: options.algorithm,
+      title: options.title,
+      summary: options.buildSummary(params),
+      seedLabel: `Seed ${params.seed}`,
+      params,
+    };
+  }
+
+  const fallbackParams = lastAttempt?.params ?? options.fallback;
+  const fallbackBytes = lastAttempt?.bytes ?? options.buildBytes(options.fallback);
+
+  return {
+    wallKey: wallMaskKeyFromBytes(fallbackBytes),
+    algorithm: options.algorithm,
+    title: options.title,
+    summary: options.buildSummary(fallbackParams),
+    seedLabel: `Seed ${fallbackParams.seed}`,
+    params: fallbackParams,
+  };
+}
+
+function buildDrunkWalkPainterRecord(
+  rng: () => number,
+  controls: DrunkWalkPainterControlState | null,
+): DrunkWalkPainterGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultDrunkWalkPainterControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    walkerCount: 3,
+    steps: 64,
+    brushSize: 2,
+    roomChance: 0.15,
+  } satisfies DrunkWalkPainterParameters;
+
+  return buildChaoticProceduralRecord(rng, {
+    algorithm: "drunk-walk-painter",
+    title: DRUNK_WALK_PAINTER_LABEL,
+    randomize: () => randomizeDrunkWalkPainterParameters(rng, defaults),
+    buildBytes: buildDrunkWalkPainterMaskBytes,
+    buildSummary: buildDrunkWalkPainterSummary,
+    fallback,
+  });
+}
+
+function buildParticleFlowFieldRecord(
+  rng: () => number,
+  controls: ParticleFlowFieldControlState | null,
+): ParticleFlowFieldGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultParticleFlowFieldControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    agentCount: 16,
+    steps: 24,
+    fieldScale: 2,
+    strokeWidth: 1,
+  } satisfies ParticleFlowFieldParameters;
+
+  return buildChaoticProceduralRecord(rng, {
+    algorithm: "particle-flow-field",
+    title: PARTICLE_FLOW_FIELD_LABEL,
+    randomize: () => randomizeParticleFlowFieldParameters(rng, defaults),
+    buildBytes: buildParticleFlowFieldMaskBytes,
+    buildSummary: buildParticleFlowFieldSummary,
+    fallback,
+  });
+}
+
+function buildStampBrushGeneratorRecord(
+  rng: () => number,
+  controls: StampBrushGeneratorControlState | null,
+): StampBrushGeneratorGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultStampBrushGeneratorControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    stampCount: 20,
+    stampSize: 2,
+    stampType: "mixed",
+    scatter: 2,
+  } satisfies StampBrushGeneratorParameters;
+
+  return buildChaoticProceduralRecord(rng, {
+    algorithm: "stamp-brush-generator",
+    title: STAMP_BRUSH_GENERATOR_LABEL,
+    randomize: () => randomizeStampBrushGeneratorParameters(rng, defaults),
+    buildBytes: buildStampBrushGeneratorMaskBytes,
+    buildSummary: buildStampBrushGeneratorSummary,
+    fallback,
+  });
+}
+
+function buildCutoutCollageRecord(
+  rng: () => number,
+  controls: CutoutCollageControlState | null,
+): CutoutCollageGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultCutoutCollageControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    shapeCount: 8,
+    minSize: 2,
+    maxSize: 6,
+    subtractChance: 0.45,
+  } satisfies CutoutCollageParameters;
+
+  return buildChaoticProceduralRecord(rng, {
+    algorithm: "cutout-collage",
+    title: CUTOUT_COLLAGE_LABEL,
+    randomize: () => randomizeCutoutCollageParameters(rng, defaults),
+    buildBytes: buildCutoutCollageMaskBytes,
+    buildSummary: buildCutoutCollageSummary,
+    fallback,
+  });
+}
+
+function buildGlitchBlocksRecord(
+  rng: () => number,
+  controls: GlitchBlocksControlState | null,
+): GlitchBlocksGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultGlitchBlocksControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    bandCount: 10,
+    offsetRange: 3,
+    stripeChance: 0.5,
+    cellSize: 2,
+  } satisfies GlitchBlocksParameters;
+
+  return buildChaoticProceduralRecord(rng, {
+    algorithm: "glitch-blocks",
+    title: GLITCH_BLOCKS_LABEL,
+    randomize: () => randomizeGlitchBlocksParameters(rng, defaults),
+    buildBytes: buildGlitchBlocksMaskBytes,
+    buildSummary: buildGlitchBlocksSummary,
     fallback,
   });
 }
@@ -4006,6 +4489,184 @@ function randomizeCirclePackingParameters(
       defaults.outline,
       () => rng() < 0.4,
       (value) => !!value,
+    ),
+  };
+}
+
+function randomizeChaoticProceduralBaseParameters(
+  rng: () => number,
+  defaults: ChaoticProceduralBaseControlState,
+): ChaoticProceduralBaseParameters {
+  return {
+    seed: resolveRandomizableValue(
+      defaults.seed,
+      () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
+      sanitizeSeed,
+    ),
+    blockSize: resolveRandomizableValue(
+      defaults.blockSize,
+      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
+      sampleClosestNoiseBlockSize,
+    ),
+    invert: resolveRandomizableValue(
+      defaults.invert,
+      () => rng() < 0.12,
+      (value) => !!value,
+    ),
+  };
+}
+
+function randomizeDrunkWalkPainterParameters(
+  rng: () => number,
+  defaults: DrunkWalkPainterControlState,
+): DrunkWalkPainterParameters {
+  const base = randomizeChaoticProceduralBaseParameters(rng, defaults);
+  return {
+    ...base,
+    walkerCount: resolveRandomizableValue(
+      defaults.walkerCount,
+      () => sampleOne(rng, DRUNK_WALK_WALKER_COUNT_VALUES),
+      sanitizeDrunkWalkWalkerCount,
+    ),
+    steps: resolveRandomizableValue(
+      defaults.steps,
+      () => sampleOne(rng, DRUNK_WALK_STEPS_VALUES),
+      sanitizeDrunkWalkSteps,
+    ),
+    brushSize: resolveRandomizableValue(
+      defaults.brushSize,
+      () => sampleOne(rng, DRUNK_WALK_BRUSH_SIZE_VALUES),
+      sanitizeDrunkWalkBrushSize,
+    ),
+    roomChance: resolveRandomizableValue(
+      defaults.roomChance,
+      () => sampleOne(rng, DRUNK_WALK_ROOM_CHANCE_VALUES),
+      sanitizeDrunkWalkRoomChance,
+    ),
+  };
+}
+
+function randomizeParticleFlowFieldParameters(
+  rng: () => number,
+  defaults: ParticleFlowFieldControlState,
+): ParticleFlowFieldParameters {
+  const base = randomizeChaoticProceduralBaseParameters(rng, defaults);
+  return {
+    ...base,
+    agentCount: resolveRandomizableValue(
+      defaults.agentCount,
+      () => sampleOne(rng, PARTICLE_FLOW_AGENT_COUNT_VALUES),
+      sanitizeParticleFlowAgentCount,
+    ),
+    steps: resolveRandomizableValue(
+      defaults.steps,
+      () => sampleOne(rng, PARTICLE_FLOW_STEPS_VALUES),
+      sanitizeParticleFlowSteps,
+    ),
+    fieldScale: resolveRandomizableValue(
+      defaults.fieldScale,
+      () => sampleOne(rng, PARTICLE_FLOW_FIELD_SCALE_VALUES),
+      sanitizeParticleFlowFieldScale,
+    ),
+    strokeWidth: resolveRandomizableValue(
+      defaults.strokeWidth,
+      () => sampleOne(rng, PARTICLE_FLOW_STROKE_WIDTH_VALUES),
+      sanitizeParticleFlowStrokeWidth,
+    ),
+  };
+}
+
+function randomizeStampBrushGeneratorParameters(
+  rng: () => number,
+  defaults: StampBrushGeneratorControlState,
+): StampBrushGeneratorParameters {
+  const base = randomizeChaoticProceduralBaseParameters(rng, defaults);
+  return {
+    ...base,
+    stampCount: resolveRandomizableValue(
+      defaults.stampCount,
+      () => sampleOne(rng, STAMP_BRUSH_COUNT_VALUES),
+      sanitizeStampBrushCount,
+    ),
+    stampSize: resolveRandomizableValue(
+      defaults.stampSize,
+      () => sampleOne(rng, STAMP_BRUSH_SIZE_VALUES),
+      sanitizeStampBrushSize,
+    ),
+    stampType: resolveRandomizableValue(
+      defaults.stampType,
+      () => sampleOne(rng, STAMP_BRUSH_TYPE_OPTIONS),
+      sanitizeStampBrushType,
+    ),
+    scatter: resolveRandomizableValue(
+      defaults.scatter,
+      () => sampleOne(rng, STAMP_BRUSH_SCATTER_VALUES),
+      sanitizeStampBrushScatter,
+    ),
+  };
+}
+
+function randomizeCutoutCollageParameters(
+  rng: () => number,
+  defaults: CutoutCollageControlState,
+): CutoutCollageParameters {
+  const base = randomizeChaoticProceduralBaseParameters(rng, defaults);
+  const minSize = resolveRandomizableValue(
+    defaults.minSize,
+    () => sampleOne(rng, CUTOUT_COLLAGE_MIN_SIZE_VALUES),
+    sanitizeCutoutCollageMinSize,
+  );
+  const maxSize = Math.max(
+    Math.max(minSize, CUTOUT_COLLAGE_MAX_SIZE_MIN),
+    resolveRandomizableValue(
+      defaults.maxSize,
+      () => sampleOne(rng, CUTOUT_COLLAGE_MAX_SIZE_VALUES),
+      sanitizeCutoutCollageMaxSize,
+    ),
+  );
+  return {
+    ...base,
+    shapeCount: resolveRandomizableValue(
+      defaults.shapeCount,
+      () => sampleOne(rng, CUTOUT_COLLAGE_SHAPE_COUNT_VALUES),
+      sanitizeCutoutCollageShapeCount,
+    ),
+    minSize,
+    maxSize,
+    subtractChance: resolveRandomizableValue(
+      defaults.subtractChance,
+      () => sampleOne(rng, CUTOUT_COLLAGE_SUBTRACT_CHANCE_VALUES),
+      sanitizeCutoutCollageSubtractChance,
+    ),
+  };
+}
+
+function randomizeGlitchBlocksParameters(
+  rng: () => number,
+  defaults: GlitchBlocksControlState,
+): GlitchBlocksParameters {
+  const base = randomizeChaoticProceduralBaseParameters(rng, defaults);
+  return {
+    ...base,
+    bandCount: resolveRandomizableValue(
+      defaults.bandCount,
+      () => sampleOne(rng, GLITCH_BLOCK_BAND_COUNT_VALUES),
+      sanitizeGlitchBlockBandCount,
+    ),
+    offsetRange: resolveRandomizableValue(
+      defaults.offsetRange,
+      () => sampleOne(rng, GLITCH_BLOCK_OFFSET_RANGE_VALUES),
+      sanitizeGlitchBlockOffsetRange,
+    ),
+    stripeChance: resolveRandomizableValue(
+      defaults.stripeChance,
+      () => sampleOne(rng, GLITCH_BLOCK_STRIPE_CHANCE_VALUES),
+      sanitizeGlitchBlockStripeChance,
+    ),
+    cellSize: resolveRandomizableValue(
+      defaults.cellSize,
+      () => sampleOne(rng, GLITCH_BLOCK_CELL_SIZE_VALUES),
+      sanitizeGlitchBlockCellSize,
     ),
   };
 }
@@ -5405,6 +6066,330 @@ function buildCirclePackingMaskBytes(params: CirclePackingParameters): Uint8Arra
   return params.invert ? invertMaskBytes(bytes) : bytes;
 }
 
+function buildDrunkWalkPainterMaskBytes(params: DrunkWalkPainterParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  const directions = [
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0, y: -1 },
+  ] as const;
+
+  for (let walkerIndex = 0; walkerIndex < params.walkerCount; walkerIndex++) {
+    let x = randomInt(rng, 0, grid.width - 1);
+    let y = randomInt(rng, 0, grid.height - 1);
+    let directionIndex = randomInt(rng, 0, directions.length - 1);
+
+    for (let step = 0; step < params.steps; step++) {
+      stampSourceBrush(grid.cells, grid.width, grid.height, x, y, params.brushSize);
+      if (rng() < params.roomChance) {
+        const roomWidth = randomInt(
+          rng,
+          Math.max(2, params.brushSize + 1),
+          Math.max(2, Math.min(grid.width, params.brushSize + 4)),
+        );
+        const roomHeight = randomInt(
+          rng,
+          Math.max(2, params.brushSize + 1),
+          Math.max(2, Math.min(grid.height, params.brushSize + 4)),
+        );
+        fillPatternRect(
+          grid.cells,
+          grid.width,
+          grid.height,
+          x - Math.floor(roomWidth / 2),
+          y - Math.floor(roomHeight / 2),
+          roomWidth,
+          roomHeight,
+          1,
+        );
+      }
+
+      if (rng() < 0.32 + params.roomChance * 0.5) {
+        directionIndex = (directionIndex + randomInt(rng, 1, directions.length - 1)) % 4;
+      }
+
+      const stride = rng() < 0.18 ? 2 : 1;
+      for (let strideStep = 0; strideStep < stride; strideStep++) {
+        const direction = directions[directionIndex]!;
+        x = clamp(x + direction.x, 0, grid.width - 1);
+        y = clamp(y + direction.y, 0, grid.height - 1);
+      }
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildParticleFlowFieldMaskBytes(params: ParticleFlowFieldParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+
+  for (let agentIndex = 0; agentIndex < params.agentCount; agentIndex++) {
+    let x = rng() * Math.max(1, grid.width - 1);
+    let y = rng() * Math.max(1, grid.height - 1);
+
+    for (let step = 0; step < params.steps; step++) {
+      const angle = sampleParticleFlowAngle(params.seed, x, y, params.fieldScale, step);
+      const nextX = wrapPatternCoordinateFloat(x + Math.cos(angle) * 1.2, grid.width);
+      const nextY = wrapPatternCoordinateFloat(y + Math.sin(angle) * 1.2, grid.height);
+      drawSourceLine(grid.cells, grid.width, grid.height, x, y, nextX, nextY, params.strokeWidth);
+      x = nextX;
+      y = nextY;
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildStampBrushGeneratorMaskBytes(params: StampBrushGeneratorParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  const columns = Math.max(1, Math.round(Math.sqrt(params.stampCount)));
+  const rows = Math.max(1, Math.ceil(params.stampCount / columns));
+  const spacingX = Math.max(2, Math.floor(grid.width / columns));
+  const spacingY = Math.max(2, Math.floor(grid.height / rows));
+
+  for (let stampIndex = 0; stampIndex < params.stampCount; stampIndex++) {
+    const column = stampIndex % columns;
+    const row = Math.floor(stampIndex / columns);
+    const baseX = Math.floor((column + 0.5) * spacingX);
+    const baseY = Math.floor((row + 0.5) * spacingY);
+    const x = clamp(
+      baseX + randomInt(rng, -params.scatter, params.scatter),
+      0,
+      Math.max(0, grid.width - 1),
+    );
+    const y = clamp(
+      baseY + randomInt(rng, -params.scatter, params.scatter),
+      0,
+      Math.max(0, grid.height - 1),
+    );
+    const type =
+      params.stampType === "mixed"
+        ? sampleOne(rng, ["square", "circle", "cross", "bar"] as const)
+        : params.stampType;
+    const size = clamp(
+      params.stampSize + randomInt(rng, -1, 1),
+      STAMP_BRUSH_SIZE_MIN,
+      STAMP_BRUSH_SIZE_MAX,
+    );
+
+    if (type === "square") {
+      fillPatternRect(
+        grid.cells,
+        grid.width,
+        grid.height,
+        x - size,
+        y - size,
+        size * 2 + 1,
+        size * 2 + 1,
+        1,
+      );
+    } else if (type === "circle") {
+      stampPatternCircle(grid.cells, grid.width, grid.height, x, y, size, false);
+    } else if (type === "cross") {
+      stampPatternCross(grid.cells, grid.width, grid.height, x, y, size, 1, 1);
+    } else {
+      stampPatternBar(
+        grid.cells,
+        grid.width,
+        grid.height,
+        x,
+        y,
+        size * 3 + 1,
+        Math.max(1, Math.ceil(size / 2)),
+        rng() < 0.5,
+        1,
+      );
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildCutoutCollageMaskBytes(params: CutoutCollageParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  const insetX = Math.max(1, Math.floor(grid.width * (0.12 + rng() * 0.12)));
+  const insetY = Math.max(1, Math.floor(grid.height * (0.12 + rng() * 0.12)));
+  fillPatternRect(
+    grid.cells,
+    grid.width,
+    grid.height,
+    insetX,
+    insetY,
+    Math.max(2, grid.width - insetX * 2),
+    Math.max(2, grid.height - insetY * 2),
+    1,
+  );
+
+  for (let shapeIndex = 0; shapeIndex < params.shapeCount; shapeIndex++) {
+    const value: 0 | 1 = shapeIndex < 2 || rng() >= params.subtractChance ? 1 : 0;
+    const width = randomInt(rng, params.minSize, params.maxSize);
+    const height = randomInt(rng, params.minSize, params.maxSize);
+    const x = randomInt(rng, 0, Math.max(0, grid.width - 1));
+    const y = randomInt(rng, 0, Math.max(0, grid.height - 1));
+    const primitive = randomInt(rng, 0, 3);
+
+    if (primitive === 0) {
+      fillPatternRect(
+        grid.cells,
+        grid.width,
+        grid.height,
+        x - Math.floor(width / 2),
+        y - Math.floor(height / 2),
+        width,
+        height,
+        value,
+      );
+    } else if (primitive === 1) {
+      stampPatternCircleValue(
+        grid.cells,
+        grid.width,
+        grid.height,
+        x,
+        y,
+        Math.max(1, Math.floor((width + height) / 4)),
+        value,
+      );
+    } else if (primitive === 2) {
+      stampPatternDiamond(
+        grid.cells,
+        grid.width,
+        grid.height,
+        x,
+        y,
+        Math.max(1, Math.floor((width + height) / 4)),
+        value,
+      );
+    } else {
+      stampPatternBar(
+        grid.cells,
+        grid.width,
+        grid.height,
+        x,
+        y,
+        Math.max(width, height) * 2 + 1,
+        Math.max(1, Math.min(width, height)),
+        rng() < 0.5,
+        value,
+      );
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildGlitchBlocksMaskBytes(params: GlitchBlocksParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+
+  for (let bandIndex = 0; bandIndex < params.bandCount; bandIndex++) {
+    const horizontal = rng() < 0.65;
+    const thickness = randomInt(rng, 1, Math.max(1, params.cellSize));
+    const offset = randomInt(rng, -params.offsetRange, params.offsetRange);
+
+    if (horizontal) {
+      const y = randomInt(rng, 0, Math.max(0, grid.height - 1));
+      for (let x = 0; x < grid.width; x += params.cellSize) {
+        if (rng() > params.stripeChance) continue;
+        const segmentWidth = randomInt(
+          rng,
+          Math.max(1, params.cellSize),
+          Math.max(1, params.cellSize * 3),
+        );
+        fillPatternRect(
+          grid.cells,
+          grid.width,
+          grid.height,
+          x + offset,
+          y,
+          segmentWidth,
+          thickness,
+          1,
+        );
+      }
+    } else {
+      const x = randomInt(rng, 0, Math.max(0, grid.width - 1));
+      for (let y = 0; y < grid.height; y += params.cellSize) {
+        if (rng() > params.stripeChance) continue;
+        const segmentHeight = randomInt(
+          rng,
+          Math.max(1, params.cellSize),
+          Math.max(1, params.cellSize * 3),
+        );
+        fillPatternRect(
+          grid.cells,
+          grid.width,
+          grid.height,
+          x,
+          y + offset,
+          thickness,
+          segmentHeight,
+          1,
+        );
+      }
+    }
+
+    if (rng() < 0.45) {
+      const blockWidth = randomInt(
+        rng,
+        params.cellSize,
+        Math.max(params.cellSize, params.cellSize * 3),
+      );
+      const blockHeight = randomInt(
+        rng,
+        params.cellSize,
+        Math.max(params.cellSize, params.cellSize * 3),
+      );
+      fillPatternRect(
+        grid.cells,
+        grid.width,
+        grid.height,
+        randomInt(rng, 0, Math.max(0, grid.width - 1)),
+        randomInt(rng, 0, Math.max(0, grid.height - 1)),
+        blockWidth,
+        blockHeight,
+        1,
+      );
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
 function buildGameOfLifeVariantsMaskBytes(params: GameOfLifeVariantsParameters): Uint8Array {
   const rng = createSeededRandom(params.seed);
   const grid = createPatternSourceGrid(params.blockSize);
@@ -6516,6 +7501,65 @@ function buildCirclePackingSummary(params: CirclePackingParameters): string {
   );
 }
 
+function buildDrunkWalkPainterSummary(params: DrunkWalkPainterParameters): string {
+  return buildChaoticProceduralSummary(
+    [
+      `${params.walkerCount} walkers`,
+      `${params.steps} steps`,
+      `${params.brushSize}px brush`,
+      `${Math.round(params.roomChance * 100)}% rooms`,
+    ],
+    params,
+  );
+}
+
+function buildParticleFlowFieldSummary(params: ParticleFlowFieldParameters): string {
+  return buildChaoticProceduralSummary(
+    [
+      `${params.agentCount} agents`,
+      `${params.steps} steps`,
+      `${formatNoiseScale(params.fieldScale)} scale`,
+      `${params.strokeWidth}px stroke`,
+    ],
+    params,
+  );
+}
+
+function buildStampBrushGeneratorSummary(params: StampBrushGeneratorParameters): string {
+  return buildChaoticProceduralSummary(
+    [
+      formatStampBrushTypeLabel(params.stampType),
+      `${params.stampCount} stamps`,
+      `${params.stampSize} size`,
+      `${params.scatter} scatter`,
+    ],
+    params,
+  );
+}
+
+function buildCutoutCollageSummary(params: CutoutCollageParameters): string {
+  return buildChaoticProceduralSummary(
+    [
+      `${params.shapeCount} shapes`,
+      `${params.minSize}-${params.maxSize} size`,
+      `${Math.round(params.subtractChance * 100)}% subtract`,
+    ],
+    params,
+  );
+}
+
+function buildGlitchBlocksSummary(params: GlitchBlocksParameters): string {
+  return buildChaoticProceduralSummary(
+    [
+      `${params.bandCount} bands`,
+      `${params.offsetRange} offset`,
+      `${Math.round(params.stripeChance * 100)}% stripe`,
+      `${params.cellSize} cell`,
+    ],
+    params,
+  );
+}
+
 function buildNoiseTerrainSummary(parts: string[], params: NoiseTerrainBaseParameters): string {
   return [
     `${params.blockSize}x${params.blockSize} blocks`,
@@ -6550,6 +7594,19 @@ function buildArchitectureSummary(parts: string[], params: ArchitectureBaseParam
 function buildPatternedGeometricSummary(
   parts: string[],
   params: PatternedGeometricBaseParameters,
+): string {
+  return [
+    `${params.blockSize}x${params.blockSize} blocks`,
+    ...parts,
+    params.invert ? "inverted" : null,
+  ]
+    .filter((value): value is string => value !== null)
+    .join(" • ");
+}
+
+function buildChaoticProceduralSummary(
+  parts: string[],
+  params: ChaoticProceduralBaseParameters,
 ): string {
   return [
     `${params.blockSize}x${params.blockSize} blocks`,
@@ -7122,6 +8179,135 @@ function stampPatternCircle(
       setPatternCell(cells, width, height, x, y, 1);
     }
   }
+}
+
+function stampPatternCircleValue(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  radius: number,
+  value: 0 | 1,
+): void {
+  const radiusSq = radius * radius;
+
+  for (let y = centerY - radius; y <= centerY + radius; y++) {
+    for (let x = centerX - radius; x <= centerX + radius; x++) {
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      const dx = x - centerX;
+      const dy = y - centerY;
+      if (dx * dx + dy * dy > radiusSq) continue;
+      setPatternCell(cells, width, height, x, y, value);
+    }
+  }
+}
+
+function stampPatternDiamond(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  radius: number,
+  value: 0 | 1,
+): void {
+  for (let y = centerY - radius; y <= centerY + radius; y++) {
+    for (let x = centerX - radius; x <= centerX + radius; x++) {
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      if (Math.abs(x - centerX) + Math.abs(y - centerY) > radius) continue;
+      setPatternCell(cells, width, height, x, y, value);
+    }
+  }
+}
+
+function stampPatternCross(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  radius: number,
+  thickness: number,
+  value: 0 | 1,
+): void {
+  const lineThickness = Math.max(1, thickness);
+  fillPatternRect(
+    cells,
+    width,
+    height,
+    centerX - radius,
+    centerY - Math.floor(lineThickness / 2),
+    radius * 2 + 1,
+    lineThickness,
+    value,
+  );
+  fillPatternRect(
+    cells,
+    width,
+    height,
+    centerX - Math.floor(lineThickness / 2),
+    centerY - radius,
+    lineThickness,
+    radius * 2 + 1,
+    value,
+  );
+}
+
+function stampPatternBar(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  length: number,
+  thickness: number,
+  horizontal: boolean,
+  value: 0 | 1,
+): void {
+  if (horizontal) {
+    fillPatternRect(
+      cells,
+      width,
+      height,
+      centerX - Math.floor(length / 2),
+      centerY - Math.floor(thickness / 2),
+      length,
+      thickness,
+      value,
+    );
+    return;
+  }
+
+  fillPatternRect(
+    cells,
+    width,
+    height,
+    centerX - Math.floor(thickness / 2),
+    centerY - Math.floor(length / 2),
+    thickness,
+    length,
+    value,
+  );
+}
+
+function wrapPatternCoordinateFloat(value: number, size: number): number {
+  if (size <= 1) return 0;
+  return positiveModulo(value, size);
+}
+
+function sampleParticleFlowAngle(
+  seed: number,
+  x: number,
+  y: number,
+  scale: number,
+  step: number,
+): number {
+  const sampleX = Math.floor((x + 0.5) * scale);
+  const sampleY = Math.floor((y + 0.5) * scale);
+  const baseAngle = hashFloat(seed, sampleX, sampleY) * Math.PI * 2;
+  const twist = (hashFloat(seed + 137, sampleY + step, sampleX - step) * 2 - 1) * (Math.PI / 3);
+  return baseAngle + twist;
 }
 
 function invertMaskBytes(bytes: Uint8Array): Uint8Array {
@@ -8501,6 +9687,106 @@ function sanitizeCirclePackingMaxRadius(value: number): number {
   return clamp(Math.round(value), CIRCLE_PACKING_MAX_RADIUS_MIN, CIRCLE_PACKING_MAX_RADIUS_MAX);
 }
 
+function sanitizeDrunkWalkWalkerCount(value: number): number {
+  return clamp(Math.round(value), DRUNK_WALK_WALKER_COUNT_MIN, DRUNK_WALK_WALKER_COUNT_MAX);
+}
+
+function sanitizeDrunkWalkSteps(value: number): number {
+  return clamp(Math.round(value), DRUNK_WALK_STEPS_MIN, DRUNK_WALK_STEPS_MAX);
+}
+
+function sanitizeDrunkWalkBrushSize(value: number): number {
+  return clamp(Math.round(value), DRUNK_WALK_BRUSH_SIZE_MIN, DRUNK_WALK_BRUSH_SIZE_MAX);
+}
+
+function sanitizeDrunkWalkRoomChance(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    DRUNK_WALK_ROOM_CHANCE_STEP,
+    DRUNK_WALK_ROOM_CHANCE_MIN,
+    DRUNK_WALK_ROOM_CHANCE_MAX,
+  );
+}
+
+function sanitizeParticleFlowAgentCount(value: number): number {
+  return clamp(Math.round(value), PARTICLE_FLOW_AGENT_COUNT_MIN, PARTICLE_FLOW_AGENT_COUNT_MAX);
+}
+
+function sanitizeParticleFlowSteps(value: number): number {
+  return clamp(Math.round(value), PARTICLE_FLOW_STEPS_MIN, PARTICLE_FLOW_STEPS_MAX);
+}
+
+function sanitizeParticleFlowFieldScale(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    PARTICLE_FLOW_FIELD_SCALE_STEP,
+    PARTICLE_FLOW_FIELD_SCALE_MIN,
+    PARTICLE_FLOW_FIELD_SCALE_MAX,
+  );
+}
+
+function sanitizeParticleFlowStrokeWidth(value: number): number {
+  return clamp(Math.round(value), PARTICLE_FLOW_STROKE_WIDTH_MIN, PARTICLE_FLOW_STROKE_WIDTH_MAX);
+}
+
+function sanitizeStampBrushCount(value: number): number {
+  return clamp(Math.round(value), STAMP_BRUSH_COUNT_MIN, STAMP_BRUSH_COUNT_MAX);
+}
+
+function sanitizeStampBrushSize(value: number): number {
+  return clamp(Math.round(value), STAMP_BRUSH_SIZE_MIN, STAMP_BRUSH_SIZE_MAX);
+}
+
+function sanitizeStampBrushType(value: StampBrushType): StampBrushType {
+  return STAMP_BRUSH_TYPE_OPTIONS.includes(value) ? value : "mixed";
+}
+
+function sanitizeStampBrushScatter(value: number): number {
+  return clamp(Math.round(value), STAMP_BRUSH_SCATTER_MIN, STAMP_BRUSH_SCATTER_MAX);
+}
+
+function sanitizeCutoutCollageShapeCount(value: number): number {
+  return clamp(Math.round(value), CUTOUT_COLLAGE_SHAPE_COUNT_MIN, CUTOUT_COLLAGE_SHAPE_COUNT_MAX);
+}
+
+function sanitizeCutoutCollageMinSize(value: number): number {
+  return clamp(Math.round(value), CUTOUT_COLLAGE_MIN_SIZE_MIN, CUTOUT_COLLAGE_MIN_SIZE_MAX);
+}
+
+function sanitizeCutoutCollageMaxSize(value: number): number {
+  return clamp(Math.round(value), CUTOUT_COLLAGE_MAX_SIZE_MIN, CUTOUT_COLLAGE_MAX_SIZE_MAX);
+}
+
+function sanitizeCutoutCollageSubtractChance(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    CUTOUT_COLLAGE_SUBTRACT_CHANCE_STEP,
+    CUTOUT_COLLAGE_SUBTRACT_CHANCE_MIN,
+    CUTOUT_COLLAGE_SUBTRACT_CHANCE_MAX,
+  );
+}
+
+function sanitizeGlitchBlockBandCount(value: number): number {
+  return clamp(Math.round(value), GLITCH_BLOCK_BAND_COUNT_MIN, GLITCH_BLOCK_BAND_COUNT_MAX);
+}
+
+function sanitizeGlitchBlockOffsetRange(value: number): number {
+  return clamp(Math.round(value), GLITCH_BLOCK_OFFSET_RANGE_MIN, GLITCH_BLOCK_OFFSET_RANGE_MAX);
+}
+
+function sanitizeGlitchBlockStripeChance(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    GLITCH_BLOCK_STRIPE_CHANCE_STEP,
+    GLITCH_BLOCK_STRIPE_CHANCE_MIN,
+    GLITCH_BLOCK_STRIPE_CHANCE_MAX,
+  );
+}
+
+function sanitizeGlitchBlockCellSize(value: number): number {
+  return clamp(Math.round(value), GLITCH_BLOCK_CELL_SIZE_MIN, GLITCH_BLOCK_CELL_SIZE_MAX);
+}
+
 function sanitizeGameOfLifeDensity(value: number): number {
   return normalizeSteppedValue(
     value,
@@ -8831,6 +10117,21 @@ function formatCheckerDiamondLatticeStyleLabel(style: CheckerDiamondLatticeStyle
       return "diamond";
     case "lattice":
       return "lattice";
+  }
+}
+
+function formatStampBrushTypeLabel(type: StampBrushType): string {
+  switch (type) {
+    case "mixed":
+      return "mixed";
+    case "square":
+      return "square";
+    case "circle":
+      return "circle";
+    case "cross":
+      return "cross";
+    case "bar":
+      return "bar";
   }
 }
 
