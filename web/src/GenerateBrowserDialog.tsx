@@ -650,6 +650,8 @@ type ErosionDilationPipelineSettingsPanelProps = Readonly<{
 
 type BacktrackingSettingsPanelProps = Readonly<{
   controls: BacktrackingControlState;
+  contentWidth: number;
+  contentHeight: number;
   onUpdate: <K extends keyof BacktrackingControlState>(
     key: K,
     nextValue: Partial<BacktrackingControlState[K]>,
@@ -658,6 +660,8 @@ type BacktrackingSettingsPanelProps = Readonly<{
 
 type GrowingTreeSettingsPanelProps = Readonly<{
   controls: GrowingTreeControlState;
+  contentWidth: number;
+  contentHeight: number;
   onUpdate: <K extends keyof GrowingTreeControlState>(
     key: K,
     nextValue: Partial<GrowingTreeControlState[K]>,
@@ -666,6 +670,8 @@ type GrowingTreeSettingsPanelProps = Readonly<{
 
 type PrimsSettingsPanelProps = Readonly<{
   controls: PrimsControlState;
+  contentWidth: number;
+  contentHeight: number;
   onUpdate: <K extends keyof PrimsControlState>(
     key: K,
     nextValue: Partial<PrimsControlState[K]>,
@@ -746,6 +752,8 @@ type CellularAutomatonSettingsPanelProps = Readonly<{
 
 type DungeonRoomsSettingsPanelProps = Readonly<{
   controls: DungeonRoomsControlState;
+  contentWidth: number;
+  contentHeight: number;
   onUpdate: <K extends keyof DungeonRoomsControlState>(
     key: K,
     nextValue: Partial<DungeonRoomsControlState[K]>,
@@ -4866,12 +4874,18 @@ function ErosionDilationPipelineSettingsPanel({
 
 function BacktrackingSettingsPanel({
   controls,
+  contentWidth,
+  contentHeight,
   onUpdate,
 }: BacktrackingSettingsPanelProps): JSX.Element {
   const fixedBlockSize = controls.blockSize.randomize ? null : controls.blockSize.value;
-  const dims = mazeGridDimensionsForBlockSize(fixedBlockSize ?? "1x1");
-  const maxColumns = fixedBlockSize ? dims.columns : mazeGridDimensionsForBlockSize("1x1").columns;
-  const maxRows = fixedBlockSize ? dims.rows : mazeGridDimensionsForBlockSize("1x1").rows;
+  const dims = mazeGridDimensionsForBlockSize(fixedBlockSize ?? "1x1", contentWidth, contentHeight);
+  const maxColumns = fixedBlockSize
+    ? dims.columns
+    : mazeGridDimensionsForBlockSize("1x1", contentWidth, contentHeight).columns;
+  const maxRows = fixedBlockSize
+    ? dims.rows
+    : mazeGridDimensionsForBlockSize("1x1", contentWidth, contentHeight).rows;
 
   return (
     <>
@@ -4992,11 +5006,20 @@ function BacktrackingSettingsPanel({
   );
 }
 
-function PrimsSettingsPanel({ controls, onUpdate }: PrimsSettingsPanelProps): JSX.Element {
+function PrimsSettingsPanel({
+  controls,
+  contentWidth,
+  contentHeight,
+  onUpdate,
+}: PrimsSettingsPanelProps): JSX.Element {
   const fixedBlockSize = controls.blockSize.randomize ? null : controls.blockSize.value;
-  const dims = mazeGridDimensionsForBlockSize(fixedBlockSize ?? "1x1");
-  const maxColumns = fixedBlockSize ? dims.columns : mazeGridDimensionsForBlockSize("1x1").columns;
-  const maxRows = fixedBlockSize ? dims.rows : mazeGridDimensionsForBlockSize("1x1").rows;
+  const dims = mazeGridDimensionsForBlockSize(fixedBlockSize ?? "1x1", contentWidth, contentHeight);
+  const maxColumns = fixedBlockSize
+    ? dims.columns
+    : mazeGridDimensionsForBlockSize("1x1", contentWidth, contentHeight).columns;
+  const maxRows = fixedBlockSize
+    ? dims.rows
+    : mazeGridDimensionsForBlockSize("1x1", contentWidth, contentHeight).rows;
 
   return (
     <>
@@ -5867,10 +5890,12 @@ function CellularAutomatonSettingsPanel({
 
 function DungeonRoomsSettingsPanel({
   controls,
+  contentWidth,
+  contentHeight,
   onUpdate,
 }: DungeonRoomsSettingsPanelProps): JSX.Element {
   const fixedBlockSize = controls.blockSize.randomize ? null : controls.blockSize.value;
-  const limits = dungeonRoomParameterLimits(fixedBlockSize ?? "1x1");
+  const limits = dungeonRoomParameterLimits(fixedBlockSize ?? "1x1", contentWidth, contentHeight);
 
   return (
     <>
@@ -6114,12 +6139,18 @@ function TrivialMazeSettingsPanel({
 
 function GrowingTreeSettingsPanel({
   controls,
+  contentWidth,
+  contentHeight,
   onUpdate,
 }: GrowingTreeSettingsPanelProps): JSX.Element {
   const fixedBlockSize = controls.blockSize.randomize ? null : controls.blockSize.value;
-  const dims = mazeGridDimensionsForBlockSize(fixedBlockSize ?? "1x1");
-  const maxColumns = fixedBlockSize ? dims.columns : mazeGridDimensionsForBlockSize("1x1").columns;
-  const maxRows = fixedBlockSize ? dims.rows : mazeGridDimensionsForBlockSize("1x1").rows;
+  const dims = mazeGridDimensionsForBlockSize(fixedBlockSize ?? "1x1", contentWidth, contentHeight);
+  const maxColumns = fixedBlockSize
+    ? dims.columns
+    : mazeGridDimensionsForBlockSize("1x1", contentWidth, contentHeight).columns;
+  const maxRows = fixedBlockSize
+    ? dims.rows
+    : mazeGridDimensionsForBlockSize("1x1", contentWidth, contentHeight).rows;
 
   return (
     <>
@@ -7467,6 +7498,8 @@ export function GenerateBrowserDialog({
   );
   const [recursiveDivisionControls, setRecursiveDivisionControls] =
     useState<RecursiveDivisionControlState>(() => createDefaultRecursiveDivisionControlState());
+  const generatedContentWidth = Math.max(1, layoutWidth - 2);
+  const generatedContentHeight = Math.max(1, layoutHeight - 2);
 
   const showParameterSidebar = !starredOnly && selectedAlgorithm !== "any";
   const visibleRecords = useMemo(
@@ -8932,10 +8965,17 @@ export function GenerateBrowserDialog({
                 ) : selectedAlgorithm === "backtracking-generator" ? (
                   <BacktrackingSettingsPanel
                     controls={backtrackingControls}
+                    contentWidth={generatedContentWidth}
+                    contentHeight={generatedContentHeight}
                     onUpdate={updateBacktrackingControl}
                   />
                 ) : selectedAlgorithm === "prims" ? (
-                  <PrimsSettingsPanel controls={primsControls} onUpdate={updatePrimsControl} />
+                  <PrimsSettingsPanel
+                    controls={primsControls}
+                    contentWidth={generatedContentWidth}
+                    contentHeight={generatedContentHeight}
+                    onUpdate={updatePrimsControl}
+                  />
                 ) : selectedAlgorithm === "kruskals" ? (
                   <KruskalsSettingsPanel
                     controls={kruskalsControls}
@@ -8976,6 +9016,8 @@ export function GenerateBrowserDialog({
                 ) : selectedAlgorithm === "dungeon-rooms" ? (
                   <DungeonRoomsSettingsPanel
                     controls={dungeonRoomsControls}
+                    contentWidth={generatedContentWidth}
+                    contentHeight={generatedContentHeight}
                     onUpdate={updateDungeonRoomsControl}
                   />
                 ) : selectedAlgorithm === "trivial-maze" ? (
@@ -8986,6 +9028,8 @@ export function GenerateBrowserDialog({
                 ) : selectedAlgorithm === "growing-tree" ? (
                   <GrowingTreeSettingsPanel
                     controls={growingTreeControls}
+                    contentWidth={generatedContentWidth}
+                    contentHeight={generatedContentHeight}
                     onUpdate={updateGrowingTreeControl}
                   />
                 ) : selectedAlgorithm === "recursive-division" ? (

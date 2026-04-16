@@ -1607,6 +1607,16 @@ export const GAME_OF_LIFE_VARIANT_OPTIONS: ReadonlyArray<GameOfLifeVariant> = [
 ];
 export const DLA_SEED_MODE_OPTIONS: ReadonlyArray<DlaSeedMode> = ["point", "line", "cross"];
 
+type GeneratedContentSize = Readonly<{
+  width: number;
+  height: number;
+}>;
+
+let activeGeneratedContentSize: GeneratedContentSize = {
+  width: GENERATED_LAYOUT_GRID_SIZE,
+  height: GENERATED_LAYOUT_GRID_SIZE,
+};
+
 export function randomSeedFromClock(): number {
   return Date.now() & 0x7fffffff;
 }
@@ -1617,12 +1627,34 @@ export function nextRandomSeed(): number {
 
 export function mazeGridDimensionsForBlockSize(
   blockSize: MazeBlockSize,
+  contentWidth = activeGeneratedContentSize.width,
+  contentHeight = activeGeneratedContentSize.height,
 ): Readonly<{ columns: number; rows: number }> {
   const dims = mazeBlockDimensions(blockSize);
   return {
-    columns: Math.floor((GENERATED_LAYOUT_GRID_SIZE - 1) / (dims.width + 1)),
-    rows: Math.floor((GENERATED_LAYOUT_GRID_SIZE - 1) / (dims.height + 1)),
+    columns: Math.max(1, Math.floor((contentWidth - 1) / (dims.width + 1))),
+    rows: Math.max(1, Math.floor((contentHeight - 1) / (dims.height + 1))),
   };
+}
+
+function generatedContentDimensionsForLayout(
+  layoutWidth: number,
+  layoutHeight: number,
+): GeneratedContentSize {
+  return {
+    width: Math.max(1, sanitizeGeneratedLayoutSize(layoutWidth) - 2),
+    height: Math.max(1, sanitizeGeneratedLayoutSize(layoutHeight) - 2),
+  };
+}
+
+function withGeneratedContentSize<T>(width: number, height: number, callback: () => T): T {
+  const previous = activeGeneratedContentSize;
+  activeGeneratedContentSize = { width, height };
+  try {
+    return callback();
+  } finally {
+    activeGeneratedContentSize = previous;
+  }
 }
 
 export function generateLayoutRecords(
@@ -1686,66 +1718,69 @@ export function generateLayoutRecords(
   const layoutHeight = sanitizeGeneratedLayoutSize(
     options.layoutHeight ?? GENERATED_LAYOUT_MAX_SIZE,
   );
+  const contentSize = generatedContentDimensionsForLayout(layoutWidth, layoutHeight);
   const invert = !!options.invert;
   const records: GeneratedLayoutRecord[] = [];
   const seen = new Set<string>();
   const maxAttempts = count * 64;
 
-  for (let attempt = 0; attempt < maxAttempts && records.length < count; attempt++) {
-    const algorithm = pickAlgorithm(options.algorithm, rng);
-    const rawRecord = generateRecordForAlgorithm(algorithm, rng, {
-      randomNoiseControls: options.randomNoiseControls ?? null,
-      perlinNoiseControls: options.perlinNoiseControls ?? null,
-      valueFractalNoiseControls: options.valueFractalNoiseControls ?? null,
-      worleyNoiseControls: options.worleyNoiseControls ?? null,
-      thresholdedGradientNoiseControls: options.thresholdedGradientNoiseControls ?? null,
-      domainWarpedNoiseControls: options.domainWarpedNoiseControls ?? null,
-      radialSymmetryControls: options.radialSymmetryControls ?? null,
-      kaleidoscopeControls: options.kaleidoscopeControls ?? null,
-      lSystemTurtleControls: options.lSystemTurtleControls ?? null,
-      roseCurvesControls: options.roseCurvesControls ?? null,
-      tileableMotifRepeaterControls: options.tileableMotifRepeaterControls ?? null,
-      bspRoomPartitionerControls: options.bspRoomPartitionerControls ?? null,
-      corridorGridControls: options.corridorGridControls ?? null,
-      roomScatterControls: options.roomScatterControls ?? null,
-      courtyardGeneratorControls: options.courtyardGeneratorControls ?? null,
-      blueprintGeneratorControls: options.blueprintGeneratorControls ?? null,
-      stripePlaidGeneratorControls: options.stripePlaidGeneratorControls ?? null,
-      checkerDiamondLatticeControls: options.checkerDiamondLatticeControls ?? null,
-      concentricBoxesControls: options.concentricBoxesControls ?? null,
-      lineInterferenceControls: options.lineInterferenceControls ?? null,
-      circlePackingControls: options.circlePackingControls ?? null,
-      drunkWalkPainterControls: options.drunkWalkPainterControls ?? null,
-      particleFlowFieldControls: options.particleFlowFieldControls ?? null,
-      stampBrushGeneratorControls: options.stampBrushGeneratorControls ?? null,
-      cutoutCollageControls: options.cutoutCollageControls ?? null,
-      glitchBlocksControls: options.glitchBlocksControls ?? null,
-      gameOfLifeVariantsControls: options.gameOfLifeVariantsControls ?? null,
-      diffusionLimitedAggregationControls: options.diffusionLimitedAggregationControls ?? null,
-      reactionDiffusionApproximationControls:
-        options.reactionDiffusionApproximationControls ?? null,
-      voronoiRegionCarverControls: options.voronoiRegionCarverControls ?? null,
-      erosionDilationPipelineControls: options.erosionDilationPipelineControls ?? null,
-      backtrackingControls: options.backtrackingControls ?? null,
-      primsControls: options.primsControls ?? null,
-      kruskalsControls: options.kruskalsControls ?? null,
-      sidewinderControls: options.sidewinderControls ?? null,
-      binaryTreeControls: options.binaryTreeControls ?? null,
-      huntAndKillControls: options.huntAndKillControls ?? null,
-      wilsonsControls: options.wilsonsControls ?? null,
-      aldousBroderControls: options.aldousBroderControls ?? null,
-      ellersControls: options.ellersControls ?? null,
-      cellularAutomatonControls: options.cellularAutomatonControls ?? null,
-      dungeonRoomsControls: options.dungeonRoomsControls ?? null,
-      trivialMazeControls: options.trivialMazeControls ?? null,
-      growingTreeControls: options.growingTreeControls ?? null,
-      recursiveDivisionControls: options.recursiveDivisionControls ?? null,
-    });
-    const record = frameGeneratedLayoutRecord(rawRecord, layoutWidth, layoutHeight, invert);
-    if (seen.has(record.wallKey)) continue;
-    seen.add(record.wallKey);
-    records.push(record);
-  }
+  withGeneratedContentSize(contentSize.width, contentSize.height, () => {
+    for (let attempt = 0; attempt < maxAttempts && records.length < count; attempt++) {
+      const algorithm = pickAlgorithm(options.algorithm, rng);
+      const rawRecord = generateRecordForAlgorithm(algorithm, rng, {
+        randomNoiseControls: options.randomNoiseControls ?? null,
+        perlinNoiseControls: options.perlinNoiseControls ?? null,
+        valueFractalNoiseControls: options.valueFractalNoiseControls ?? null,
+        worleyNoiseControls: options.worleyNoiseControls ?? null,
+        thresholdedGradientNoiseControls: options.thresholdedGradientNoiseControls ?? null,
+        domainWarpedNoiseControls: options.domainWarpedNoiseControls ?? null,
+        radialSymmetryControls: options.radialSymmetryControls ?? null,
+        kaleidoscopeControls: options.kaleidoscopeControls ?? null,
+        lSystemTurtleControls: options.lSystemTurtleControls ?? null,
+        roseCurvesControls: options.roseCurvesControls ?? null,
+        tileableMotifRepeaterControls: options.tileableMotifRepeaterControls ?? null,
+        bspRoomPartitionerControls: options.bspRoomPartitionerControls ?? null,
+        corridorGridControls: options.corridorGridControls ?? null,
+        roomScatterControls: options.roomScatterControls ?? null,
+        courtyardGeneratorControls: options.courtyardGeneratorControls ?? null,
+        blueprintGeneratorControls: options.blueprintGeneratorControls ?? null,
+        stripePlaidGeneratorControls: options.stripePlaidGeneratorControls ?? null,
+        checkerDiamondLatticeControls: options.checkerDiamondLatticeControls ?? null,
+        concentricBoxesControls: options.concentricBoxesControls ?? null,
+        lineInterferenceControls: options.lineInterferenceControls ?? null,
+        circlePackingControls: options.circlePackingControls ?? null,
+        drunkWalkPainterControls: options.drunkWalkPainterControls ?? null,
+        particleFlowFieldControls: options.particleFlowFieldControls ?? null,
+        stampBrushGeneratorControls: options.stampBrushGeneratorControls ?? null,
+        cutoutCollageControls: options.cutoutCollageControls ?? null,
+        glitchBlocksControls: options.glitchBlocksControls ?? null,
+        gameOfLifeVariantsControls: options.gameOfLifeVariantsControls ?? null,
+        diffusionLimitedAggregationControls: options.diffusionLimitedAggregationControls ?? null,
+        reactionDiffusionApproximationControls:
+          options.reactionDiffusionApproximationControls ?? null,
+        voronoiRegionCarverControls: options.voronoiRegionCarverControls ?? null,
+        erosionDilationPipelineControls: options.erosionDilationPipelineControls ?? null,
+        backtrackingControls: options.backtrackingControls ?? null,
+        primsControls: options.primsControls ?? null,
+        kruskalsControls: options.kruskalsControls ?? null,
+        sidewinderControls: options.sidewinderControls ?? null,
+        binaryTreeControls: options.binaryTreeControls ?? null,
+        huntAndKillControls: options.huntAndKillControls ?? null,
+        wilsonsControls: options.wilsonsControls ?? null,
+        aldousBroderControls: options.aldousBroderControls ?? null,
+        ellersControls: options.ellersControls ?? null,
+        cellularAutomatonControls: options.cellularAutomatonControls ?? null,
+        dungeonRoomsControls: options.dungeonRoomsControls ?? null,
+        trivialMazeControls: options.trivialMazeControls ?? null,
+        growingTreeControls: options.growingTreeControls ?? null,
+        recursiveDivisionControls: options.recursiveDivisionControls ?? null,
+      });
+      const record = frameGeneratedLayoutRecord(rawRecord, layoutWidth, layoutHeight, invert);
+      if (seen.has(record.wallKey)) continue;
+      seen.add(record.wallKey);
+      records.push(record);
+    }
+  });
 
   return records;
 }
@@ -5054,8 +5089,10 @@ function randomizeRecursiveDivisionParameters(
 
 function buildRandomNoiseMaskBytes(params: RandomNoiseParameters): Uint8Array {
   const bytes = new Uint8Array(128);
-  const sourceWidth = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / params.blockSize);
-  const sourceHeight = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / params.blockSize);
+  const contentWidth = activeGeneratedContentSize.width;
+  const contentHeight = activeGeneratedContentSize.height;
+  const sourceWidth = Math.ceil(contentWidth / params.blockSize);
+  const sourceHeight = Math.ceil(contentHeight / params.blockSize);
   const cells = new Uint8Array(sourceWidth * sourceHeight);
   const rng = createSeededRandom(params.seed);
 
@@ -5065,8 +5102,8 @@ function buildRandomNoiseMaskBytes(params: RandomNoiseParameters): Uint8Array {
     }
   }
 
-  for (let y = 0; y < GENERATED_LAYOUT_GRID_SIZE; y++) {
-    for (let x = 0; x < GENERATED_LAYOUT_GRID_SIZE; x++) {
+  for (let y = 0; y < contentHeight; y++) {
+    for (let x = 0; x < contentWidth; x++) {
       const sample = sampleMirroredCell(
         cells,
         sourceWidth,
@@ -5150,8 +5187,10 @@ function buildNoiseTerrainMaskBytes(
   sampleField: (sampleX: number, sampleY: number) => number,
 ): Uint8Array {
   const bytes = new Uint8Array(128);
-  const sourceWidth = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / params.blockSize);
-  const sourceHeight = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / params.blockSize);
+  const contentWidth = activeGeneratedContentSize.width;
+  const contentHeight = activeGeneratedContentSize.height;
+  const sourceWidth = Math.ceil(contentWidth / params.blockSize);
+  const sourceHeight = Math.ceil(contentHeight / params.blockSize);
   const cells = new Uint8Array(sourceWidth * sourceHeight);
 
   for (let sourceY = 0; sourceY < sourceHeight; sourceY++) {
@@ -5164,8 +5203,8 @@ function buildNoiseTerrainMaskBytes(
     }
   }
 
-  for (let y = 0; y < GENERATED_LAYOUT_GRID_SIZE; y++) {
-    for (let x = 0; x < GENERATED_LAYOUT_GRID_SIZE; x++) {
+  for (let y = 0; y < contentHeight; y++) {
+    for (let x = 0; x < contentWidth; x++) {
       const sourceX = Math.min(sourceWidth - 1, Math.floor(x / params.blockSize));
       const sourceY = Math.min(sourceHeight - 1, Math.floor(y / params.blockSize));
       if (cells[sourceY * sourceWidth + sourceX] !== 1) continue;
@@ -7161,12 +7200,14 @@ function buildRecursiveDivisionMaskBytes(
   rng: () => number,
 ): Uint8Array {
   const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = new Uint8Array(GENERATED_LAYOUT_GRID_SIZE * GENERATED_LAYOUT_GRID_SIZE);
+  const width = activeGeneratedContentSize.width;
+  const height = activeGeneratedContentSize.height;
+  const walls = createFilledMazeWalls();
 
-  fillRect(walls, 0, 0, GENERATED_LAYOUT_GRID_SIZE, 1);
-  fillRect(walls, 0, GENERATED_LAYOUT_GRID_SIZE - 1, GENERATED_LAYOUT_GRID_SIZE, 1);
-  fillRect(walls, 0, 0, 1, GENERATED_LAYOUT_GRID_SIZE);
-  fillRect(walls, GENERATED_LAYOUT_GRID_SIZE - 1, 0, 1, GENERATED_LAYOUT_GRID_SIZE);
+  fillRect(walls, 0, 0, width, 1);
+  fillRect(walls, 0, height - 1, width, 1);
+  fillRect(walls, 0, 0, 1, height);
+  fillRect(walls, width - 1, 0, 1, height);
 
   const regions: Array<Readonly<{ minX: number; minY: number; maxX: number; maxY: number }>> = [
     {
@@ -7766,8 +7807,7 @@ function frameGeneratedMaskBytes(
 ): Uint8Array {
   const outerWidth = sanitizeGeneratedLayoutSize(layoutWidth);
   const outerHeight = sanitizeGeneratedLayoutSize(layoutHeight);
-  const innerWidth = Math.max(1, outerWidth - 2);
-  const innerHeight = Math.max(1, outerHeight - 2);
+  const contentSize = generatedContentDimensionsForLayout(layoutWidth, layoutHeight);
   const offsetX = Math.floor((GENERATED_LAYOUT_GRID_SIZE - outerWidth) / 2);
   const offsetY = Math.floor((GENERATED_LAYOUT_GRID_SIZE - outerHeight) / 2);
   const bytes = new Uint8Array(128);
@@ -7782,16 +7822,9 @@ function frameGeneratedMaskBytes(
         continue;
       }
 
-      const sourceX = clamp(
-        Math.floor(((x - 1 + 0.5) / innerWidth) * GENERATED_LAYOUT_GRID_SIZE),
-        0,
-        GENERATED_LAYOUT_GRID_SIZE - 1,
-      );
-      const sourceY = clamp(
-        Math.floor(((y - 1 + 0.5) / innerHeight) * GENERATED_LAYOUT_GRID_SIZE),
-        0,
-        GENERATED_LAYOUT_GRID_SIZE - 1,
-      );
+      const sourceX = x - 1;
+      const sourceY = y - 1;
+      if (sourceX >= contentSize.width || sourceY >= contentSize.height) continue;
       if (!maskBitIsSet(sourceBytes, sourceY * GENERATED_LAYOUT_GRID_SIZE + sourceX)) continue;
       setMaskBit(bytes, targetY * GENERATED_LAYOUT_GRID_SIZE + targetX);
     }
@@ -7821,8 +7854,8 @@ function buildScalarPatternMaskBytes(
 function createPatternSourceGrid(
   blockSize: number,
 ): Readonly<{ cells: Uint8Array; width: number; height: number }> {
-  const width = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / blockSize);
-  const height = Math.ceil(GENERATED_LAYOUT_GRID_SIZE / blockSize);
+  const width = Math.ceil(activeGeneratedContentSize.width / blockSize);
+  const height = Math.ceil(activeGeneratedContentSize.height / blockSize);
   return {
     cells: new Uint8Array(width * height),
     width,
@@ -7852,8 +7885,8 @@ function expandPatternCellsToMaskBytes(
   blockSize: number,
 ): Uint8Array {
   const bytes = new Uint8Array(128);
-  for (let y = 0; y < GENERATED_LAYOUT_GRID_SIZE; y++) {
-    for (let x = 0; x < GENERATED_LAYOUT_GRID_SIZE; x++) {
+  for (let y = 0; y < activeGeneratedContentSize.height; y++) {
+    for (let x = 0; x < activeGeneratedContentSize.width; x++) {
       const sourceX = Math.min(width - 1, Math.floor(x / blockSize));
       const sourceY = Math.min(height - 1, Math.floor(y / blockSize));
       if (cells[sourceY * width + sourceX] !== 1) continue;
@@ -8719,7 +8752,7 @@ function fillRect(walls: Uint8Array, x: number, y: number, width: number, height
 }
 
 function mazeTileIndex(x: number, y: number): number {
-  return y * GENERATED_LAYOUT_GRID_SIZE + x;
+  return y * activeGeneratedContentSize.width + x;
 }
 
 function mazeCellIndex(columns: number, x: number, y: number): number {
@@ -8728,15 +8761,19 @@ function mazeCellIndex(columns: number, x: number, y: number): number {
 
 function wallsToMaskBytes(walls: Uint8Array): Uint8Array {
   const bytes = new Uint8Array(128);
-  for (let index = 0; index < walls.length; index++) {
-    if (walls[index] !== 1) continue;
-    setMaskBit(bytes, index);
+  for (let y = 0; y < activeGeneratedContentSize.height; y++) {
+    for (let x = 0; x < activeGeneratedContentSize.width; x++) {
+      if (walls[mazeTileIndex(x, y)] !== 1) continue;
+      setMaskBit(bytes, y * GENERATED_LAYOUT_GRID_SIZE + x);
+    }
   }
   return bytes;
 }
 
 function createFilledMazeWalls(): Uint8Array {
-  const walls = new Uint8Array(GENERATED_LAYOUT_GRID_SIZE * GENERATED_LAYOUT_GRID_SIZE);
+  const walls = new Uint8Array(
+    activeGeneratedContentSize.width * activeGeneratedContentSize.height,
+  );
   walls.fill(1);
   return walls;
 }
@@ -8767,8 +8804,10 @@ function sanitizeTrivialMazeType(value: TrivialMazeType): TrivialMazeType {
 
 export function dungeonRoomParameterLimits(
   blockSize: MazeBlockSize,
+  contentWidth = activeGeneratedContentSize.width,
+  contentHeight = activeGeneratedContentSize.height,
 ): Readonly<{ roomCountMax: number; roomSizeMax: number }> {
-  const dims = mazeGridDimensionsForBlockSize(blockSize);
+  const dims = mazeGridDimensionsForBlockSize(blockSize, contentWidth, contentHeight);
   return {
     roomCountMax: Math.max(
       DUNGEON_ROOM_COUNT_MIN,

@@ -48,6 +48,7 @@ import {
   createDefaultWilsonsControlState,
   createDefaultWorleyNoiseControlState,
   generateLayoutRecords,
+  mazeGridDimensionsForBlockSize,
   recordsFromStarredKeys,
 } from "@/web/src/generatedLayouts";
 
@@ -136,6 +137,17 @@ describe("generated layouts", () => {
     expect(createDefaultRecursiveDivisionControlState().blockSize).toEqual({
       randomize: true,
       value: "1x1",
+    });
+  });
+
+  it("computes maze dimensions from the active generated content size", () => {
+    expect(mazeGridDimensionsForBlockSize("1x1", 8, 12)).toEqual({
+      columns: 3,
+      rows: 5,
+    });
+    expect(mazeGridDimensionsForBlockSize("2x2", 8, 12)).toEqual({
+      columns: 2,
+      rows: 3,
     });
   });
 
@@ -1729,7 +1741,7 @@ describe("generated layouts", () => {
         ...controls,
         blockSize: { randomize: false, value: "2x2" },
         startColumn: { randomize: false, value: 3 },
-        startRow: { randomize: false, value: 10 },
+        startRow: { randomize: false, value: 9 },
       },
     });
 
@@ -1740,7 +1752,7 @@ describe("generated layouts", () => {
           record.algorithm === "backtracking-generator" &&
           record.params.blockSize === "2x2" &&
           record.params.startColumn === 3 &&
-          record.params.startRow === 10,
+          record.params.startRow === 9,
       ),
     ).toBe(true);
   });
