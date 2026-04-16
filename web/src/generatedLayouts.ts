@@ -1,4 +1,5 @@
 import { wallMaskBytesFromKey, wallMaskKeyFromBytes } from "@/src/walls-core/mask32";
+import { invertWallGrid, type WallGrid, wallGridFromMaskBytes } from "@/src/walls-core/grid";
 
 export const GENERATED_LAYOUT_CARD_COUNT = 18;
 export const GENERATED_LAYOUT_GRID_SIZE = 32;
@@ -1057,6 +1058,7 @@ type BaseGeneratedLayoutRecord<
     | null,
 > = Readonly<{
   wallKey: string;
+  grid?: WallGrid;
   algorithm: Algorithm;
   title: string;
   summary: string;
@@ -1724,10 +1726,10 @@ export function generateLayoutRecords(
   const seen = new Set<string>();
   const maxAttempts = count * 64;
 
-  withGeneratedContentSize(contentSize.width, contentSize.height, () => {
-    for (let attempt = 0; attempt < maxAttempts && records.length < count; attempt++) {
-      const algorithm = pickAlgorithm(options.algorithm, rng);
-      const rawRecord = generateRecordForAlgorithm(algorithm, rng, {
+  for (let attempt = 0; attempt < maxAttempts && records.length < count; attempt++) {
+    const algorithm = pickAlgorithm(options.algorithm, rng);
+    const rawRecord = withGeneratedContentSize(contentSize.width, contentSize.height, () =>
+      generateRecordForAlgorithm(algorithm, rng, {
         randomNoiseControls: options.randomNoiseControls ?? null,
         perlinNoiseControls: options.perlinNoiseControls ?? null,
         valueFractalNoiseControls: options.valueFractalNoiseControls ?? null,
@@ -1774,13 +1776,19 @@ export function generateLayoutRecords(
         trivialMazeControls: options.trivialMazeControls ?? null,
         growingTreeControls: options.growingTreeControls ?? null,
         recursiveDivisionControls: options.recursiveDivisionControls ?? null,
-      });
-      const record = frameGeneratedLayoutRecord(rawRecord, layoutWidth, layoutHeight, invert);
-      if (seen.has(record.wallKey)) continue;
-      seen.add(record.wallKey);
-      records.push(record);
-    }
-  });
+      }),
+    );
+    const record = frameGeneratedLayoutRecord(
+      rawRecord,
+      contentSize,
+      layoutWidth,
+      layoutHeight,
+      invert,
+    );
+    if (seen.has(record.wallKey)) continue;
+    seen.add(record.wallKey);
+    records.push(record);
+  }
 
   return records;
 }
@@ -7770,6 +7778,7 @@ function buildRecursiveDivisionSummary(params: RecursiveDivisionParameters): str
 function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
   return {
     wallKey,
+    grid: wallGridFromMaskBytes(wallMaskBytesFromKey(wallKey)),
     algorithm: "starred",
     title: "Starred Layout",
     summary: "Saved locally from Generate",
@@ -7781,33 +7790,37 @@ function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
 
 function frameGeneratedLayoutRecord(
   record: GeneratedLayoutRecord,
+  contentSize: GeneratedContentSize,
   layoutWidth: number,
   layoutHeight: number,
   invert: boolean,
 ): GeneratedLayoutRecord {
-  if (record.algorithm === "starred") return record;
+  if (record.algorithm === "starred" || !record.wallKey) return record;
 
-  const sourceBytes = wallMaskBytesFromKey(record.wallKey);
-  const framedBytes = frameGeneratedMaskBytes(
-    invert ? invertMaskBytes(sourceBytes) : sourceBytes,
-    layoutWidth,
-    layoutHeight,
+  const sourceGrid = wallGridFromMaskBytes(
+    wallMaskBytesFromKey(record.wallKey),
+    contentSize.width,
+    contentSize.height,
   );
+  const grid = invert ? invertWallGrid(sourceGrid) : sourceGrid;
+  const framedBytes = frameGeneratedGridToMaskBytes(grid, layoutWidth, layoutHeight);
   return {
     ...record,
+    grid,
     inverted: invert,
     wallKey: wallMaskKeyFromBytes(framedBytes),
   };
 }
 
-function frameGeneratedMaskBytes(
-  sourceBytes: Uint8Array,
+function frameGeneratedGridToMaskBytes(
+  grid: WallGrid,
   layoutWidth: number,
   layoutHeight: number,
 ): Uint8Array {
   const outerWidth = sanitizeGeneratedLayoutSize(layoutWidth);
   const outerHeight = sanitizeGeneratedLayoutSize(layoutHeight);
-  const contentSize = generatedContentDimensionsForLayout(layoutWidth, layoutHeight);
+  const contentWidth = Math.min(grid.width, Math.max(1, outerWidth - 2));
+  const contentHeight = Math.min(grid.height, Math.max(1, outerHeight - 2));
   const offsetX = Math.floor((GENERATED_LAYOUT_GRID_SIZE - outerWidth) / 2);
   const offsetY = Math.floor((GENERATED_LAYOUT_GRID_SIZE - outerHeight) / 2);
   const bytes = new Uint8Array(128);
@@ -7824,8 +7837,8 @@ function frameGeneratedMaskBytes(
 
       const sourceX = x - 1;
       const sourceY = y - 1;
-      if (sourceX >= contentSize.width || sourceY >= contentSize.height) continue;
-      if (!maskBitIsSet(sourceBytes, sourceY * GENERATED_LAYOUT_GRID_SIZE + sourceX)) continue;
+      if (sourceX >= contentWidth || sourceY >= contentHeight) continue;
+      if (grid.cells[sourceY * grid.width + sourceX] !== 1) continue;
       setMaskBit(bytes, targetY * GENERATED_LAYOUT_GRID_SIZE + targetX);
     }
   }

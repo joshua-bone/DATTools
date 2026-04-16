@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { wallMaskBytesFromKey } from "@/src/walls-core/mask32";
+import { wallMaskBytesFromKey, wallMaskKeyFromBytes } from "@/src/walls-core/mask32";
 import {
   createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,
@@ -121,12 +121,18 @@ describe("generated layouts", () => {
   });
 
   it("builds stable starred records from saved wall keys", () => {
-    const records = recordsFromStarredKeys(new Set(["beta", "alpha"]));
+    const alpha = wallMaskKeyFromBytes(new Uint8Array(128));
+    const betaBytes = new Uint8Array(128);
+    betaBytes[0] = 0x80;
+    const beta = wallMaskKeyFromBytes(betaBytes);
+    const records = recordsFromStarredKeys(new Set([beta, alpha]));
 
-    expect(records.map((record) => record.wallKey)).toEqual(["alpha", "beta"]);
+    expect(records.map((record) => record.wallKey)).toEqual([alpha, beta]);
     expect(records[0]?.title).toBe("Starred Layout");
     expect(records[0]?.seedLabel).toBe("Saved locally");
     expect(records[0]?.algorithm).toBe("starred");
+    expect(records[0]?.grid?.width).toBe(32);
+    expect(records[0]?.grid?.height).toBe(32);
   });
 
   it("defaults non-maze block sizes to fixed 1x1 and keeps mazelib maze sizes randomizable", () => {
@@ -198,6 +204,29 @@ describe("generated layouts", () => {
         }
       }
     }
+  });
+
+  it("exposes the generated logical wall grid separately from the framed DAT wall key", () => {
+    const controls = createDefaultBacktrackingControlState();
+    const [record] = generateLayoutRecords({
+      algorithm: "backtracking-generator",
+      count: 1,
+      seed: 424242,
+      layoutWidth: 10,
+      layoutHeight: 14,
+      backtrackingControls: {
+        ...controls,
+        seed: { randomize: false, value: 424242 },
+        blockSize: { randomize: false, value: "1x1" },
+        startColumn: { randomize: false, value: 2 },
+        startRow: { randomize: false, value: 1 },
+      },
+    });
+
+    expect(record?.grid).toBeDefined();
+    expect(record?.grid?.width).toBe(8);
+    expect(record?.grid?.height).toBe(12);
+    expect(record?.grid?.cells.length).toBe(96);
   });
 
   it("applies global invert separately from algorithm parameters", () => {
