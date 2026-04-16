@@ -1,15 +1,17 @@
-import { wallMaskKeyFromBytes } from "@/src/dat/wallsBank";
+import { wallMaskBytesFromKey, wallMaskKeyFromBytes } from "@/src/dat/wallsBank";
 
 export const GENERATED_LAYOUT_CARD_COUNT = 18;
 export const GENERATED_LAYOUT_GRID_SIZE = 32;
 export const GENERATED_LAYOUT_PREVIEW_SIZE = 128;
+export const GENERATED_LAYOUT_MIN_SIZE = 10;
+export const GENERATED_LAYOUT_MAX_SIZE = 32;
 
 export const RANDOM_NOISE_SEED_MIN = 1;
 export const RANDOM_NOISE_SEED_MAX = 0x7ffffffe;
 export const RANDOM_NOISE_DENSITY_MIN = 0.12;
 export const RANDOM_NOISE_DENSITY_MAX = 0.66;
 export const RANDOM_NOISE_DENSITY_STEP = 0.02;
-export const RANDOM_NOISE_BLOCK_SIZE_OPTIONS: ReadonlyArray<number> = [1, 2, 3, 4];
+export const RANDOM_NOISE_BLOCK_SIZE_OPTIONS: ReadonlyArray<number> = [1, 2];
 export const RANDOM_NOISE_MIRROR_OPTIONS: ReadonlyArray<RandomNoiseMirrorMode> = [
   "none",
   "horizontal",
@@ -200,8 +202,6 @@ export const MAZE_START_MIN = 1;
 export const MAZE_BLOCK_SIZE_OPTIONS = [
   { value: "1x1", label: "1x1", width: 1, height: 1 },
   { value: "2x2", label: "2x2", width: 2, height: 2 },
-  { value: "1x2", label: "1x2", width: 1, height: 2 },
-  { value: "2x1", label: "2x1", width: 2, height: 1 },
 ] as const;
 export const GROWING_TREE_BACKTRACK_CHANCE_MIN = 0;
 export const GROWING_TREE_BACKTRACK_CHANCE_MAX = 1;
@@ -1471,14 +1471,7 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "dungeon-rooms",
   "trivial-maze",
 ];
-const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = [
-  "1x1",
-  "1x1",
-  "2x2",
-  "2x2",
-  "1x2",
-  "2x1",
-];
+const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = ["1x1", "2x2"];
 const GROWING_TREE_BACKTRACK_CHANCE_VALUES = [0, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
 const SIDEWINDER_SKEW_VALUES = [0.15, 0.3, 0.5, 0.7, 0.85];
 const ELLERS_SKEW_VALUES = [0.15, 0.3, 0.5, 0.7, 0.85];
@@ -1636,6 +1629,8 @@ export function generateLayoutRecords(
     algorithm: GenerateAlgorithmChoice;
     count?: number;
     seed: number;
+    layoutWidth?: number;
+    layoutHeight?: number;
     randomNoiseControls?: RandomNoiseControlState | null;
     perlinNoiseControls?: PerlinNoiseControlState | null;
     valueFractalNoiseControls?: ValueFractalNoiseControlState | null;
@@ -1685,13 +1680,17 @@ export function generateLayoutRecords(
 ): GeneratedLayoutRecord[] {
   const count = Math.max(1, options.count ?? GENERATED_LAYOUT_CARD_COUNT);
   const rng = createSeededRandom(options.seed);
+  const layoutWidth = sanitizeGeneratedLayoutSize(options.layoutWidth ?? GENERATED_LAYOUT_MAX_SIZE);
+  const layoutHeight = sanitizeGeneratedLayoutSize(
+    options.layoutHeight ?? GENERATED_LAYOUT_MAX_SIZE,
+  );
   const records: GeneratedLayoutRecord[] = [];
   const seen = new Set<string>();
   const maxAttempts = count * 64;
 
   for (let attempt = 0; attempt < maxAttempts && records.length < count; attempt++) {
     const algorithm = pickAlgorithm(options.algorithm, rng);
-    const record = generateRecordForAlgorithm(algorithm, rng, {
+    const rawRecord = generateRecordForAlgorithm(algorithm, rng, {
       randomNoiseControls: options.randomNoiseControls ?? null,
       perlinNoiseControls: options.perlinNoiseControls ?? null,
       valueFractalNoiseControls: options.valueFractalNoiseControls ?? null,
@@ -1739,6 +1738,7 @@ export function generateLayoutRecords(
       growingTreeControls: options.growingTreeControls ?? null,
       recursiveDivisionControls: options.recursiveDivisionControls ?? null,
     });
+    const record = frameGeneratedLayoutRecord(rawRecord, layoutWidth, layoutHeight);
     if (seen.has(record.wallKey)) continue;
     seen.add(record.wallKey);
     records.push(record);
@@ -1756,7 +1756,7 @@ export function createDefaultRandomNoiseControlState(): RandomNoiseControlState 
   return {
     seed: { randomize: true, value: 1 },
     density: { randomize: true, value: 0.36 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     mirror: { randomize: true, value: "none" },
     invert: { randomize: true, value: false },
   };
@@ -1765,7 +1765,7 @@ export function createDefaultRandomNoiseControlState(): RandomNoiseControlState 
 export function createDefaultPerlinNoiseControlState(): PerlinNoiseControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     threshold: { randomize: true, value: 0.5 },
     invert: { randomize: true, value: false },
     scale: { randomize: true, value: 3 },
@@ -1776,7 +1776,7 @@ export function createDefaultPerlinNoiseControlState(): PerlinNoiseControlState 
 export function createDefaultValueFractalNoiseControlState(): ValueFractalNoiseControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     threshold: { randomize: true, value: 0.5 },
     invert: { randomize: true, value: false },
     scale: { randomize: true, value: 3 },
@@ -1788,7 +1788,7 @@ export function createDefaultValueFractalNoiseControlState(): ValueFractalNoiseC
 export function createDefaultWorleyNoiseControlState(): WorleyNoiseControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     threshold: { randomize: true, value: 0.5 },
     invert: { randomize: true, value: false },
     cellCount: { randomize: true, value: 5 },
@@ -1799,7 +1799,7 @@ export function createDefaultWorleyNoiseControlState(): WorleyNoiseControlState 
 export function createDefaultThresholdedGradientNoiseControlState(): ThresholdedGradientNoiseControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     threshold: { randomize: true, value: 0.5 },
     invert: { randomize: true, value: false },
     scale: { randomize: true, value: 3 },
@@ -1811,7 +1811,7 @@ export function createDefaultThresholdedGradientNoiseControlState(): Thresholded
 export function createDefaultDomainWarpedNoiseControlState(): DomainWarpedNoiseControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     threshold: { randomize: true, value: 0.5 },
     invert: { randomize: true, value: false },
     scale: { randomize: true, value: 3 },
@@ -1824,7 +1824,7 @@ export function createDefaultDomainWarpedNoiseControlState(): DomainWarpedNoiseC
 export function createDefaultRadialSymmetryControlState(): RadialSymmetryControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     folds: { randomize: true, value: 6 },
     rings: { randomize: true, value: 3 },
@@ -1836,7 +1836,7 @@ export function createDefaultRadialSymmetryControlState(): RadialSymmetryControl
 export function createDefaultKaleidoscopeControlState(): KaleidoscopeControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     segments: { randomize: true, value: 6 },
     scale: { randomize: true, value: 3.5 },
@@ -1847,7 +1847,7 @@ export function createDefaultKaleidoscopeControlState(): KaleidoscopeControlStat
 export function createDefaultLSystemTurtleControlState(): LSystemTurtleControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     preset: { randomize: true, value: "plant" },
     iterations: { randomize: true, value: 3 },
@@ -1859,7 +1859,7 @@ export function createDefaultLSystemTurtleControlState(): LSystemTurtleControlSt
 export function createDefaultRoseCurvesControlState(): RoseCurvesControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     petals: { randomize: true, value: 5 },
     harmonic: { randomize: true, value: 2 },
@@ -1871,7 +1871,7 @@ export function createDefaultRoseCurvesControlState(): RoseCurvesControlState {
 export function createDefaultTileableMotifRepeaterControlState(): TileableMotifRepeaterControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     motif: { randomize: true, value: "cross" },
     spacing: { randomize: true, value: 5 },
@@ -1884,7 +1884,7 @@ export function createDefaultTileableMotifRepeaterControlState(): TileableMotifR
 export function createDefaultBspRoomPartitionerControlState(): BspRoomPartitionerControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     splitDepth: { randomize: true, value: 4 },
     roomPadding: { randomize: true, value: 1 },
@@ -1895,7 +1895,7 @@ export function createDefaultBspRoomPartitionerControlState(): BspRoomPartitione
 export function createDefaultCorridorGridControlState(): CorridorGridControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     columnSpacing: { randomize: true, value: 6 },
     rowSpacing: { randomize: true, value: 6 },
@@ -1907,7 +1907,7 @@ export function createDefaultCorridorGridControlState(): CorridorGridControlStat
 export function createDefaultRoomScatterControlState(): RoomScatterControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     roomCount: { randomize: true, value: 6 },
     roomSize: { randomize: true, value: 7 },
@@ -1919,7 +1919,7 @@ export function createDefaultRoomScatterControlState(): RoomScatterControlState 
 export function createDefaultCourtyardGeneratorControlState(): CourtyardGeneratorControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     ringCount: { randomize: true, value: 3 },
     ringGap: { randomize: true, value: 2 },
@@ -1931,7 +1931,7 @@ export function createDefaultCourtyardGeneratorControlState(): CourtyardGenerato
 export function createDefaultBlueprintGeneratorControlState(): BlueprintGeneratorControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     wingCount: { randomize: true, value: 3 },
     hallWidth: { randomize: true, value: 5 },
@@ -1943,7 +1943,7 @@ export function createDefaultBlueprintGeneratorControlState(): BlueprintGenerato
 export function createDefaultStripePlaidGeneratorControlState(): StripePlaidGeneratorControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     mode: { randomize: true, value: "plaid" },
     spacing: { randomize: true, value: 6 },
@@ -1955,7 +1955,7 @@ export function createDefaultStripePlaidGeneratorControlState(): StripePlaidGene
 export function createDefaultCheckerDiamondLatticeControlState(): CheckerDiamondLatticeControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     style: { randomize: true, value: "checker" },
     cellSize: { randomize: true, value: 4 },
@@ -1967,7 +1967,7 @@ export function createDefaultCheckerDiamondLatticeControlState(): CheckerDiamond
 export function createDefaultConcentricBoxesControlState(): ConcentricBoxesControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     ringCount: { randomize: true, value: 5 },
     spacing: { randomize: true, value: 2 },
@@ -1979,7 +1979,7 @@ export function createDefaultConcentricBoxesControlState(): ConcentricBoxesContr
 export function createDefaultLineInterferenceControlState(): LineInterferenceControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     angleA: { randomize: true, value: 45 },
     angleB: { randomize: true, value: 135 },
@@ -1991,7 +1991,7 @@ export function createDefaultLineInterferenceControlState(): LineInterferenceCon
 export function createDefaultCirclePackingControlState(): CirclePackingControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     circleCount: { randomize: true, value: 7 },
     minRadius: { randomize: true, value: 1 },
@@ -2003,7 +2003,7 @@ export function createDefaultCirclePackingControlState(): CirclePackingControlSt
 export function createDefaultDrunkWalkPainterControlState(): DrunkWalkPainterControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     walkerCount: { randomize: true, value: 3 },
     steps: { randomize: true, value: 64 },
@@ -2015,7 +2015,7 @@ export function createDefaultDrunkWalkPainterControlState(): DrunkWalkPainterCon
 export function createDefaultParticleFlowFieldControlState(): ParticleFlowFieldControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     agentCount: { randomize: true, value: 16 },
     steps: { randomize: true, value: 24 },
@@ -2027,7 +2027,7 @@ export function createDefaultParticleFlowFieldControlState(): ParticleFlowFieldC
 export function createDefaultStampBrushGeneratorControlState(): StampBrushGeneratorControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     stampCount: { randomize: true, value: 20 },
     stampSize: { randomize: true, value: 2 },
@@ -2039,7 +2039,7 @@ export function createDefaultStampBrushGeneratorControlState(): StampBrushGenera
 export function createDefaultCutoutCollageControlState(): CutoutCollageControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     shapeCount: { randomize: true, value: 8 },
     minSize: { randomize: true, value: 2 },
@@ -2051,7 +2051,7 @@ export function createDefaultCutoutCollageControlState(): CutoutCollageControlSt
 export function createDefaultGlitchBlocksControlState(): GlitchBlocksControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     bandCount: { randomize: true, value: 10 },
     offsetRange: { randomize: true, value: 3 },
@@ -2063,7 +2063,7 @@ export function createDefaultGlitchBlocksControlState(): GlitchBlocksControlStat
 export function createDefaultGameOfLifeVariantsControlState(): GameOfLifeVariantsControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     density: { randomize: true, value: 0.36 },
     steps: { randomize: true, value: 4 },
@@ -2074,7 +2074,7 @@ export function createDefaultGameOfLifeVariantsControlState(): GameOfLifeVariant
 export function createDefaultDiffusionLimitedAggregationControlState(): DiffusionLimitedAggregationControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     walkers: { randomize: true, value: 360 },
     stickiness: { randomize: true, value: 0.7 },
@@ -2085,7 +2085,7 @@ export function createDefaultDiffusionLimitedAggregationControlState(): Diffusio
 export function createDefaultReactionDiffusionApproximationControlState(): ReactionDiffusionApproximationControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     spotCount: { randomize: true, value: 4 },
     iterations: { randomize: true, value: 12 },
@@ -2097,7 +2097,7 @@ export function createDefaultReactionDiffusionApproximationControlState(): React
 export function createDefaultVoronoiRegionCarverControlState(): VoronoiRegionCarverControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     siteCount: { randomize: true, value: 8 },
     ridgeWidth: { randomize: true, value: 1.2 },
@@ -2108,7 +2108,7 @@ export function createDefaultVoronoiRegionCarverControlState(): VoronoiRegionCar
 export function createDefaultErosionDilationPipelineControlState(): ErosionDilationPipelineControlState {
   return {
     seed: { randomize: true, value: 1 },
-    blockSize: { randomize: true, value: 1 },
+    blockSize: { randomize: false, value: 1 },
     invert: { randomize: true, value: false },
     density: { randomize: true, value: 0.36 },
     growSteps: { randomize: true, value: 2 },
@@ -3835,11 +3835,7 @@ function randomizeNoiseTerrainBaseParameters(
       () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
       sanitizeSeed,
     ),
-    blockSize: resolveRandomizableValue(
-      defaults.blockSize,
-      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
-      sampleClosestNoiseBlockSize,
-    ),
+    blockSize: sampleClosestNoiseBlockSize(defaults.blockSize.value),
     threshold: resolveRandomizableValue(
       defaults.threshold,
       () => sampleOne(rng, NOISE_TERRAIN_THRESHOLD_VALUES),
@@ -3983,11 +3979,7 @@ function randomizeOrnamentBaseParameters(
       () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
       sanitizeSeed,
     ),
-    blockSize: resolveRandomizableValue(
-      defaults.blockSize,
-      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
-      sampleClosestNoiseBlockSize,
-    ),
+    blockSize: sampleClosestNoiseBlockSize(defaults.blockSize.value),
     invert: resolveRandomizableValue(
       defaults.invert,
       () => rng() < 0.15,
@@ -4156,11 +4148,7 @@ function randomizeArchitectureBaseParameters(
       () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
       sanitizeSeed,
     ),
-    blockSize: resolveRandomizableValue(
-      defaults.blockSize,
-      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
-      sampleClosestNoiseBlockSize,
-    ),
+    blockSize: sampleClosestNoiseBlockSize(defaults.blockSize.value),
     invert: resolveRandomizableValue(
       defaults.invert,
       () => rng() < 0.12,
@@ -4324,11 +4312,7 @@ function randomizePatternedGeometricBaseParameters(
       () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
       sanitizeSeed,
     ),
-    blockSize: resolveRandomizableValue(
-      defaults.blockSize,
-      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
-      sampleClosestNoiseBlockSize,
-    ),
+    blockSize: sampleClosestNoiseBlockSize(defaults.blockSize.value),
     invert: resolveRandomizableValue(
       defaults.invert,
       () => rng() < 0.12,
@@ -4503,11 +4487,7 @@ function randomizeChaoticProceduralBaseParameters(
       () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
       sanitizeSeed,
     ),
-    blockSize: resolveRandomizableValue(
-      defaults.blockSize,
-      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
-      sampleClosestNoiseBlockSize,
-    ),
+    blockSize: sampleClosestNoiseBlockSize(defaults.blockSize.value),
     invert: resolveRandomizableValue(
       defaults.invert,
       () => rng() < 0.12,
@@ -4681,11 +4661,7 @@ function randomizeGrowthBaseParameters(
       () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
       sanitizeSeed,
     ),
-    blockSize: resolveRandomizableValue(
-      defaults.blockSize,
-      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
-      sampleClosestNoiseBlockSize,
-    ),
+    blockSize: sampleClosestNoiseBlockSize(defaults.blockSize.value),
     invert: resolveRandomizableValue(
       defaults.invert,
       () => rng() < 0.12,
@@ -7764,6 +7740,65 @@ function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
   };
 }
 
+function frameGeneratedLayoutRecord(
+  record: GeneratedLayoutRecord,
+  layoutWidth: number,
+  layoutHeight: number,
+): GeneratedLayoutRecord {
+  if (record.algorithm === "starred") return record;
+
+  const framedBytes = frameGeneratedMaskBytes(
+    wallMaskBytesFromKey(record.wallKey),
+    layoutWidth,
+    layoutHeight,
+  );
+  return {
+    ...record,
+    wallKey: wallMaskKeyFromBytes(framedBytes),
+  };
+}
+
+function frameGeneratedMaskBytes(
+  sourceBytes: Uint8Array,
+  layoutWidth: number,
+  layoutHeight: number,
+): Uint8Array {
+  const outerWidth = sanitizeGeneratedLayoutSize(layoutWidth);
+  const outerHeight = sanitizeGeneratedLayoutSize(layoutHeight);
+  const innerWidth = Math.max(1, outerWidth - 2);
+  const innerHeight = Math.max(1, outerHeight - 2);
+  const offsetX = Math.floor((GENERATED_LAYOUT_GRID_SIZE - outerWidth) / 2);
+  const offsetY = Math.floor((GENERATED_LAYOUT_GRID_SIZE - outerHeight) / 2);
+  const bytes = new Uint8Array(128);
+
+  for (let y = 0; y < outerHeight; y++) {
+    for (let x = 0; x < outerWidth; x++) {
+      const targetX = offsetX + x;
+      const targetY = offsetY + y;
+      const isBorder = x === 0 || y === 0 || x === outerWidth - 1 || y === outerHeight - 1;
+      if (isBorder) {
+        setMaskBit(bytes, targetY * GENERATED_LAYOUT_GRID_SIZE + targetX);
+        continue;
+      }
+
+      const sourceX = clamp(
+        Math.floor(((x - 1 + 0.5) / innerWidth) * GENERATED_LAYOUT_GRID_SIZE),
+        0,
+        GENERATED_LAYOUT_GRID_SIZE - 1,
+      );
+      const sourceY = clamp(
+        Math.floor(((y - 1 + 0.5) / innerHeight) * GENERATED_LAYOUT_GRID_SIZE),
+        0,
+        GENERATED_LAYOUT_GRID_SIZE - 1,
+      );
+      if (!maskBitIsSet(sourceBytes, sourceY * GENERATED_LAYOUT_GRID_SIZE + sourceX)) continue;
+      setMaskBit(bytes, targetY * GENERATED_LAYOUT_GRID_SIZE + targetX);
+    }
+  }
+
+  return bytes;
+}
+
 function buildScalarPatternMaskBytes(
   blockSize: number,
   isFilled: (sampleX: number, sampleY: number) => boolean,
@@ -9315,6 +9350,12 @@ function setMaskBit(bytes: Uint8Array, index: number): void {
   bytes[byteIndex] = (bytes[byteIndex] ?? 0) | (1 << bitIndex);
 }
 
+function maskBitIsSet(bytes: Uint8Array, index: number): boolean {
+  const byteIndex = Math.floor(index / 8);
+  const bitIndex = 7 - (index % 8);
+  return ((bytes[byteIndex] ?? 0) & (1 << bitIndex)) !== 0;
+}
+
 function countSetBits(bytes: Uint8Array): number {
   let count = 0;
   for (const byte of bytes) {
@@ -9332,6 +9373,10 @@ function sampleClosestNoiseBlockSize(value: number): number {
   return RANDOM_NOISE_BLOCK_SIZE_OPTIONS.reduce((closest, current) =>
     Math.abs(current - value) < Math.abs(closest - value) ? current : closest,
   );
+}
+
+function sanitizeGeneratedLayoutSize(value: number): number {
+  return clamp(Math.round(value), GENERATED_LAYOUT_MIN_SIZE, GENERATED_LAYOUT_MAX_SIZE);
 }
 
 function sanitizeSeed(value: number): number {

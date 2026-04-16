@@ -1728,6 +1728,21 @@ button:disabled {
   min-width: 200px;
 }
 
+.generateSizeField {
+  flex-basis: 240px;
+}
+
+.generateToolbarRangeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.generateToolbarValueBadge {
+  min-width: 44px;
+}
+
 .generateSelect {
   width: 100%;
   min-height: 34px;

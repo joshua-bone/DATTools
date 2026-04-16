@@ -114,6 +114,8 @@ import {
   GENERATE_ALGORITHM_OPTIONS,
   GENERATED_LAYOUT_CARD_COUNT,
   GENERATED_LAYOUT_GRID_SIZE,
+  GENERATED_LAYOUT_MAX_SIZE,
+  GENERATED_LAYOUT_MIN_SIZE,
   GLITCH_BLOCK_BAND_COUNT_MAX,
   GLITCH_BLOCK_BAND_COUNT_MIN,
   GLITCH_BLOCK_CELL_SIZE_MAX,
@@ -1650,36 +1652,24 @@ function NoiseTerrainBaseSections<
       <section className="generateSettingCard">
         <div className="fieldLabelRow">
           <span className="fieldLabel">Block Size</span>
-          <ParameterToggle
-            checked={controls.blockSize.randomize}
-            onChange={(checked) =>
-              onUpdate(
-                "blockSize" as keyof T,
-                { randomize: checked } as unknown as Partial<T[keyof T]>,
-              )
-            }
-          />
         </div>
-        {controls.blockSize.randomize ? (
-          <div className="fieldHint">Chooses between 1x1 and 4x4 blocks for chunkier layouts.</div>
-        ) : (
-          <select
-            className="generateSelect"
-            value={controls.blockSize.value}
-            onChange={(event) =>
-              onUpdate(
-                "blockSize" as keyof T,
-                { value: Number(event.target.value) } as unknown as Partial<T[keyof T]>,
-              )
-            }
-          >
-            {RANDOM_NOISE_BLOCK_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {formatNoiseBlockSizeLabel(size)}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="fieldHint">Defaults to 1x1. Switch to 2x2 for chunkier terrain.</div>
+        <select
+          className="generateSelect"
+          value={controls.blockSize.value}
+          onChange={(event) =>
+            onUpdate(
+              "blockSize" as keyof T,
+              { value: Number(event.target.value) } as unknown as Partial<T[keyof T]>,
+            )
+          }
+        >
+          {RANDOM_NOISE_BLOCK_SIZE_OPTIONS.map((size) => (
+            <option key={size} value={size}>
+              {formatNoiseBlockSizeLabel(size)}
+            </option>
+          ))}
+        </select>
       </section>
 
       <section className="generateSettingCard">
@@ -1765,36 +1755,24 @@ function OrnamentBaseSections<
       <section className="generateSettingCard">
         <div className="fieldLabelRow">
           <span className="fieldLabel">Block Size</span>
-          <ParameterToggle
-            checked={controls.blockSize.randomize}
-            onChange={(checked) =>
-              onUpdate(
-                "blockSize" as keyof T,
-                { randomize: checked } as unknown as Partial<T[keyof T]>,
-              )
-            }
-          />
         </div>
-        {controls.blockSize.randomize ? (
-          <div className="fieldHint">Chooses between 1x1 and 4x4 blocks for chunkier layouts.</div>
-        ) : (
-          <select
-            className="generateSelect"
-            value={controls.blockSize.value}
-            onChange={(event) =>
-              onUpdate(
-                "blockSize" as keyof T,
-                { value: Number(event.target.value) } as unknown as Partial<T[keyof T]>,
-              )
-            }
-          >
-            {RANDOM_NOISE_BLOCK_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {formatNoiseBlockSizeLabel(size)}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="fieldHint">Defaults to 1x1. Switch to 2x2 for chunkier layouts.</div>
+        <select
+          className="generateSelect"
+          value={controls.blockSize.value}
+          onChange={(event) =>
+            onUpdate(
+              "blockSize" as keyof T,
+              { value: Number(event.target.value) } as unknown as Partial<T[keyof T]>,
+            )
+          }
+        >
+          {RANDOM_NOISE_BLOCK_SIZE_OPTIONS.map((size) => (
+            <option key={size} value={size}>
+              {formatNoiseBlockSizeLabel(size)}
+            </option>
+          ))}
+        </select>
       </section>
 
       <section className="generateSettingCard">
@@ -7460,6 +7438,8 @@ export function GenerateBrowserDialog({
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<GenerateAlgorithmChoice>("any");
   const [starredOnly, setStarredOnly] = useState(false);
   const [randomSeed, setRandomSeed] = useState(() => randomSeedFromClock());
+  const [layoutWidth, setLayoutWidth] = useState(GENERATED_LAYOUT_MAX_SIZE);
+  const [layoutHeight, setLayoutHeight] = useState(GENERATED_LAYOUT_MAX_SIZE);
   const [selectedWallKey, setSelectedWallKey] = useState<string | null>(null);
   const [randomNoiseControls, setRandomNoiseControls] = useState<RandomNoiseControlState>(() =>
     createDefaultRandomNoiseControlState(),
@@ -7599,6 +7579,8 @@ export function GenerateBrowserDialog({
             algorithm: selectedAlgorithm,
             count: GENERATED_LAYOUT_CARD_COUNT,
             seed: randomSeed,
+            layoutWidth,
+            layoutHeight,
             randomNoiseControls: selectedAlgorithm === "random-noise" ? randomNoiseControls : null,
             perlinNoiseControls: selectedAlgorithm === "perlin-noise" ? perlinNoiseControls : null,
             valueFractalNoiseControls:
@@ -7715,6 +7697,8 @@ export function GenerateBrowserDialog({
       kruskalsControls,
       lSystemTurtleControls,
       lineInterferenceControls,
+      layoutHeight,
+      layoutWidth,
       particleFlowFieldControls,
       perlinNoiseControls,
       primsControls,
@@ -8834,6 +8818,42 @@ export function GenerateBrowserDialog({
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="fieldGroup generateField generateSizeField">
+              <span className="fieldLabel">Width</span>
+              <div className="generateToolbarRangeRow">
+                <input
+                  type="range"
+                  className="generateRangeInput"
+                  min={GENERATED_LAYOUT_MIN_SIZE}
+                  max={GENERATED_LAYOUT_MAX_SIZE}
+                  step={1}
+                  value={layoutWidth}
+                  disabled={starredOnly}
+                  onChange={(event) => setLayoutWidth(Number(event.target.value))}
+                />
+                <div className="statusBadge generateValueBadge generateToolbarValueBadge">
+                  {layoutWidth}
+                </div>
+              </div>
+            </label>
+            <label className="fieldGroup generateField generateSizeField">
+              <span className="fieldLabel">Height</span>
+              <div className="generateToolbarRangeRow">
+                <input
+                  type="range"
+                  className="generateRangeInput"
+                  min={GENERATED_LAYOUT_MIN_SIZE}
+                  max={GENERATED_LAYOUT_MAX_SIZE}
+                  step={1}
+                  value={layoutHeight}
+                  disabled={starredOnly}
+                  onChange={(event) => setLayoutHeight(Number(event.target.value))}
+                />
+                <div className="statusBadge generateValueBadge generateToolbarValueBadge">
+                  {layoutHeight}
+                </div>
+              </div>
             </label>
             <label className="wallsToggle generateToggle">
               <input

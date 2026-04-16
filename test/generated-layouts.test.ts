@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { wallMaskBytesFromKey } from "@/src/dat/wallsBank";
 import {
   createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,
@@ -127,6 +128,66 @@ describe("generated layouts", () => {
     expect(records[0]?.algorithm).toBe("starred");
   });
 
+  it("defaults non-maze block sizes to fixed 1x1 and keeps mazelib maze sizes randomizable", () => {
+    expect(createDefaultPerlinNoiseControlState().blockSize).toEqual({
+      randomize: false,
+      value: 1,
+    });
+    expect(createDefaultRecursiveDivisionControlState().blockSize).toEqual({
+      randomize: true,
+      value: "1x1",
+    });
+  });
+
+  it("frames generated layouts inside the requested size with a wall border", () => {
+    const controls = createDefaultBacktrackingControlState();
+    const [record] = generateLayoutRecords({
+      algorithm: "backtracking-generator",
+      count: 1,
+      seed: 31415,
+      layoutWidth: 10,
+      layoutHeight: 14,
+      backtrackingControls: {
+        ...controls,
+        seed: { randomize: false, value: 31415 },
+        blockSize: { randomize: false, value: "1x1" },
+        startColumn: { randomize: false, value: 3 },
+        startRow: { randomize: false, value: 4 },
+      },
+    });
+
+    expect(record?.algorithm).toBe("backtracking-generator");
+
+    const bytes = wallMaskBytesFromKey(record!.wallKey);
+    const offsetX = 11;
+    const offsetY = 9;
+    const outerWidth = 10;
+    const outerHeight = 14;
+    const readWall = (x: number, y: number): boolean => {
+      const index = y * 32 + x;
+      return ((bytes[Math.floor(index / 8)] ?? 0) & (1 << (7 - (index % 8)))) !== 0;
+    };
+
+    for (let y = 0; y < 32; y += 1) {
+      for (let x = 0; x < 32; x += 1) {
+        const insideFrame =
+          x >= offsetX && x < offsetX + outerWidth && y >= offsetY && y < offsetY + outerHeight;
+        const onBorder =
+          insideFrame &&
+          (x === offsetX ||
+            x === offsetX + outerWidth - 1 ||
+            y === offsetY ||
+            y === offsetY + outerHeight - 1);
+
+        if (onBorder) {
+          expect(readWall(x, y)).toBe(true);
+        } else if (!insideFrame) {
+          expect(readWall(x, y)).toBe(false);
+        }
+      }
+    }
+  });
+
   it("keeps locked random-noise parameters fixed across generated cards", () => {
     const controls = createDefaultRandomNoiseControlState();
     const records = generateLayoutRecords({
@@ -136,7 +197,7 @@ describe("generated layouts", () => {
       randomNoiseControls: {
         ...controls,
         density: { randomize: false, value: 0.24 },
-        blockSize: { randomize: false, value: 4 },
+        blockSize: { randomize: false, value: 2 },
         mirror: { randomize: false, value: "vertical" },
         invert: { randomize: false, value: true },
       },
@@ -148,7 +209,7 @@ describe("generated layouts", () => {
         (record) =>
           record.algorithm === "random-noise" &&
           record.params.density === 0.24 &&
-          record.params.blockSize === 4 &&
+          record.params.blockSize === 2 &&
           record.params.mirror === "vertical" &&
           record.params.invert === true,
       ),
@@ -180,7 +241,7 @@ describe("generated layouts", () => {
       seed: 51515,
       perlinNoiseControls: {
         ...controls,
-        blockSize: { randomize: false, value: 4 },
+        blockSize: { randomize: false, value: 2 },
         threshold: { randomize: false, value: 0.58 },
         invert: { randomize: false, value: true },
         scale: { randomize: false, value: 4.5 },
@@ -193,7 +254,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "perlin-noise" &&
-          record.params.blockSize === 4 &&
+          record.params.blockSize === 2 &&
           record.params.threshold === 0.58 &&
           record.params.invert === true &&
           record.params.scale === 4.5 &&
@@ -276,7 +337,7 @@ describe("generated layouts", () => {
       seed: 91991,
       worleyNoiseControls: {
         ...controls,
-        blockSize: { randomize: false, value: 3 },
+        blockSize: { randomize: false, value: 2 },
         threshold: { randomize: false, value: 0.54 },
         invert: { randomize: false, value: true },
         cellCount: { randomize: false, value: 7 },
@@ -289,7 +350,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "worley-noise" &&
-          record.params.blockSize === 3 &&
+          record.params.blockSize === 2 &&
           record.params.threshold === 0.54 &&
           record.params.invert === true &&
           record.params.cellCount === 7 &&
@@ -472,7 +533,7 @@ describe("generated layouts", () => {
       seed: 65656,
       kaleidoscopeControls: {
         ...controls,
-        blockSize: { randomize: false, value: 3 },
+        blockSize: { randomize: false, value: 2 },
         invert: { randomize: false, value: false },
         segments: { randomize: false, value: 10 },
         scale: { randomize: false, value: 4.5 },
@@ -485,7 +546,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "kaleidoscope" &&
-          record.params.blockSize === 3 &&
+          record.params.blockSize === 2 &&
           record.params.invert === false &&
           record.params.segments === 10 &&
           record.params.scale === 4.5 &&
@@ -568,7 +629,7 @@ describe("generated layouts", () => {
       seed: 69696,
       roseCurvesControls: {
         ...controls,
-        blockSize: { randomize: false, value: 4 },
+        blockSize: { randomize: false, value: 2 },
         invert: { randomize: false, value: false },
         petals: { randomize: false, value: 7 },
         harmonic: { randomize: false, value: 3 },
@@ -582,7 +643,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "rose-curves" &&
-          record.params.blockSize === 4 &&
+          record.params.blockSize === 2 &&
           record.params.invert === false &&
           record.params.petals === 7 &&
           record.params.harmonic === 3 &&
@@ -764,7 +825,7 @@ describe("generated layouts", () => {
       seed: 77777,
       roomScatterControls: {
         ...controls,
-        blockSize: { randomize: false, value: 3 },
+        blockSize: { randomize: false, value: 2 },
         invert: { randomize: false, value: true },
         roomCount: { randomize: false, value: 8 },
         roomSize: { randomize: false, value: 6 },
@@ -778,7 +839,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "room-scatter" &&
-          record.params.blockSize === 3 &&
+          record.params.blockSize === 2 &&
           record.params.invert === true &&
           record.params.roomCount === 8 &&
           record.params.roomSize === 6 &&
@@ -1499,7 +1560,7 @@ describe("generated layouts", () => {
       seed: 65606,
       reactionDiffusionApproximationControls: {
         ...controls,
-        blockSize: { randomize: false, value: 3 },
+        blockSize: { randomize: false, value: 2 },
         invert: { randomize: false, value: true },
         spotCount: { randomize: false, value: 6 },
         iterations: { randomize: false, value: 18 },
@@ -1513,7 +1574,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "reaction-diffusion-approximation" &&
-          record.params.blockSize === 3 &&
+          record.params.blockSize === 2 &&
           record.params.invert === true &&
           record.params.spotCount === 6 &&
           record.params.iterations === 18 &&
@@ -1595,7 +1656,7 @@ describe("generated layouts", () => {
       seed: 69606,
       erosionDilationPipelineControls: {
         ...controls,
-        blockSize: { randomize: false, value: 4 },
+        blockSize: { randomize: false, value: 2 },
         invert: { randomize: false, value: true },
         density: { randomize: false, value: 0.46 },
         growSteps: { randomize: false, value: 3 },
@@ -1609,7 +1670,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "erosion-dilation-pipeline" &&
-          record.params.blockSize === 4 &&
+          record.params.blockSize === 2 &&
           record.params.invert === true &&
           record.params.density === 0.46 &&
           record.params.growSteps === 3 &&
@@ -1644,9 +1705,9 @@ describe("generated layouts", () => {
       seed: 13579,
       backtrackingControls: {
         ...controls,
-        blockSize: { randomize: false, value: "2x1" },
+        blockSize: { randomize: false, value: "2x2" },
         startColumn: { randomize: false, value: 3 },
-        startRow: { randomize: false, value: 11 },
+        startRow: { randomize: false, value: 10 },
       },
     });
 
@@ -1655,9 +1716,9 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "backtracking-generator" &&
-          record.params.blockSize === "2x1" &&
+          record.params.blockSize === "2x2" &&
           record.params.startColumn === 3 &&
-          record.params.startRow === 11,
+          record.params.startRow === 10,
       ),
     ).toBe(true);
   });
@@ -1687,7 +1748,7 @@ describe("generated layouts", () => {
       seed: 24601,
       growingTreeControls: {
         ...controls,
-        blockSize: { randomize: false, value: "1x2" },
+        blockSize: { randomize: false, value: "1x1" },
         startColumn: { randomize: false, value: 4 },
         startRow: { randomize: false, value: 7 },
         backtrackChance: { randomize: false, value: 0.65 },
@@ -1699,7 +1760,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "growing-tree" &&
-          record.params.blockSize === "1x2" &&
+          record.params.blockSize === "1x1" &&
           record.params.startColumn === 4 &&
           record.params.startRow === 7 &&
           record.params.backtrackChance === 0.65,
@@ -1812,7 +1873,7 @@ describe("generated layouts", () => {
       seed: 97231,
       sidewinderControls: {
         ...controls,
-        blockSize: { randomize: false, value: "1x2" },
+        blockSize: { randomize: false, value: "1x1" },
         skew: { randomize: false, value: 0.7 },
       },
     });
@@ -1822,7 +1883,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "sidewinder" &&
-          record.params.blockSize === "1x2" &&
+          record.params.blockSize === "1x1" &&
           record.params.skew === 0.7,
       ),
     ).toBe(true);
@@ -1853,7 +1914,7 @@ describe("generated layouts", () => {
       seed: 67890,
       binaryTreeControls: {
         ...controls,
-        blockSize: { randomize: false, value: "2x1" },
+        blockSize: { randomize: false, value: "2x2" },
         skew: { randomize: false, value: "SE" },
       },
     });
@@ -1863,7 +1924,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "binary-tree" &&
-          record.params.blockSize === "2x1" &&
+          record.params.blockSize === "2x2" &&
           record.params.skew === "SE",
       ),
     ).toBe(true);
@@ -1935,7 +1996,7 @@ describe("generated layouts", () => {
       seed: 88125,
       wilsonsControls: {
         ...controls,
-        blockSize: { randomize: false, value: "1x2" },
+        blockSize: { randomize: false, value: "1x1" },
         huntOrder: { randomize: false, value: "random" },
       },
     });
@@ -1945,7 +2006,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "wilsons" &&
-          record.params.blockSize === "1x2" &&
+          record.params.blockSize === "1x1" &&
           record.params.huntOrder === "random",
       ),
     ).toBe(true);
@@ -2013,7 +2074,7 @@ describe("generated layouts", () => {
       seed: 78787,
       ellersControls: {
         ...controls,
-        blockSize: { randomize: false, value: "1x2" },
+        blockSize: { randomize: false, value: "1x1" },
         xskew: { randomize: false, value: 0.3 },
         yskew: { randomize: false, value: 0.7 },
       },
@@ -2024,7 +2085,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "ellers" &&
-          record.params.blockSize === "1x2" &&
+          record.params.blockSize === "1x1" &&
           record.params.xskew === 0.3 &&
           record.params.yskew === 0.7,
       ),
@@ -2099,7 +2160,7 @@ describe("generated layouts", () => {
       seed: 81818,
       dungeonRoomsControls: {
         ...controls,
-        blockSize: { randomize: false, value: "1x2" },
+        blockSize: { randomize: false, value: "1x1" },
         huntOrder: { randomize: false, value: "serpentine" },
         roomCount: { randomize: false, value: 2 },
         roomSize: { randomize: false, value: 3 },
@@ -2111,7 +2172,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "dungeon-rooms" &&
-          record.params.blockSize === "1x2" &&
+          record.params.blockSize === "1x1" &&
           record.params.huntOrder === "serpentine" &&
           record.params.roomCount === 2 &&
           record.params.roomSize === 3,
@@ -2144,7 +2205,7 @@ describe("generated layouts", () => {
       seed: 30303,
       trivialMazeControls: {
         ...controls,
-        blockSize: { randomize: false, value: "2x1" },
+        blockSize: { randomize: false, value: "2x2" },
         mazeType: { randomize: false, value: "serpentine" },
       },
     });
@@ -2154,7 +2215,7 @@ describe("generated layouts", () => {
       records.every(
         (record) =>
           record.algorithm === "trivial-maze" &&
-          record.params.blockSize === "2x1" &&
+          record.params.blockSize === "2x2" &&
           record.params.mazeType === "serpentine",
       ),
     ).toBe(true);
@@ -2185,14 +2246,14 @@ describe("generated layouts", () => {
       seed: 55443,
       recursiveDivisionControls: {
         ...controls,
-        blockSize: { randomize: false, value: "1x2" },
+        blockSize: { randomize: false, value: "1x1" },
       },
     });
 
     expect(records).toHaveLength(6);
     expect(
       records.every(
-        (record) => record.algorithm === "recursive-division" && record.params.blockSize === "1x2",
+        (record) => record.algorithm === "recursive-division" && record.params.blockSize === "1x1",
       ),
     ).toBe(true);
   });
@@ -2214,11 +2275,8 @@ describe("generated layouts", () => {
       return acc;
     }, {});
 
-    expect(counts["1x1"]).toBeGreaterThan(60);
-    expect(counts["2x2"]).toBeGreaterThan(60);
-    expect(counts["1x2"]).toBeGreaterThan(20);
-    expect(counts["1x2"]).toBeLessThan(60);
-    expect(counts["2x1"]).toBeGreaterThan(20);
-    expect(counts["2x1"]).toBeLessThan(60);
+    expect(Object.keys(counts).sort()).toEqual(["1x1", "2x2"]);
+    expect(counts["1x1"]).toBeGreaterThan(80);
+    expect(counts["2x2"]).toBeGreaterThan(80);
   });
 });
