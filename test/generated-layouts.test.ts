@@ -188,6 +188,28 @@ describe("generated layouts", () => {
     }
   });
 
+  it("applies global invert separately from algorithm parameters", () => {
+    const controls = createDefaultRandomNoiseControlState();
+    const [record] = generateLayoutRecords({
+      algorithm: "random-noise",
+      count: 1,
+      seed: 24680,
+      invert: true,
+      randomNoiseControls: {
+        ...controls,
+        seed: { randomize: false, value: 24680 },
+        density: { randomize: false, value: 0.24 },
+        blockSize: { randomize: false, value: 1 },
+        mirror: { randomize: false, value: "none" },
+        invert: { randomize: false, value: false },
+      },
+    });
+
+    expect(record?.algorithm).toBe("random-noise");
+    expect(record?.inverted).toBe(true);
+    expect(record && record.algorithm === "random-noise" ? record.params.invert : null).toBe(false);
+  });
+
   it("keeps locked random-noise parameters fixed across generated cards", () => {
     const controls = createDefaultRandomNoiseControlState();
     const records = generateLayoutRecords({

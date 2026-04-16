@@ -1729,18 +1729,67 @@ button:disabled {
 }
 
 .generateSizeField {
-  flex-basis: 240px;
+  flex-basis: 180px;
+  min-width: 180px;
 }
 
 .generateToolbarRangeRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 34px;
 }
 
-.generateToolbarValueBadge {
-  min-width: 44px;
+.generateToolbarRangeInput {
+  flex: 0 1 96px;
+  min-width: 96px;
+}
+
+.generateStepperField {
+  position: relative;
+  flex: 0 0 68px;
+  min-width: 68px;
+}
+
+.generateSizeNumberInput {
+  width: 100%;
+  padding-right: 20px;
+}
+
+.generateSizeNumberInput::-webkit-outer-spin-button,
+.generateSizeNumberInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.generateSizeNumberInput[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.generateStepperButtons {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  bottom: 3px;
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+  gap: 2px;
+}
+
+.generateStepperButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  padding: 0;
+  border: 1px solid rgba(47, 70, 81, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--ink);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .generateSelect {

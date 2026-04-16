@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState, type JSX, type SyntheticEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type JSX,
+  type SetStateAction,
+  type SyntheticEvent,
+} from "react";
 
 import { wallMaskBytesFromKey } from "@/src/dat/wallsBank";
 import {
@@ -773,6 +781,13 @@ function formatNoiseBlockSizeLabel(blockSize: number): string {
   return `${blockSize}x${blockSize}`;
 }
 
+function sanitizeGeneratedLayoutDimension(value: number): number {
+  return Math.max(
+    GENERATED_LAYOUT_MIN_SIZE,
+    Math.min(GENERATED_LAYOUT_MAX_SIZE, Math.round(value)),
+  );
+}
+
 function formatCompactNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
 }
@@ -886,6 +901,83 @@ function formatHuntOrderLabel(huntOrder: HuntOrder): string {
     case "serpentine":
       return "Serpentine";
   }
+}
+
+function GenerateSizeField({
+  label,
+  value,
+  inputValue,
+  disabled,
+  onInputChange,
+  onCommit,
+  onValueChange,
+  onStep,
+}: Readonly<{
+  label: string;
+  value: number;
+  inputValue: string;
+  disabled: boolean;
+  onInputChange: (next: string) => void;
+  onCommit: () => void;
+  onValueChange: (next: number) => void;
+  onStep: (delta: number) => void;
+}>): JSX.Element {
+  return (
+    <label className="fieldGroup generateField generateSizeField">
+      <span className="fieldLabel">{label}</span>
+      <div className="generateToolbarRangeRow">
+        <input
+          type="range"
+          className="generateRangeInput generateToolbarRangeInput"
+          min={GENERATED_LAYOUT_MIN_SIZE}
+          max={GENERATED_LAYOUT_MAX_SIZE}
+          step={1}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onValueChange(Number(event.target.value))}
+        />
+        <div className="generateStepperField">
+          <input
+            type="number"
+            className="textInput generateSizeNumberInput"
+            min={GENERATED_LAYOUT_MIN_SIZE}
+            max={GENERATED_LAYOUT_MAX_SIZE}
+            step={1}
+            inputMode="numeric"
+            value={inputValue}
+            disabled={disabled}
+            onChange={(event) => onInputChange(event.target.value)}
+            onBlur={onCommit}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              onCommit();
+            }}
+          />
+          <div className="generateStepperButtons">
+            <button
+              type="button"
+              className="generateStepperButton"
+              disabled={disabled || value >= GENERATED_LAYOUT_MAX_SIZE}
+              onClick={() => onStep(1)}
+              aria-label={`Increase ${label.toLowerCase()}`}
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="generateStepperButton"
+              disabled={disabled || value <= GENERATED_LAYOUT_MIN_SIZE}
+              onClick={() => onStep(-1)}
+              aria-label={`Decrease ${label.toLowerCase()}`}
+            >
+              -
+            </button>
+          </div>
+        </div>
+      </div>
+    </label>
+  );
 }
 
 function formatTrivialMazeTypeLabel(mazeType: TrivialMazeType): string {
@@ -1023,26 +1115,19 @@ function RandomNoiseSettingsPanel({
       <section className="generateSettingCard">
         <div className="fieldLabelRow">
           <span className="fieldLabel">Block Size</span>
-          <ParameterToggle
-            checked={controls.blockSize.randomize}
-            onChange={(checked) => onUpdate("blockSize", { randomize: checked })}
-          />
         </div>
-        {controls.blockSize.randomize ? (
-          <div className="fieldHint">Chooses between 1x1 and 4x4 blocks.</div>
-        ) : (
-          <select
-            className="generateSelect"
-            value={controls.blockSize.value}
-            onChange={(event) => onUpdate("blockSize", { value: Number(event.target.value) })}
-          >
-            {RANDOM_NOISE_BLOCK_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {size}x{size}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="fieldHint">Defaults to 1x1. Switch to 2x2 for chunkier noise.</div>
+        <select
+          className="generateSelect"
+          value={controls.blockSize.value}
+          onChange={(event) => onUpdate("blockSize", { value: Number(event.target.value) })}
+        >
+          {RANDOM_NOISE_BLOCK_SIZE_OPTIONS.map((size) => (
+            <option key={size} value={size}>
+              {size}x{size}
+            </option>
+          ))}
+        </select>
       </section>
 
       <section className="generateSettingCard">
@@ -1069,28 +1154,6 @@ function RandomNoiseSettingsPanel({
               </option>
             ))}
           </select>
-        )}
-      </section>
-
-      <section className="generateSettingCard">
-        <div className="fieldLabelRow">
-          <span className="fieldLabel">Invert</span>
-          <ParameterToggle
-            checked={controls.invert.randomize}
-            onChange={(checked) => onUpdate("invert", { randomize: checked })}
-          />
-        </div>
-        {controls.invert.randomize ? (
-          <div className="fieldHint">Usually off, occasionally inverted.</div>
-        ) : (
-          <label className="generateBooleanField">
-            <input
-              type="checkbox"
-              checked={controls.invert.value}
-              onChange={(event) => onUpdate("invert", { value: event.target.checked })}
-            />
-            <span>Use inverted mask</span>
-          </label>
         )}
       </section>
 
@@ -1598,7 +1661,6 @@ function NoiseTerrainBaseSections<
     seed: { randomize: boolean; value: number };
     blockSize: { randomize: boolean; value: number };
     threshold: { randomize: boolean; value: number };
-    invert: { randomize: boolean; value: boolean };
   },
 >({
   controls,
@@ -1674,38 +1736,6 @@ function NoiseTerrainBaseSections<
 
       <section className="generateSettingCard">
         <div className="fieldLabelRow">
-          <span className="fieldLabel">Invert</span>
-          <ParameterToggle
-            checked={controls.invert.randomize}
-            onChange={(checked) =>
-              onUpdate(
-                "invert" as keyof T,
-                { randomize: checked } as unknown as Partial<T[keyof T]>,
-              )
-            }
-          />
-        </div>
-        {controls.invert.randomize ? (
-          <div className="fieldHint">Usually off, but can occasionally flip walls and floors.</div>
-        ) : (
-          <label className="generateBooleanField">
-            <input
-              type="checkbox"
-              checked={controls.invert.value}
-              onChange={(event) =>
-                onUpdate(
-                  "invert" as keyof T,
-                  { value: event.target.checked } as unknown as Partial<T[keyof T]>,
-                )
-              }
-            />
-            <span>Use inverted mask</span>
-          </label>
-        )}
-      </section>
-
-      <section className="generateSettingCard">
-        <div className="fieldLabelRow">
           <span className="fieldLabel">Seed</span>
           <ParameterToggle
             checked={controls.seed.randomize}
@@ -1741,7 +1771,6 @@ function OrnamentBaseSections<
   T extends {
     seed: { randomize: boolean; value: number };
     blockSize: { randomize: boolean; value: number };
-    invert: { randomize: boolean; value: boolean };
   },
 >({
   controls,
@@ -1773,38 +1802,6 @@ function OrnamentBaseSections<
             </option>
           ))}
         </select>
-      </section>
-
-      <section className="generateSettingCard">
-        <div className="fieldLabelRow">
-          <span className="fieldLabel">Invert</span>
-          <ParameterToggle
-            checked={controls.invert.randomize}
-            onChange={(checked) =>
-              onUpdate(
-                "invert" as keyof T,
-                { randomize: checked } as unknown as Partial<T[keyof T]>,
-              )
-            }
-          />
-        </div>
-        {controls.invert.randomize ? (
-          <div className="fieldHint">Usually off, but can occasionally flip walls and floors.</div>
-        ) : (
-          <label className="generateBooleanField">
-            <input
-              type="checkbox"
-              checked={controls.invert.value}
-              onChange={(event) =>
-                onUpdate(
-                  "invert" as keyof T,
-                  { value: event.target.checked } as unknown as Partial<T[keyof T]>,
-                )
-              }
-            />
-            <span>Use inverted mask</span>
-          </label>
-        )}
       </section>
 
       <section className="generateSettingCard">
@@ -6408,10 +6405,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Mirror</span>
             <div>{formatMirrorLabel(record.params.mirror)}</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "perlin-noise" ? (
         <div className="generateDetailList">
@@ -6434,10 +6427,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Threshold</span>
             <div>{Math.round(record.params.threshold * 100)}%</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "value-fractal-noise" ? (
@@ -6466,10 +6455,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Threshold</span>
             <div>{Math.round(record.params.threshold * 100)}%</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "worley-noise" ? (
         <div className="generateDetailList">
@@ -6492,10 +6477,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Threshold</span>
             <div>{Math.round(record.params.threshold * 100)}%</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "thresholded-gradient-noise" ? (
@@ -6523,10 +6504,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Threshold</span>
             <div>{Math.round(record.params.threshold * 100)}%</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "domain-warped-noise" ? (
@@ -6559,10 +6536,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Threshold</span>
             <div>{Math.round(record.params.threshold * 100)}%</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "radial-symmetry" ? (
         <div className="generateDetailList">
@@ -6590,10 +6563,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Band Width</span>
             <div>{Math.round(record.params.thickness * 100)}%</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "kaleidoscope" ? (
         <div className="generateDetailList">
@@ -6616,10 +6585,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Threshold</span>
             <div>{Math.round(record.params.threshold * 100)}%</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "l-system-turtle" ? (
@@ -6648,10 +6613,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Stroke Width</span>
             <div>{record.params.strokeWidth}px</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "rose-curves" ? (
         <div className="generateDetailList">
@@ -6678,10 +6639,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Stroke Width</span>
             <div>{record.params.strokeWidth}px</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "tileable-motif-repeater" ? (
@@ -6714,10 +6671,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Rotation</span>
             <div>{record.params.rotation}°</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "bsp-room-partitioner" ? (
         <div className="generateDetailList">
@@ -6740,10 +6693,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Corridor Width</span>
             <div>{record.params.corridorWidth}</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "corridor-grid" ? (
@@ -6772,10 +6721,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Door Chance</span>
             <div>{Math.round(record.params.gapChance * 100)}%</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "room-scatter" ? (
         <div className="generateDetailList">
@@ -6802,10 +6747,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Connector Chance</span>
             <div>{Math.round(record.params.connectorChance * 100)}%</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "courtyard-generator" ? (
@@ -6834,10 +6775,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Gate Offset</span>
             <div>{record.params.offset}</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "blueprint-generator" ? (
         <div className="generateDetailList">
@@ -6864,10 +6801,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Chamber Depth</span>
             <div>{record.params.chamberDepth}</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "stripe-plaid-generator" ? (
@@ -6896,10 +6829,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Offset</span>
             <div>{record.params.offset}</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "checker-diamond-lattice" ? (
         <div className="generateDetailList">
@@ -6926,10 +6855,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Phase</span>
             <div>{record.params.phase}</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "concentric-boxes" ? (
@@ -6958,10 +6883,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Drift</span>
             <div>{record.params.drift}</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "line-interference" ? (
         <div className="generateDetailList">
@@ -6988,10 +6909,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Stroke Width</span>
             <div>{record.params.strokeWidth}</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "circle-packing" ? (
@@ -7020,10 +6937,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Render</span>
             <div>{record.params.outline ? "Outline" : "Filled"}</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "drunk-walk-painter" ? (
         <div className="generateDetailList">
@@ -7050,10 +6963,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Room Chance</span>
             <div>{Math.round(record.params.roomChance * 100)}%</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "particle-flow-field" ? (
@@ -7082,10 +6991,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Stroke Width</span>
             <div>{record.params.strokeWidth}</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "stamp-brush-generator" ? (
         <div className="generateDetailList">
@@ -7112,10 +7017,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Scatter</span>
             <div>{record.params.scatter}</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "cutout-collage" ? (
@@ -7144,10 +7045,6 @@ function GeneratedRecordDetails({
             <span className="fieldLabel">Subtract Chance</span>
             <div>{Math.round(record.params.subtractChance * 100)}%</div>
           </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
-          </div>
         </div>
       ) : record.algorithm === "glitch-blocks" ? (
         <div className="generateDetailList">
@@ -7174,10 +7071,6 @@ function GeneratedRecordDetails({
           <div className="generateDetailRow">
             <span className="fieldLabel">Cell Size</span>
             <div>{record.params.cellSize}</div>
-          </div>
-          <div className="generateDetailRow">
-            <span className="fieldLabel">Invert</span>
-            <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
       ) : record.algorithm === "backtracking-generator" ? (
@@ -7438,8 +7331,13 @@ export function GenerateBrowserDialog({
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<GenerateAlgorithmChoice>("any");
   const [starredOnly, setStarredOnly] = useState(false);
   const [randomSeed, setRandomSeed] = useState(() => randomSeedFromClock());
+  const [globalInvert, setGlobalInvert] = useState(false);
   const [layoutWidth, setLayoutWidth] = useState(GENERATED_LAYOUT_MAX_SIZE);
   const [layoutHeight, setLayoutHeight] = useState(GENERATED_LAYOUT_MAX_SIZE);
+  const [layoutWidthInput, setLayoutWidthInput] = useState(() => String(GENERATED_LAYOUT_MAX_SIZE));
+  const [layoutHeightInput, setLayoutHeightInput] = useState(() =>
+    String(GENERATED_LAYOUT_MAX_SIZE),
+  );
   const [selectedWallKey, setSelectedWallKey] = useState<string | null>(null);
   const [randomNoiseControls, setRandomNoiseControls] = useState<RandomNoiseControlState>(() =>
     createDefaultRandomNoiseControlState(),
@@ -7579,6 +7477,7 @@ export function GenerateBrowserDialog({
             algorithm: selectedAlgorithm,
             count: GENERATED_LAYOUT_CARD_COUNT,
             seed: randomSeed,
+            invert: globalInvert,
             layoutWidth,
             layoutHeight,
             randomNoiseControls: selectedAlgorithm === "random-noise" ? randomNoiseControls : null,
@@ -7690,6 +7589,7 @@ export function GenerateBrowserDialog({
       erosionDilationPipelineControls,
       ellersControls,
       gameOfLifeVariantsControls,
+      globalInvert,
       glitchBlocksControls,
       growingTreeControls,
       huntAndKillControls,
@@ -7739,6 +7639,36 @@ export function GenerateBrowserDialog({
       setSelectedWallKey(visibleRecords[0]!.wallKey);
     }
   }, [selectedRecord, selectedWallKey, visibleRecords]);
+
+  function setLayoutWidthValue(nextValue: number): void {
+    const next = sanitizeGeneratedLayoutDimension(nextValue);
+    setLayoutWidth(next);
+    setLayoutWidthInput(String(next));
+  }
+
+  function setLayoutHeightValue(nextValue: number): void {
+    const next = sanitizeGeneratedLayoutDimension(nextValue);
+    setLayoutHeight(next);
+    setLayoutHeightInput(String(next));
+  }
+
+  function commitLayoutWidthInput(): void {
+    const parsed = Number(layoutWidthInput);
+    if (!Number.isFinite(parsed)) {
+      setLayoutWidthInput(String(layoutWidth));
+      return;
+    }
+    setLayoutWidthValue(parsed);
+  }
+
+  function commitLayoutHeightInput(): void {
+    const parsed = Number(layoutHeightInput);
+    if (!Number.isFinite(parsed)) {
+      setLayoutHeightInput(String(layoutHeight));
+      return;
+    }
+    setLayoutHeightValue(parsed);
+  }
 
   function updateRandomNoiseControl<K extends keyof RandomNoiseControlState>(
     key: K,
@@ -8321,70 +8251,74 @@ export function GenerateBrowserDialog({
     }));
   }
 
+  function setControlsWithHiddenInvert<
+    T extends Readonly<{ invert: Readonly<{ randomize: boolean; value: boolean }> }>,
+  >(setter: Dispatch<SetStateAction<T>>, controls: Omit<T, "invert">): void {
+    setter({
+      ...controls,
+      invert: { randomize: false, value: false },
+    } as T);
+  }
+
   function applyMoreLikeThis(record: GeneratedLayoutRecord): void {
     if (record.algorithm === "starred") return;
 
     setStarredOnly(false);
     setSelectedWallKey(null);
+    setGlobalInvert(record.inverted);
 
     if (record.algorithm === "random-noise") {
       setSelectedAlgorithm("random-noise");
-      setRandomNoiseControls({
+      setControlsWithHiddenInvert(setRandomNoiseControls, {
         seed: { randomize: true, value: record.params.seed },
         density: { randomize: false, value: record.params.density },
         blockSize: { randomize: false, value: record.params.blockSize },
         mirror: { randomize: false, value: record.params.mirror },
-        invert: { randomize: false, value: record.params.invert },
       });
     } else if (record.algorithm === "perlin-noise") {
       setSelectedAlgorithm("perlin-noise");
-      setPerlinNoiseControls({
+      setControlsWithHiddenInvert(setPerlinNoiseControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
         threshold: { randomize: false, value: record.params.threshold },
-        invert: { randomize: false, value: record.params.invert },
         scale: { randomize: false, value: record.params.scale },
         octaves: { randomize: false, value: record.params.octaves },
       });
     } else if (record.algorithm === "value-fractal-noise") {
       setSelectedAlgorithm("value-fractal-noise");
-      setValueFractalNoiseControls({
+      setControlsWithHiddenInvert(setValueFractalNoiseControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
         threshold: { randomize: false, value: record.params.threshold },
-        invert: { randomize: false, value: record.params.invert },
         scale: { randomize: false, value: record.params.scale },
         octaves: { randomize: false, value: record.params.octaves },
         gain: { randomize: false, value: record.params.gain },
       });
     } else if (record.algorithm === "worley-noise") {
       setSelectedAlgorithm("worley-noise");
-      setWorleyNoiseControls({
+      setControlsWithHiddenInvert(setWorleyNoiseControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
         threshold: { randomize: false, value: record.params.threshold },
-        invert: { randomize: false, value: record.params.invert },
         cellCount: { randomize: false, value: record.params.cellCount },
         jitter: { randomize: false, value: record.params.jitter },
       });
     } else if (record.algorithm === "thresholded-gradient-noise") {
       setSelectedAlgorithm("thresholded-gradient-noise");
-      setThresholdedGradientNoiseControls({
+      setControlsWithHiddenInvert(setThresholdedGradientNoiseControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
         threshold: { randomize: false, value: record.params.threshold },
-        invert: { randomize: false, value: record.params.invert },
         scale: { randomize: false, value: record.params.scale },
         angle: { randomize: false, value: record.params.angle },
         roughness: { randomize: false, value: record.params.roughness },
       });
     } else if (record.algorithm === "domain-warped-noise") {
       setSelectedAlgorithm("domain-warped-noise");
-      setDomainWarpedNoiseControls({
+      setControlsWithHiddenInvert(setDomainWarpedNoiseControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
         threshold: { randomize: false, value: record.params.threshold },
-        invert: { randomize: false, value: record.params.invert },
         scale: { randomize: false, value: record.params.scale },
         octaves: { randomize: false, value: record.params.octaves },
         warpScale: { randomize: false, value: record.params.warpScale },
@@ -8392,10 +8326,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "radial-symmetry") {
       setSelectedAlgorithm("radial-symmetry");
-      setRadialSymmetryControls({
+      setControlsWithHiddenInvert(setRadialSymmetryControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         folds: { randomize: false, value: record.params.folds },
         rings: { randomize: false, value: record.params.rings },
         twist: { randomize: false, value: record.params.twist },
@@ -8403,20 +8336,18 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "kaleidoscope") {
       setSelectedAlgorithm("kaleidoscope");
-      setKaleidoscopeControls({
+      setControlsWithHiddenInvert(setKaleidoscopeControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         segments: { randomize: false, value: record.params.segments },
         scale: { randomize: false, value: record.params.scale },
         threshold: { randomize: false, value: record.params.threshold },
       });
     } else if (record.algorithm === "l-system-turtle") {
       setSelectedAlgorithm("l-system-turtle");
-      setLSystemTurtleControls({
+      setControlsWithHiddenInvert(setLSystemTurtleControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         preset: { randomize: false, value: record.params.preset },
         iterations: { randomize: false, value: record.params.iterations },
         turnAngle: { randomize: false, value: record.params.turnAngle },
@@ -8424,10 +8355,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "rose-curves") {
       setSelectedAlgorithm("rose-curves");
-      setRoseCurvesControls({
+      setControlsWithHiddenInvert(setRoseCurvesControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         petals: { randomize: false, value: record.params.petals },
         harmonic: { randomize: false, value: record.params.harmonic },
         rotation: { randomize: false, value: record.params.rotation },
@@ -8435,10 +8365,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "tileable-motif-repeater") {
       setSelectedAlgorithm("tileable-motif-repeater");
-      setTileableMotifRepeaterControls({
+      setControlsWithHiddenInvert(setTileableMotifRepeaterControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         motif: { randomize: false, value: record.params.motif },
         spacing: { randomize: false, value: record.params.spacing },
         motifSize: { randomize: false, value: record.params.motifSize },
@@ -8447,20 +8376,18 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "bsp-room-partitioner") {
       setSelectedAlgorithm("bsp-room-partitioner");
-      setBspRoomPartitionerControls({
+      setControlsWithHiddenInvert(setBspRoomPartitionerControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         splitDepth: { randomize: false, value: record.params.splitDepth },
         roomPadding: { randomize: false, value: record.params.roomPadding },
         corridorWidth: { randomize: false, value: record.params.corridorWidth },
       });
     } else if (record.algorithm === "corridor-grid") {
       setSelectedAlgorithm("corridor-grid");
-      setCorridorGridControls({
+      setControlsWithHiddenInvert(setCorridorGridControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         columnSpacing: { randomize: false, value: record.params.columnSpacing },
         rowSpacing: { randomize: false, value: record.params.rowSpacing },
         wallThickness: { randomize: false, value: record.params.wallThickness },
@@ -8468,10 +8395,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "room-scatter") {
       setSelectedAlgorithm("room-scatter");
-      setRoomScatterControls({
+      setControlsWithHiddenInvert(setRoomScatterControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         roomCount: { randomize: false, value: record.params.roomCount },
         roomSize: { randomize: false, value: record.params.roomSize },
         gap: { randomize: false, value: record.params.gap },
@@ -8479,10 +8405,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "courtyard-generator") {
       setSelectedAlgorithm("courtyard-generator");
-      setCourtyardGeneratorControls({
+      setControlsWithHiddenInvert(setCourtyardGeneratorControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         ringCount: { randomize: false, value: record.params.ringCount },
         ringGap: { randomize: false, value: record.params.ringGap },
         gateWidth: { randomize: false, value: record.params.gateWidth },
@@ -8490,10 +8415,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "blueprint-generator") {
       setSelectedAlgorithm("blueprint-generator");
-      setBlueprintGeneratorControls({
+      setControlsWithHiddenInvert(setBlueprintGeneratorControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         wingCount: { randomize: false, value: record.params.wingCount },
         hallWidth: { randomize: false, value: record.params.hallWidth },
         pillarSpacing: { randomize: false, value: record.params.pillarSpacing },
@@ -8501,10 +8425,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "stripe-plaid-generator") {
       setSelectedAlgorithm("stripe-plaid-generator");
-      setStripePlaidGeneratorControls({
+      setControlsWithHiddenInvert(setStripePlaidGeneratorControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         mode: { randomize: false, value: record.params.mode },
         spacing: { randomize: false, value: record.params.spacing },
         bandWidth: { randomize: false, value: record.params.bandWidth },
@@ -8512,10 +8435,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "checker-diamond-lattice") {
       setSelectedAlgorithm("checker-diamond-lattice");
-      setCheckerDiamondLatticeControls({
+      setControlsWithHiddenInvert(setCheckerDiamondLatticeControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         style: { randomize: false, value: record.params.style },
         cellSize: { randomize: false, value: record.params.cellSize },
         lineWidth: { randomize: false, value: record.params.lineWidth },
@@ -8523,10 +8445,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "concentric-boxes") {
       setSelectedAlgorithm("concentric-boxes");
-      setConcentricBoxesControls({
+      setControlsWithHiddenInvert(setConcentricBoxesControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         ringCount: { randomize: false, value: record.params.ringCount },
         spacing: { randomize: false, value: record.params.spacing },
         lineWidth: { randomize: false, value: record.params.lineWidth },
@@ -8534,10 +8455,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "line-interference") {
       setSelectedAlgorithm("line-interference");
-      setLineInterferenceControls({
+      setControlsWithHiddenInvert(setLineInterferenceControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         angleA: { randomize: false, value: record.params.angleA },
         angleB: { randomize: false, value: record.params.angleB },
         spacing: { randomize: false, value: record.params.spacing },
@@ -8545,10 +8465,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "circle-packing") {
       setSelectedAlgorithm("circle-packing");
-      setCirclePackingControls({
+      setControlsWithHiddenInvert(setCirclePackingControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         circleCount: { randomize: false, value: record.params.circleCount },
         minRadius: { randomize: false, value: record.params.minRadius },
         maxRadius: { randomize: false, value: record.params.maxRadius },
@@ -8556,10 +8475,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "drunk-walk-painter") {
       setSelectedAlgorithm("drunk-walk-painter");
-      setDrunkWalkPainterControls({
+      setControlsWithHiddenInvert(setDrunkWalkPainterControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         walkerCount: { randomize: false, value: record.params.walkerCount },
         steps: { randomize: false, value: record.params.steps },
         brushSize: { randomize: false, value: record.params.brushSize },
@@ -8567,10 +8485,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "particle-flow-field") {
       setSelectedAlgorithm("particle-flow-field");
-      setParticleFlowFieldControls({
+      setControlsWithHiddenInvert(setParticleFlowFieldControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         agentCount: { randomize: false, value: record.params.agentCount },
         steps: { randomize: false, value: record.params.steps },
         fieldScale: { randomize: false, value: record.params.fieldScale },
@@ -8578,10 +8495,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "stamp-brush-generator") {
       setSelectedAlgorithm("stamp-brush-generator");
-      setStampBrushGeneratorControls({
+      setControlsWithHiddenInvert(setStampBrushGeneratorControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         stampCount: { randomize: false, value: record.params.stampCount },
         stampSize: { randomize: false, value: record.params.stampSize },
         stampType: { randomize: false, value: record.params.stampType },
@@ -8589,10 +8505,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "cutout-collage") {
       setSelectedAlgorithm("cutout-collage");
-      setCutoutCollageControls({
+      setControlsWithHiddenInvert(setCutoutCollageControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         shapeCount: { randomize: false, value: record.params.shapeCount },
         minSize: { randomize: false, value: record.params.minSize },
         maxSize: { randomize: false, value: record.params.maxSize },
@@ -8600,10 +8515,9 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "glitch-blocks") {
       setSelectedAlgorithm("glitch-blocks");
-      setGlitchBlocksControls({
+      setControlsWithHiddenInvert(setGlitchBlocksControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         bandCount: { randomize: false, value: record.params.bandCount },
         offsetRange: { randomize: false, value: record.params.offsetRange },
         stripeChance: { randomize: false, value: record.params.stripeChance },
@@ -8611,30 +8525,27 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "game-of-life-variants") {
       setSelectedAlgorithm("game-of-life-variants");
-      setGameOfLifeVariantsControls({
+      setControlsWithHiddenInvert(setGameOfLifeVariantsControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         density: { randomize: false, value: record.params.density },
         steps: { randomize: false, value: record.params.steps },
         variant: { randomize: false, value: record.params.variant },
       });
     } else if (record.algorithm === "diffusion-limited-aggregation") {
       setSelectedAlgorithm("diffusion-limited-aggregation");
-      setDiffusionLimitedAggregationControls({
+      setControlsWithHiddenInvert(setDiffusionLimitedAggregationControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         walkers: { randomize: false, value: record.params.walkers },
         stickiness: { randomize: false, value: record.params.stickiness },
         seedMode: { randomize: false, value: record.params.seedMode },
       });
     } else if (record.algorithm === "reaction-diffusion-approximation") {
       setSelectedAlgorithm("reaction-diffusion-approximation");
-      setReactionDiffusionApproximationControls({
+      setControlsWithHiddenInvert(setReactionDiffusionApproximationControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         spotCount: { randomize: false, value: record.params.spotCount },
         iterations: { randomize: false, value: record.params.iterations },
         feed: { randomize: false, value: record.params.feed },
@@ -8642,20 +8553,18 @@ export function GenerateBrowserDialog({
       });
     } else if (record.algorithm === "voronoi-region-carver") {
       setSelectedAlgorithm("voronoi-region-carver");
-      setVoronoiRegionCarverControls({
+      setControlsWithHiddenInvert(setVoronoiRegionCarverControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         siteCount: { randomize: false, value: record.params.siteCount },
         ridgeWidth: { randomize: false, value: record.params.ridgeWidth },
         jitter: { randomize: false, value: record.params.jitter },
       });
     } else if (record.algorithm === "erosion-dilation-pipeline") {
       setSelectedAlgorithm("erosion-dilation-pipeline");
-      setErosionDilationPipelineControls({
+      setControlsWithHiddenInvert(setErosionDilationPipelineControls, {
         seed: { randomize: true, value: record.params.seed },
         blockSize: { randomize: false, value: record.params.blockSize },
-        invert: { randomize: false, value: record.params.invert },
         density: { randomize: false, value: record.params.density },
         growSteps: { randomize: false, value: record.params.growSteps },
         shrinkSteps: { randomize: false, value: record.params.shrinkSteps },
@@ -8819,41 +8728,34 @@ export function GenerateBrowserDialog({
                 ))}
               </select>
             </label>
-            <label className="fieldGroup generateField generateSizeField">
-              <span className="fieldLabel">Width</span>
-              <div className="generateToolbarRangeRow">
-                <input
-                  type="range"
-                  className="generateRangeInput"
-                  min={GENERATED_LAYOUT_MIN_SIZE}
-                  max={GENERATED_LAYOUT_MAX_SIZE}
-                  step={1}
-                  value={layoutWidth}
-                  disabled={starredOnly}
-                  onChange={(event) => setLayoutWidth(Number(event.target.value))}
-                />
-                <div className="statusBadge generateValueBadge generateToolbarValueBadge">
-                  {layoutWidth}
-                </div>
-              </div>
-            </label>
-            <label className="fieldGroup generateField generateSizeField">
-              <span className="fieldLabel">Height</span>
-              <div className="generateToolbarRangeRow">
-                <input
-                  type="range"
-                  className="generateRangeInput"
-                  min={GENERATED_LAYOUT_MIN_SIZE}
-                  max={GENERATED_LAYOUT_MAX_SIZE}
-                  step={1}
-                  value={layoutHeight}
-                  disabled={starredOnly}
-                  onChange={(event) => setLayoutHeight(Number(event.target.value))}
-                />
-                <div className="statusBadge generateValueBadge generateToolbarValueBadge">
-                  {layoutHeight}
-                </div>
-              </div>
+            <GenerateSizeField
+              label="Width"
+              value={layoutWidth}
+              inputValue={layoutWidthInput}
+              disabled={starredOnly}
+              onInputChange={setLayoutWidthInput}
+              onCommit={commitLayoutWidthInput}
+              onValueChange={setLayoutWidthValue}
+              onStep={(delta) => setLayoutWidthValue(layoutWidth + delta)}
+            />
+            <GenerateSizeField
+              label="Height"
+              value={layoutHeight}
+              inputValue={layoutHeightInput}
+              disabled={starredOnly}
+              onInputChange={setLayoutHeightInput}
+              onCommit={commitLayoutHeightInput}
+              onValueChange={setLayoutHeightValue}
+              onStep={(delta) => setLayoutHeightValue(layoutHeight + delta)}
+            />
+            <label className="wallsToggle generateToggle">
+              <input
+                type="checkbox"
+                checked={globalInvert}
+                disabled={starredOnly}
+                onChange={(event) => setGlobalInvert(event.target.checked)}
+              />
+              <span>Invert</span>
             </label>
             <label className="wallsToggle generateToggle">
               <input
