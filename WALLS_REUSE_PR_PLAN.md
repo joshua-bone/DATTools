@@ -248,6 +248,10 @@ Bank browse starred/hidden can remain key-based because bank entries are still f
 
 ### PR 1: Extract `WallMask32` And Bank Core
 
+Status:
+
+- done
+
 Goal:
 
 - move wall-key encode/decode and bank parsing/filtering into `src/walls-core`
@@ -267,6 +271,10 @@ Acceptance criteria:
 
 ### PR 2: Introduce `WallGrid` And Exact-Size Generation
 
+Status:
+
+- done
+
 Goal:
 
 - make generation produce arbitrary-size grids first, then let each host transform them
@@ -285,6 +293,10 @@ Acceptance criteria:
 - C2M can later request `10..100`
 
 ### PR 3: Add Algorithm Registry
+
+Status:
+
+- next
 
 Goal:
 
@@ -412,7 +424,8 @@ These should be answered before the C2M integration PR:
 
 ## Immediate Next Step
 
-Start with PR 1:
+Start with PR 3:
 
-- extract `WallMask32` and bank parsing/filtering into a new format-agnostic module
-- remove direct `src/dat/wallsBank` imports from the React dialogs and generator core
+- define an algorithm registry interface
+- move the algorithm picker list and generation dispatch behind registered definitions
+- keep current UI behavior while removing the central switchboard pattern

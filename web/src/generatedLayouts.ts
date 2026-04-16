@@ -1,5 +1,11 @@
 import { wallMaskBytesFromKey, wallMaskKeyFromBytes } from "@/src/walls-core/mask32";
-import { invertWallGrid, type WallGrid, wallGridFromMaskBytes } from "@/src/walls-core/grid";
+import {
+  createWallGrid,
+  invertWallGrid,
+  type WallGrid,
+  wallGridFromMaskBytes,
+  wallGridToMaskBytes,
+} from "@/src/walls-core/grid";
 
 export const GENERATED_LAYOUT_CARD_COUNT = 18;
 export const GENERATED_LAYOUT_GRID_SIZE = 32;
@@ -1614,11 +1620,6 @@ type GeneratedContentSize = Readonly<{
   height: number;
 }>;
 
-let activeGeneratedContentSize: GeneratedContentSize = {
-  width: GENERATED_LAYOUT_GRID_SIZE,
-  height: GENERATED_LAYOUT_GRID_SIZE,
-};
-
 export function randomSeedFromClock(): number {
   return Date.now() & 0x7fffffff;
 }
@@ -1629,8 +1630,8 @@ export function nextRandomSeed(): number {
 
 export function mazeGridDimensionsForBlockSize(
   blockSize: MazeBlockSize,
-  contentWidth = activeGeneratedContentSize.width,
-  contentHeight = activeGeneratedContentSize.height,
+  contentWidth = GENERATED_LAYOUT_GRID_SIZE,
+  contentHeight = GENERATED_LAYOUT_GRID_SIZE,
 ): Readonly<{ columns: number; rows: number }> {
   const dims = mazeBlockDimensions(blockSize);
   return {
@@ -1647,16 +1648,6 @@ function generatedContentDimensionsForLayout(
     width: Math.max(1, sanitizeGeneratedLayoutSize(layoutWidth) - 2),
     height: Math.max(1, sanitizeGeneratedLayoutSize(layoutHeight) - 2),
   };
-}
-
-function withGeneratedContentSize<T>(width: number, height: number, callback: () => T): T {
-  const previous = activeGeneratedContentSize;
-  activeGeneratedContentSize = { width, height };
-  try {
-    return callback();
-  } finally {
-    activeGeneratedContentSize = previous;
-  }
 }
 
 export function generateLayoutRecords(
@@ -1728,63 +1719,55 @@ export function generateLayoutRecords(
 
   for (let attempt = 0; attempt < maxAttempts && records.length < count; attempt++) {
     const algorithm = pickAlgorithm(options.algorithm, rng);
-    const rawRecord = withGeneratedContentSize(contentSize.width, contentSize.height, () =>
-      generateRecordForAlgorithm(algorithm, rng, {
-        randomNoiseControls: options.randomNoiseControls ?? null,
-        perlinNoiseControls: options.perlinNoiseControls ?? null,
-        valueFractalNoiseControls: options.valueFractalNoiseControls ?? null,
-        worleyNoiseControls: options.worleyNoiseControls ?? null,
-        thresholdedGradientNoiseControls: options.thresholdedGradientNoiseControls ?? null,
-        domainWarpedNoiseControls: options.domainWarpedNoiseControls ?? null,
-        radialSymmetryControls: options.radialSymmetryControls ?? null,
-        kaleidoscopeControls: options.kaleidoscopeControls ?? null,
-        lSystemTurtleControls: options.lSystemTurtleControls ?? null,
-        roseCurvesControls: options.roseCurvesControls ?? null,
-        tileableMotifRepeaterControls: options.tileableMotifRepeaterControls ?? null,
-        bspRoomPartitionerControls: options.bspRoomPartitionerControls ?? null,
-        corridorGridControls: options.corridorGridControls ?? null,
-        roomScatterControls: options.roomScatterControls ?? null,
-        courtyardGeneratorControls: options.courtyardGeneratorControls ?? null,
-        blueprintGeneratorControls: options.blueprintGeneratorControls ?? null,
-        stripePlaidGeneratorControls: options.stripePlaidGeneratorControls ?? null,
-        checkerDiamondLatticeControls: options.checkerDiamondLatticeControls ?? null,
-        concentricBoxesControls: options.concentricBoxesControls ?? null,
-        lineInterferenceControls: options.lineInterferenceControls ?? null,
-        circlePackingControls: options.circlePackingControls ?? null,
-        drunkWalkPainterControls: options.drunkWalkPainterControls ?? null,
-        particleFlowFieldControls: options.particleFlowFieldControls ?? null,
-        stampBrushGeneratorControls: options.stampBrushGeneratorControls ?? null,
-        cutoutCollageControls: options.cutoutCollageControls ?? null,
-        glitchBlocksControls: options.glitchBlocksControls ?? null,
-        gameOfLifeVariantsControls: options.gameOfLifeVariantsControls ?? null,
-        diffusionLimitedAggregationControls: options.diffusionLimitedAggregationControls ?? null,
-        reactionDiffusionApproximationControls:
-          options.reactionDiffusionApproximationControls ?? null,
-        voronoiRegionCarverControls: options.voronoiRegionCarverControls ?? null,
-        erosionDilationPipelineControls: options.erosionDilationPipelineControls ?? null,
-        backtrackingControls: options.backtrackingControls ?? null,
-        primsControls: options.primsControls ?? null,
-        kruskalsControls: options.kruskalsControls ?? null,
-        sidewinderControls: options.sidewinderControls ?? null,
-        binaryTreeControls: options.binaryTreeControls ?? null,
-        huntAndKillControls: options.huntAndKillControls ?? null,
-        wilsonsControls: options.wilsonsControls ?? null,
-        aldousBroderControls: options.aldousBroderControls ?? null,
-        ellersControls: options.ellersControls ?? null,
-        cellularAutomatonControls: options.cellularAutomatonControls ?? null,
-        dungeonRoomsControls: options.dungeonRoomsControls ?? null,
-        trivialMazeControls: options.trivialMazeControls ?? null,
-        growingTreeControls: options.growingTreeControls ?? null,
-        recursiveDivisionControls: options.recursiveDivisionControls ?? null,
-      }),
-    );
-    const record = frameGeneratedLayoutRecord(
-      rawRecord,
-      contentSize,
-      layoutWidth,
-      layoutHeight,
-      invert,
-    );
+    const rawRecord = generateRecordForAlgorithm(algorithm, rng, contentSize, {
+      randomNoiseControls: options.randomNoiseControls ?? null,
+      perlinNoiseControls: options.perlinNoiseControls ?? null,
+      valueFractalNoiseControls: options.valueFractalNoiseControls ?? null,
+      worleyNoiseControls: options.worleyNoiseControls ?? null,
+      thresholdedGradientNoiseControls: options.thresholdedGradientNoiseControls ?? null,
+      domainWarpedNoiseControls: options.domainWarpedNoiseControls ?? null,
+      radialSymmetryControls: options.radialSymmetryControls ?? null,
+      kaleidoscopeControls: options.kaleidoscopeControls ?? null,
+      lSystemTurtleControls: options.lSystemTurtleControls ?? null,
+      roseCurvesControls: options.roseCurvesControls ?? null,
+      tileableMotifRepeaterControls: options.tileableMotifRepeaterControls ?? null,
+      bspRoomPartitionerControls: options.bspRoomPartitionerControls ?? null,
+      corridorGridControls: options.corridorGridControls ?? null,
+      roomScatterControls: options.roomScatterControls ?? null,
+      courtyardGeneratorControls: options.courtyardGeneratorControls ?? null,
+      blueprintGeneratorControls: options.blueprintGeneratorControls ?? null,
+      stripePlaidGeneratorControls: options.stripePlaidGeneratorControls ?? null,
+      checkerDiamondLatticeControls: options.checkerDiamondLatticeControls ?? null,
+      concentricBoxesControls: options.concentricBoxesControls ?? null,
+      lineInterferenceControls: options.lineInterferenceControls ?? null,
+      circlePackingControls: options.circlePackingControls ?? null,
+      drunkWalkPainterControls: options.drunkWalkPainterControls ?? null,
+      particleFlowFieldControls: options.particleFlowFieldControls ?? null,
+      stampBrushGeneratorControls: options.stampBrushGeneratorControls ?? null,
+      cutoutCollageControls: options.cutoutCollageControls ?? null,
+      glitchBlocksControls: options.glitchBlocksControls ?? null,
+      gameOfLifeVariantsControls: options.gameOfLifeVariantsControls ?? null,
+      diffusionLimitedAggregationControls: options.diffusionLimitedAggregationControls ?? null,
+      reactionDiffusionApproximationControls:
+        options.reactionDiffusionApproximationControls ?? null,
+      voronoiRegionCarverControls: options.voronoiRegionCarverControls ?? null,
+      erosionDilationPipelineControls: options.erosionDilationPipelineControls ?? null,
+      backtrackingControls: options.backtrackingControls ?? null,
+      primsControls: options.primsControls ?? null,
+      kruskalsControls: options.kruskalsControls ?? null,
+      sidewinderControls: options.sidewinderControls ?? null,
+      binaryTreeControls: options.binaryTreeControls ?? null,
+      huntAndKillControls: options.huntAndKillControls ?? null,
+      wilsonsControls: options.wilsonsControls ?? null,
+      aldousBroderControls: options.aldousBroderControls ?? null,
+      ellersControls: options.ellersControls ?? null,
+      cellularAutomatonControls: options.cellularAutomatonControls ?? null,
+      dungeonRoomsControls: options.dungeonRoomsControls ?? null,
+      trivialMazeControls: options.trivialMazeControls ?? null,
+      growingTreeControls: options.growingTreeControls ?? null,
+      recursiveDivisionControls: options.recursiveDivisionControls ?? null,
+    });
+    const record = frameGeneratedLayoutRecord(rawRecord, layoutWidth, layoutHeight, invert);
     if (seen.has(record.wallKey)) continue;
     seen.add(record.wallKey);
     records.push(record);
@@ -2291,6 +2274,7 @@ function pickAlgorithm(
 function generateRecordForAlgorithm(
   algorithm: GenerateAlgorithmId,
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: Readonly<{
     randomNoiseControls: RandomNoiseControlState | null;
     perlinNoiseControls: PerlinNoiseControlState | null;
@@ -2341,124 +2325,146 @@ function generateRecordForAlgorithm(
 ): GeneratedLayoutRecord {
   switch (algorithm) {
     case "random-noise":
-      return buildRandomNoiseRecord(rng, controls.randomNoiseControls);
+      return buildRandomNoiseRecord(rng, contentSize, controls.randomNoiseControls);
     case "perlin-noise":
-      return buildPerlinNoiseRecord(rng, controls.perlinNoiseControls);
+      return buildPerlinNoiseRecord(rng, contentSize, controls.perlinNoiseControls);
     case "value-fractal-noise":
-      return buildValueFractalNoiseRecord(rng, controls.valueFractalNoiseControls);
+      return buildValueFractalNoiseRecord(rng, contentSize, controls.valueFractalNoiseControls);
     case "worley-noise":
-      return buildWorleyNoiseRecord(rng, controls.worleyNoiseControls);
+      return buildWorleyNoiseRecord(rng, contentSize, controls.worleyNoiseControls);
     case "thresholded-gradient-noise":
-      return buildThresholdedGradientNoiseRecord(rng, controls.thresholdedGradientNoiseControls);
+      return buildThresholdedGradientNoiseRecord(
+        rng,
+        contentSize,
+        controls.thresholdedGradientNoiseControls,
+      );
     case "domain-warped-noise":
-      return buildDomainWarpedNoiseRecord(rng, controls.domainWarpedNoiseControls);
+      return buildDomainWarpedNoiseRecord(rng, contentSize, controls.domainWarpedNoiseControls);
     case "radial-symmetry":
-      return buildRadialSymmetryRecord(rng, controls.radialSymmetryControls);
+      return buildRadialSymmetryRecord(rng, contentSize, controls.radialSymmetryControls);
     case "kaleidoscope":
-      return buildKaleidoscopeRecord(rng, controls.kaleidoscopeControls);
+      return buildKaleidoscopeRecord(rng, contentSize, controls.kaleidoscopeControls);
     case "l-system-turtle":
-      return buildLSystemTurtleRecord(rng, controls.lSystemTurtleControls);
+      return buildLSystemTurtleRecord(rng, contentSize, controls.lSystemTurtleControls);
     case "rose-curves":
-      return buildRoseCurvesRecord(rng, controls.roseCurvesControls);
+      return buildRoseCurvesRecord(rng, contentSize, controls.roseCurvesControls);
     case "tileable-motif-repeater":
-      return buildTileableMotifRepeaterRecord(rng, controls.tileableMotifRepeaterControls);
+      return buildTileableMotifRepeaterRecord(
+        rng,
+        contentSize,
+        controls.tileableMotifRepeaterControls,
+      );
     case "bsp-room-partitioner":
-      return buildBspRoomPartitionerRecord(rng, controls.bspRoomPartitionerControls);
+      return buildBspRoomPartitionerRecord(rng, contentSize, controls.bspRoomPartitionerControls);
     case "corridor-grid":
-      return buildCorridorGridRecord(rng, controls.corridorGridControls);
+      return buildCorridorGridRecord(rng, contentSize, controls.corridorGridControls);
     case "room-scatter":
-      return buildRoomScatterRecord(rng, controls.roomScatterControls);
+      return buildRoomScatterRecord(rng, contentSize, controls.roomScatterControls);
     case "courtyard-generator":
-      return buildCourtyardGeneratorRecord(rng, controls.courtyardGeneratorControls);
+      return buildCourtyardGeneratorRecord(rng, contentSize, controls.courtyardGeneratorControls);
     case "blueprint-generator":
-      return buildBlueprintGeneratorRecord(rng, controls.blueprintGeneratorControls);
+      return buildBlueprintGeneratorRecord(rng, contentSize, controls.blueprintGeneratorControls);
     case "stripe-plaid-generator":
-      return buildStripePlaidGeneratorRecord(rng, controls.stripePlaidGeneratorControls);
+      return buildStripePlaidGeneratorRecord(
+        rng,
+        contentSize,
+        controls.stripePlaidGeneratorControls,
+      );
     case "checker-diamond-lattice":
-      return buildCheckerDiamondLatticeRecord(rng, controls.checkerDiamondLatticeControls);
+      return buildCheckerDiamondLatticeRecord(
+        rng,
+        contentSize,
+        controls.checkerDiamondLatticeControls,
+      );
     case "concentric-boxes":
-      return buildConcentricBoxesRecord(rng, controls.concentricBoxesControls);
+      return buildConcentricBoxesRecord(rng, contentSize, controls.concentricBoxesControls);
     case "line-interference":
-      return buildLineInterferenceRecord(rng, controls.lineInterferenceControls);
+      return buildLineInterferenceRecord(rng, contentSize, controls.lineInterferenceControls);
     case "circle-packing":
-      return buildCirclePackingRecord(rng, controls.circlePackingControls);
+      return buildCirclePackingRecord(rng, contentSize, controls.circlePackingControls);
     case "drunk-walk-painter":
-      return buildDrunkWalkPainterRecord(rng, controls.drunkWalkPainterControls);
+      return buildDrunkWalkPainterRecord(rng, contentSize, controls.drunkWalkPainterControls);
     case "particle-flow-field":
-      return buildParticleFlowFieldRecord(rng, controls.particleFlowFieldControls);
+      return buildParticleFlowFieldRecord(rng, contentSize, controls.particleFlowFieldControls);
     case "stamp-brush-generator":
-      return buildStampBrushGeneratorRecord(rng, controls.stampBrushGeneratorControls);
+      return buildStampBrushGeneratorRecord(rng, contentSize, controls.stampBrushGeneratorControls);
     case "cutout-collage":
-      return buildCutoutCollageRecord(rng, controls.cutoutCollageControls);
+      return buildCutoutCollageRecord(rng, contentSize, controls.cutoutCollageControls);
     case "glitch-blocks":
-      return buildGlitchBlocksRecord(rng, controls.glitchBlocksControls);
+      return buildGlitchBlocksRecord(rng, contentSize, controls.glitchBlocksControls);
     case "game-of-life-variants":
-      return buildGameOfLifeVariantsRecord(rng, controls.gameOfLifeVariantsControls);
+      return buildGameOfLifeVariantsRecord(rng, contentSize, controls.gameOfLifeVariantsControls);
     case "diffusion-limited-aggregation":
       return buildDiffusionLimitedAggregationRecord(
         rng,
+        contentSize,
         controls.diffusionLimitedAggregationControls,
       );
     case "reaction-diffusion-approximation":
       return buildReactionDiffusionApproximationRecord(
         rng,
+        contentSize,
         controls.reactionDiffusionApproximationControls,
       );
     case "voronoi-region-carver":
-      return buildVoronoiRegionCarverRecord(rng, controls.voronoiRegionCarverControls);
+      return buildVoronoiRegionCarverRecord(rng, contentSize, controls.voronoiRegionCarverControls);
     case "erosion-dilation-pipeline":
-      return buildErosionDilationPipelineRecord(rng, controls.erosionDilationPipelineControls);
+      return buildErosionDilationPipelineRecord(
+        rng,
+        contentSize,
+        controls.erosionDilationPipelineControls,
+      );
     case "backtracking-generator":
-      return buildBacktrackingRecord(rng, controls.backtrackingControls);
+      return buildBacktrackingRecord(rng, contentSize, controls.backtrackingControls);
     case "prims":
-      return buildPrimsRecord(rng, controls.primsControls);
+      return buildPrimsRecord(rng, contentSize, controls.primsControls);
     case "kruskals":
-      return buildKruskalsRecord(rng, controls.kruskalsControls);
+      return buildKruskalsRecord(rng, contentSize, controls.kruskalsControls);
     case "sidewinder":
-      return buildSidewinderRecord(rng, controls.sidewinderControls);
+      return buildSidewinderRecord(rng, contentSize, controls.sidewinderControls);
     case "binary-tree":
-      return buildBinaryTreeRecord(rng, controls.binaryTreeControls);
+      return buildBinaryTreeRecord(rng, contentSize, controls.binaryTreeControls);
     case "hunt-and-kill":
-      return buildHuntAndKillRecord(rng, controls.huntAndKillControls);
+      return buildHuntAndKillRecord(rng, contentSize, controls.huntAndKillControls);
     case "wilsons":
-      return buildWilsonsRecord(rng, controls.wilsonsControls);
+      return buildWilsonsRecord(rng, contentSize, controls.wilsonsControls);
     case "aldous-broder":
-      return buildAldousBroderRecord(rng, controls.aldousBroderControls);
+      return buildAldousBroderRecord(rng, contentSize, controls.aldousBroderControls);
     case "ellers":
-      return buildEllersRecord(rng, controls.ellersControls);
+      return buildEllersRecord(rng, contentSize, controls.ellersControls);
     case "cellular-automaton":
-      return buildCellularAutomatonRecord(rng, controls.cellularAutomatonControls);
+      return buildCellularAutomatonRecord(rng, contentSize, controls.cellularAutomatonControls);
     case "dungeon-rooms":
-      return buildDungeonRoomsRecord(rng, controls.dungeonRoomsControls);
+      return buildDungeonRoomsRecord(rng, contentSize, controls.dungeonRoomsControls);
     case "trivial-maze":
-      return buildTrivialMazeRecord(rng, controls.trivialMazeControls);
+      return buildTrivialMazeRecord(rng, contentSize, controls.trivialMazeControls);
     case "growing-tree":
-      return buildGrowingTreeRecord(rng, controls.growingTreeControls);
+      return buildGrowingTreeRecord(rng, contentSize, controls.growingTreeControls);
     case "recursive-division":
-      return buildRecursiveDivisionRecord(rng, controls.recursiveDivisionControls);
+      return buildRecursiveDivisionRecord(rng, contentSize, controls.recursiveDivisionControls);
   }
 }
 
 function buildRandomNoiseRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: RandomNoiseControlState | null,
 ): RandomNoiseGeneratedLayoutRecord {
   for (let attempt = 0; attempt < 24; attempt++) {
     const params = randomizeRandomNoiseParameters(rng, controls);
-    const bytes = buildRandomNoiseMaskBytes(params);
-    const wallCount = countSetBits(bytes);
+    const grid = buildRandomNoiseMaskBytes(params, contentSize);
+    const wallCount = countFilledWallGridCells(grid);
     if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
       continue;
 
-    return {
-      wallKey: wallMaskKeyFromBytes(bytes),
+    return buildGeneratedRecord(contentSize, {
       algorithm: "random-noise",
       title: RANDOM_NOISE_LABEL,
       summary: buildRandomNoiseSummary(params),
       seedLabel: `Seed ${params.seed}`,
-      inverted: false,
       params,
-    };
+      grid,
+    });
   }
 
   const fallback = {
@@ -2469,15 +2475,14 @@ function buildRandomNoiseRecord(
     invert: false,
   } satisfies RandomNoiseParameters;
 
-  return {
-    wallKey: wallMaskKeyFromBytes(buildRandomNoiseMaskBytes(fallback)),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "random-noise",
     title: RANDOM_NOISE_LABEL,
     summary: buildRandomNoiseSummary(fallback),
     seedLabel: `Seed ${fallback.seed}`,
-    inverted: false,
     params: fallback,
-  };
+    grid: buildRandomNoiseMaskBytes(fallback, contentSize),
+  });
 }
 
 function buildNoiseTerrainRecord<
@@ -2495,46 +2500,46 @@ function buildNoiseTerrainRecord<
     | DomainWarpedNoiseParameters,
 >(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   options: Readonly<{
     algorithm: Algorithm;
     title: string;
     randomize: () => Params;
-    buildBytes: (params: Params) => Uint8Array;
+    buildGrid: (params: Params, contentSize: GeneratedContentSize) => WallGrid;
     buildSummary: (params: Params) => string;
     fallback: Params;
   }>,
 ): BaseGeneratedLayoutRecord<Algorithm, Params> {
   for (let attempt = 0; attempt < 24; attempt++) {
     const params = options.randomize();
-    const bytes = options.buildBytes(params);
-    const wallCount = countSetBits(bytes);
+    const grid = options.buildGrid(params, contentSize);
+    const wallCount = countFilledWallGridCells(grid);
     if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
       continue;
 
-    return {
-      wallKey: wallMaskKeyFromBytes(bytes),
+    return buildGeneratedRecord(contentSize, {
       algorithm: options.algorithm,
       title: options.title,
       summary: options.buildSummary(params),
       seedLabel: `Seed ${params.seed}`,
-      inverted: false,
       params,
-    };
+      grid,
+    });
   }
 
-  return {
-    wallKey: wallMaskKeyFromBytes(options.buildBytes(options.fallback)),
+  return buildGeneratedRecord(contentSize, {
     algorithm: options.algorithm,
     title: options.title,
     summary: options.buildSummary(options.fallback),
     seedLabel: `Seed ${options.fallback.seed}`,
-    inverted: false,
     params: options.fallback,
-  };
+    grid: options.buildGrid(options.fallback, contentSize),
+  });
 }
 
 function buildPerlinNoiseRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: PerlinNoiseControlState | null,
 ): PerlinNoiseGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultPerlinNoiseControlState();
@@ -2547,11 +2552,11 @@ function buildPerlinNoiseRecord(
     octaves: 3,
   } satisfies PerlinNoiseParameters;
 
-  return buildNoiseTerrainRecord(rng, {
+  return buildNoiseTerrainRecord(rng, contentSize, {
     algorithm: "perlin-noise",
     title: PERLIN_NOISE_LABEL,
     randomize: () => randomizePerlinNoiseParameters(rng, defaults),
-    buildBytes: buildPerlinNoiseMaskBytes,
+    buildGrid: buildPerlinNoiseMaskBytes,
     buildSummary: buildPerlinNoiseSummary,
     fallback,
   });
@@ -2559,6 +2564,7 @@ function buildPerlinNoiseRecord(
 
 function buildValueFractalNoiseRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: ValueFractalNoiseControlState | null,
 ): ValueFractalNoiseGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultValueFractalNoiseControlState();
@@ -2572,11 +2578,11 @@ function buildValueFractalNoiseRecord(
     gain: 0.55,
   } satisfies ValueFractalNoiseParameters;
 
-  return buildNoiseTerrainRecord(rng, {
+  return buildNoiseTerrainRecord(rng, contentSize, {
     algorithm: "value-fractal-noise",
     title: VALUE_FRACTAL_NOISE_LABEL,
     randomize: () => randomizeValueFractalNoiseParameters(rng, defaults),
-    buildBytes: buildValueFractalNoiseMaskBytes,
+    buildGrid: buildValueFractalNoiseMaskBytes,
     buildSummary: buildValueFractalNoiseSummary,
     fallback,
   });
@@ -2584,6 +2590,7 @@ function buildValueFractalNoiseRecord(
 
 function buildWorleyNoiseRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: WorleyNoiseControlState | null,
 ): WorleyNoiseGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultWorleyNoiseControlState();
@@ -2596,11 +2603,11 @@ function buildWorleyNoiseRecord(
     jitter: 0.7,
   } satisfies WorleyNoiseParameters;
 
-  return buildNoiseTerrainRecord(rng, {
+  return buildNoiseTerrainRecord(rng, contentSize, {
     algorithm: "worley-noise",
     title: WORLEY_NOISE_LABEL,
     randomize: () => randomizeWorleyNoiseParameters(rng, defaults),
-    buildBytes: buildWorleyNoiseMaskBytes,
+    buildGrid: buildWorleyNoiseMaskBytes,
     buildSummary: buildWorleyNoiseSummary,
     fallback,
   });
@@ -2608,6 +2615,7 @@ function buildWorleyNoiseRecord(
 
 function buildThresholdedGradientNoiseRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: ThresholdedGradientNoiseControlState | null,
 ): ThresholdedGradientNoiseGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultThresholdedGradientNoiseControlState();
@@ -2621,11 +2629,11 @@ function buildThresholdedGradientNoiseRecord(
     roughness: 0.45,
   } satisfies ThresholdedGradientNoiseParameters;
 
-  return buildNoiseTerrainRecord(rng, {
+  return buildNoiseTerrainRecord(rng, contentSize, {
     algorithm: "thresholded-gradient-noise",
     title: THRESHOLDED_GRADIENT_NOISE_LABEL,
     randomize: () => randomizeThresholdedGradientNoiseParameters(rng, defaults),
-    buildBytes: buildThresholdedGradientNoiseMaskBytes,
+    buildGrid: buildThresholdedGradientNoiseMaskBytes,
     buildSummary: buildThresholdedGradientNoiseSummary,
     fallback,
   });
@@ -2633,6 +2641,7 @@ function buildThresholdedGradientNoiseRecord(
 
 function buildDomainWarpedNoiseRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: DomainWarpedNoiseControlState | null,
 ): DomainWarpedNoiseGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultDomainWarpedNoiseControlState();
@@ -2647,11 +2656,11 @@ function buildDomainWarpedNoiseRecord(
     warpStrength: 0.3,
   } satisfies DomainWarpedNoiseParameters;
 
-  return buildNoiseTerrainRecord(rng, {
+  return buildNoiseTerrainRecord(rng, contentSize, {
     algorithm: "domain-warped-noise",
     title: DOMAIN_WARPED_NOISE_LABEL,
     randomize: () => randomizeDomainWarpedNoiseParameters(rng, defaults),
-    buildBytes: buildDomainWarpedNoiseMaskBytes,
+    buildGrid: buildDomainWarpedNoiseMaskBytes,
     buildSummary: buildDomainWarpedNoiseSummary,
     fallback,
   });
@@ -2672,46 +2681,46 @@ function buildOrnamentRecord<
     | TileableMotifRepeaterParameters,
 >(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   options: Readonly<{
     algorithm: Algorithm;
     title: string;
     randomize: () => Params;
-    buildBytes: (params: Params) => Uint8Array;
+    buildGrid: (params: Params, contentSize: GeneratedContentSize) => WallGrid;
     buildSummary: (params: Params) => string;
     fallback: Params;
   }>,
 ): BaseGeneratedLayoutRecord<Algorithm, Params> {
   for (let attempt = 0; attempt < 24; attempt++) {
     const params = options.randomize();
-    const bytes = options.buildBytes(params);
-    const wallCount = countSetBits(bytes);
+    const grid = options.buildGrid(params, contentSize);
+    const wallCount = countFilledWallGridCells(grid);
     if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
       continue;
 
-    return {
-      wallKey: wallMaskKeyFromBytes(bytes),
+    return buildGeneratedRecord(contentSize, {
       algorithm: options.algorithm,
       title: options.title,
       summary: options.buildSummary(params),
       seedLabel: `Seed ${params.seed}`,
-      inverted: false,
       params,
-    };
+      grid,
+    });
   }
 
-  return {
-    wallKey: wallMaskKeyFromBytes(options.buildBytes(options.fallback)),
+  return buildGeneratedRecord(contentSize, {
     algorithm: options.algorithm,
     title: options.title,
     summary: options.buildSummary(options.fallback),
     seedLabel: `Seed ${options.fallback.seed}`,
-    inverted: false,
     params: options.fallback,
-  };
+    grid: options.buildGrid(options.fallback, contentSize),
+  });
 }
 
 function buildRadialSymmetryRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: RadialSymmetryControlState | null,
 ): RadialSymmetryGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultRadialSymmetryControlState();
@@ -2725,11 +2734,11 @@ function buildRadialSymmetryRecord(
     thickness: 0.14,
   } satisfies RadialSymmetryParameters;
 
-  return buildOrnamentRecord(rng, {
+  return buildOrnamentRecord(rng, contentSize, {
     algorithm: "radial-symmetry",
     title: RADIAL_SYMMETRY_LABEL,
     randomize: () => randomizeRadialSymmetryParameters(rng, defaults),
-    buildBytes: buildRadialSymmetryMaskBytes,
+    buildGrid: buildRadialSymmetryMaskBytes,
     buildSummary: buildRadialSymmetrySummary,
     fallback,
   });
@@ -2737,6 +2746,7 @@ function buildRadialSymmetryRecord(
 
 function buildKaleidoscopeRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: KaleidoscopeControlState | null,
 ): KaleidoscopeGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultKaleidoscopeControlState();
@@ -2749,11 +2759,11 @@ function buildKaleidoscopeRecord(
     threshold: 0.5,
   } satisfies KaleidoscopeParameters;
 
-  return buildOrnamentRecord(rng, {
+  return buildOrnamentRecord(rng, contentSize, {
     algorithm: "kaleidoscope",
     title: KALEIDOSCOPE_LABEL,
     randomize: () => randomizeKaleidoscopeParameters(rng, defaults),
-    buildBytes: buildKaleidoscopeMaskBytes,
+    buildGrid: buildKaleidoscopeMaskBytes,
     buildSummary: buildKaleidoscopeSummary,
     fallback,
   });
@@ -2761,6 +2771,7 @@ function buildKaleidoscopeRecord(
 
 function buildLSystemTurtleRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: LSystemTurtleControlState | null,
 ): LSystemTurtleGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultLSystemTurtleControlState();
@@ -2774,11 +2785,11 @@ function buildLSystemTurtleRecord(
     strokeWidth: 1,
   } satisfies LSystemTurtleParameters;
 
-  return buildOrnamentRecord(rng, {
+  return buildOrnamentRecord(rng, contentSize, {
     algorithm: "l-system-turtle",
     title: LSYSTEM_TURTLE_LABEL,
     randomize: () => randomizeLSystemTurtleParameters(rng, defaults),
-    buildBytes: buildLSystemTurtleMaskBytes,
+    buildGrid: buildLSystemTurtleMaskBytes,
     buildSummary: buildLSystemTurtleSummary,
     fallback,
   });
@@ -2786,6 +2797,7 @@ function buildLSystemTurtleRecord(
 
 function buildRoseCurvesRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: RoseCurvesControlState | null,
 ): RoseCurvesGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultRoseCurvesControlState();
@@ -2799,11 +2811,11 @@ function buildRoseCurvesRecord(
     strokeWidth: 1,
   } satisfies RoseCurvesParameters;
 
-  return buildOrnamentRecord(rng, {
+  return buildOrnamentRecord(rng, contentSize, {
     algorithm: "rose-curves",
     title: ROSE_CURVES_LABEL,
     randomize: () => randomizeRoseCurvesParameters(rng, defaults),
-    buildBytes: buildRoseCurvesMaskBytes,
+    buildGrid: buildRoseCurvesMaskBytes,
     buildSummary: buildRoseCurvesSummary,
     fallback,
   });
@@ -2811,6 +2823,7 @@ function buildRoseCurvesRecord(
 
 function buildTileableMotifRepeaterRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: TileableMotifRepeaterControlState | null,
 ): TileableMotifRepeaterGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultTileableMotifRepeaterControlState();
@@ -2825,11 +2838,11 @@ function buildTileableMotifRepeaterRecord(
     rotation: 0,
   } satisfies TileableMotifRepeaterParameters;
 
-  return buildOrnamentRecord(rng, {
+  return buildOrnamentRecord(rng, contentSize, {
     algorithm: "tileable-motif-repeater",
     title: TILEABLE_MOTIF_REPEATER_LABEL,
     randomize: () => randomizeTileableMotifRepeaterParameters(rng, defaults),
-    buildBytes: buildTileableMotifRepeaterMaskBytes,
+    buildGrid: buildTileableMotifRepeaterMaskBytes,
     buildSummary: buildTileableMotifRepeaterSummary,
     fallback,
   });
@@ -2850,46 +2863,46 @@ function buildArchitectureRecord<
     | BlueprintGeneratorParameters,
 >(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   options: Readonly<{
     algorithm: Algorithm;
     title: string;
     randomize: () => Params;
-    buildBytes: (params: Params) => Uint8Array;
+    buildGrid: (params: Params, contentSize: GeneratedContentSize) => WallGrid;
     buildSummary: (params: Params) => string;
     fallback: Params;
   }>,
 ): BaseGeneratedLayoutRecord<Algorithm, Params> {
   for (let attempt = 0; attempt < 24; attempt++) {
     const params = options.randomize();
-    const bytes = options.buildBytes(params);
-    const wallCount = countSetBits(bytes);
+    const grid = options.buildGrid(params, contentSize);
+    const wallCount = countFilledWallGridCells(grid);
     if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
       continue;
 
-    return {
-      wallKey: wallMaskKeyFromBytes(bytes),
+    return buildGeneratedRecord(contentSize, {
       algorithm: options.algorithm,
       title: options.title,
       summary: options.buildSummary(params),
       seedLabel: `Seed ${params.seed}`,
-      inverted: false,
       params,
-    };
+      grid,
+    });
   }
 
-  return {
-    wallKey: wallMaskKeyFromBytes(options.buildBytes(options.fallback)),
+  return buildGeneratedRecord(contentSize, {
     algorithm: options.algorithm,
     title: options.title,
     summary: options.buildSummary(options.fallback),
     seedLabel: `Seed ${options.fallback.seed}`,
-    inverted: false,
     params: options.fallback,
-  };
+    grid: options.buildGrid(options.fallback, contentSize),
+  });
 }
 
 function buildBspRoomPartitionerRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: BspRoomPartitionerControlState | null,
 ): BspRoomPartitionerGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultBspRoomPartitionerControlState();
@@ -2902,11 +2915,11 @@ function buildBspRoomPartitionerRecord(
     corridorWidth: 1,
   } satisfies BspRoomPartitionerParameters;
 
-  return buildArchitectureRecord(rng, {
+  return buildArchitectureRecord(rng, contentSize, {
     algorithm: "bsp-room-partitioner",
     title: BSP_ROOM_PARTITIONER_LABEL,
     randomize: () => randomizeBspRoomPartitionerParameters(rng, defaults),
-    buildBytes: buildBspRoomPartitionerMaskBytes,
+    buildGrid: buildBspRoomPartitionerMaskBytes,
     buildSummary: buildBspRoomPartitionerSummary,
     fallback,
   });
@@ -2914,6 +2927,7 @@ function buildBspRoomPartitionerRecord(
 
 function buildCorridorGridRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: CorridorGridControlState | null,
 ): CorridorGridGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultCorridorGridControlState();
@@ -2927,11 +2941,11 @@ function buildCorridorGridRecord(
     gapChance: 0.3,
   } satisfies CorridorGridParameters;
 
-  return buildArchitectureRecord(rng, {
+  return buildArchitectureRecord(rng, contentSize, {
     algorithm: "corridor-grid",
     title: CORRIDOR_GRID_LABEL,
     randomize: () => randomizeCorridorGridParameters(rng, defaults),
-    buildBytes: buildCorridorGridMaskBytes,
+    buildGrid: buildCorridorGridMaskBytes,
     buildSummary: buildCorridorGridSummary,
     fallback,
   });
@@ -2939,6 +2953,7 @@ function buildCorridorGridRecord(
 
 function buildRoomScatterRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: RoomScatterControlState | null,
 ): RoomScatterGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultRoomScatterControlState();
@@ -2952,11 +2967,11 @@ function buildRoomScatterRecord(
     connectorChance: 0.45,
   } satisfies RoomScatterParameters;
 
-  return buildArchitectureRecord(rng, {
+  return buildArchitectureRecord(rng, contentSize, {
     algorithm: "room-scatter",
     title: ROOM_SCATTER_LABEL,
     randomize: () => randomizeRoomScatterParameters(rng, defaults),
-    buildBytes: buildRoomScatterMaskBytes,
+    buildGrid: buildRoomScatterMaskBytes,
     buildSummary: buildRoomScatterSummary,
     fallback,
   });
@@ -2964,6 +2979,7 @@ function buildRoomScatterRecord(
 
 function buildCourtyardGeneratorRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: CourtyardGeneratorControlState | null,
 ): CourtyardGeneratorGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultCourtyardGeneratorControlState();
@@ -2977,11 +2993,11 @@ function buildCourtyardGeneratorRecord(
     offset: 1,
   } satisfies CourtyardGeneratorParameters;
 
-  return buildArchitectureRecord(rng, {
+  return buildArchitectureRecord(rng, contentSize, {
     algorithm: "courtyard-generator",
     title: COURTYARD_GENERATOR_LABEL,
     randomize: () => randomizeCourtyardGeneratorParameters(rng, defaults),
-    buildBytes: buildCourtyardGeneratorMaskBytes,
+    buildGrid: buildCourtyardGeneratorMaskBytes,
     buildSummary: buildCourtyardGeneratorSummary,
     fallback,
   });
@@ -2989,6 +3005,7 @@ function buildCourtyardGeneratorRecord(
 
 function buildBlueprintGeneratorRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: BlueprintGeneratorControlState | null,
 ): BlueprintGeneratorGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultBlueprintGeneratorControlState();
@@ -3002,11 +3019,11 @@ function buildBlueprintGeneratorRecord(
     chamberDepth: 6,
   } satisfies BlueprintGeneratorParameters;
 
-  return buildArchitectureRecord(rng, {
+  return buildArchitectureRecord(rng, contentSize, {
     algorithm: "blueprint-generator",
     title: BLUEPRINT_GENERATOR_LABEL,
     randomize: () => randomizeBlueprintGeneratorParameters(rng, defaults),
-    buildBytes: buildBlueprintGeneratorMaskBytes,
+    buildGrid: buildBlueprintGeneratorMaskBytes,
     buildSummary: buildBlueprintGeneratorSummary,
     fallback,
   });
@@ -3027,52 +3044,52 @@ function buildPatternedGeometricRecord<
     | CirclePackingParameters,
 >(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   options: Readonly<{
     algorithm: Algorithm;
     title: string;
     randomize: () => Params;
-    buildBytes: (params: Params) => Uint8Array;
+    buildGrid: (params: Params, contentSize: GeneratedContentSize) => WallGrid;
     buildSummary: (params: Params) => string;
     fallback: Params;
   }>,
 ): BaseGeneratedLayoutRecord<Algorithm, Params> {
-  let lastAttempt: Readonly<{ params: Params; bytes: Uint8Array }> | null = null;
+  let lastAttempt: Readonly<{ params: Params; grid: WallGrid }> | null = null;
 
   for (let attempt = 0; attempt < 24; attempt++) {
     const params = options.randomize();
-    const bytes = options.buildBytes(params);
-    lastAttempt = { params, bytes };
-    const wallCount = countSetBits(bytes);
+    const grid = options.buildGrid(params, contentSize);
+    lastAttempt = { params, grid };
+    const wallCount = countFilledWallGridCells(grid);
     if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
       continue;
 
-    return {
-      wallKey: wallMaskKeyFromBytes(bytes),
+    return buildGeneratedRecord(contentSize, {
       algorithm: options.algorithm,
       title: options.title,
       summary: options.buildSummary(params),
       seedLabel: `Seed ${params.seed}`,
-      inverted: false,
       params,
-    };
+      grid,
+    });
   }
 
   const fallbackParams = lastAttempt?.params ?? options.fallback;
-  const fallbackBytes = lastAttempt?.bytes ?? options.buildBytes(options.fallback);
+  const fallbackGrid = lastAttempt?.grid ?? options.buildGrid(options.fallback, contentSize);
 
-  return {
-    wallKey: wallMaskKeyFromBytes(fallbackBytes),
+  return buildGeneratedRecord(contentSize, {
     algorithm: options.algorithm,
     title: options.title,
     summary: options.buildSummary(fallbackParams),
     seedLabel: `Seed ${fallbackParams.seed}`,
-    inverted: false,
     params: fallbackParams,
-  };
+    grid: fallbackGrid,
+  });
 }
 
 function buildStripePlaidGeneratorRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: StripePlaidGeneratorControlState | null,
 ): StripePlaidGeneratorGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultStripePlaidGeneratorControlState();
@@ -3086,11 +3103,11 @@ function buildStripePlaidGeneratorRecord(
     offset: 1,
   } satisfies StripePlaidGeneratorParameters;
 
-  return buildPatternedGeometricRecord(rng, {
+  return buildPatternedGeometricRecord(rng, contentSize, {
     algorithm: "stripe-plaid-generator",
     title: STRIPE_PLAID_GENERATOR_LABEL,
     randomize: () => randomizeStripePlaidGeneratorParameters(rng, defaults),
-    buildBytes: buildStripePlaidGeneratorMaskBytes,
+    buildGrid: buildStripePlaidGeneratorMaskBytes,
     buildSummary: buildStripePlaidGeneratorSummary,
     fallback,
   });
@@ -3098,6 +3115,7 @@ function buildStripePlaidGeneratorRecord(
 
 function buildCheckerDiamondLatticeRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: CheckerDiamondLatticeControlState | null,
 ): CheckerDiamondLatticeGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultCheckerDiamondLatticeControlState();
@@ -3111,11 +3129,11 @@ function buildCheckerDiamondLatticeRecord(
     phase: 0,
   } satisfies CheckerDiamondLatticeParameters;
 
-  return buildPatternedGeometricRecord(rng, {
+  return buildPatternedGeometricRecord(rng, contentSize, {
     algorithm: "checker-diamond-lattice",
     title: CHECKER_DIAMOND_LATTICE_LABEL,
     randomize: () => randomizeCheckerDiamondLatticeParameters(rng, defaults),
-    buildBytes: buildCheckerDiamondLatticeMaskBytes,
+    buildGrid: buildCheckerDiamondLatticeMaskBytes,
     buildSummary: buildCheckerDiamondLatticeSummary,
     fallback,
   });
@@ -3123,6 +3141,7 @@ function buildCheckerDiamondLatticeRecord(
 
 function buildConcentricBoxesRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: ConcentricBoxesControlState | null,
 ): ConcentricBoxesGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultConcentricBoxesControlState();
@@ -3136,11 +3155,11 @@ function buildConcentricBoxesRecord(
     drift: 1,
   } satisfies ConcentricBoxesParameters;
 
-  return buildPatternedGeometricRecord(rng, {
+  return buildPatternedGeometricRecord(rng, contentSize, {
     algorithm: "concentric-boxes",
     title: CONCENTRIC_BOXES_LABEL,
     randomize: () => randomizeConcentricBoxesParameters(rng, defaults),
-    buildBytes: buildConcentricBoxesMaskBytes,
+    buildGrid: buildConcentricBoxesMaskBytes,
     buildSummary: buildConcentricBoxesSummary,
     fallback,
   });
@@ -3148,6 +3167,7 @@ function buildConcentricBoxesRecord(
 
 function buildLineInterferenceRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: LineInterferenceControlState | null,
 ): LineInterferenceGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultLineInterferenceControlState();
@@ -3161,11 +3181,11 @@ function buildLineInterferenceRecord(
     strokeWidth: 1,
   } satisfies LineInterferenceParameters;
 
-  return buildPatternedGeometricRecord(rng, {
+  return buildPatternedGeometricRecord(rng, contentSize, {
     algorithm: "line-interference",
     title: LINE_INTERFERENCE_LABEL,
     randomize: () => randomizeLineInterferenceParameters(rng, defaults),
-    buildBytes: buildLineInterferenceMaskBytes,
+    buildGrid: buildLineInterferenceMaskBytes,
     buildSummary: buildLineInterferenceSummary,
     fallback,
   });
@@ -3173,6 +3193,7 @@ function buildLineInterferenceRecord(
 
 function buildCirclePackingRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: CirclePackingControlState | null,
 ): CirclePackingGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultCirclePackingControlState();
@@ -3186,11 +3207,11 @@ function buildCirclePackingRecord(
     outline: false,
   } satisfies CirclePackingParameters;
 
-  return buildPatternedGeometricRecord(rng, {
+  return buildPatternedGeometricRecord(rng, contentSize, {
     algorithm: "circle-packing",
     title: CIRCLE_PACKING_LABEL,
     randomize: () => randomizeCirclePackingParameters(rng, defaults),
-    buildBytes: buildCirclePackingMaskBytes,
+    buildGrid: buildCirclePackingMaskBytes,
     buildSummary: buildCirclePackingSummary,
     fallback,
   });
@@ -3211,52 +3232,52 @@ function buildChaoticProceduralRecord<
     | GlitchBlocksParameters,
 >(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   options: Readonly<{
     algorithm: Algorithm;
     title: string;
     randomize: () => Params;
-    buildBytes: (params: Params) => Uint8Array;
+    buildGrid: (params: Params, contentSize: GeneratedContentSize) => WallGrid;
     buildSummary: (params: Params) => string;
     fallback: Params;
   }>,
 ): BaseGeneratedLayoutRecord<Algorithm, Params> {
-  let lastAttempt: Readonly<{ params: Params; bytes: Uint8Array }> | null = null;
+  let lastAttempt: Readonly<{ params: Params; grid: WallGrid }> | null = null;
 
   for (let attempt = 0; attempt < 24; attempt++) {
     const params = options.randomize();
-    const bytes = options.buildBytes(params);
-    lastAttempt = { params, bytes };
-    const wallCount = countSetBits(bytes);
+    const grid = options.buildGrid(params, contentSize);
+    lastAttempt = { params, grid };
+    const wallCount = countFilledWallGridCells(grid);
     if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
       continue;
 
-    return {
-      wallKey: wallMaskKeyFromBytes(bytes),
+    return buildGeneratedRecord(contentSize, {
       algorithm: options.algorithm,
       title: options.title,
       summary: options.buildSummary(params),
       seedLabel: `Seed ${params.seed}`,
-      inverted: false,
       params,
-    };
+      grid,
+    });
   }
 
   const fallbackParams = lastAttempt?.params ?? options.fallback;
-  const fallbackBytes = lastAttempt?.bytes ?? options.buildBytes(options.fallback);
+  const fallbackGrid = lastAttempt?.grid ?? options.buildGrid(options.fallback, contentSize);
 
-  return {
-    wallKey: wallMaskKeyFromBytes(fallbackBytes),
+  return buildGeneratedRecord(contentSize, {
     algorithm: options.algorithm,
     title: options.title,
     summary: options.buildSummary(fallbackParams),
     seedLabel: `Seed ${fallbackParams.seed}`,
-    inverted: false,
     params: fallbackParams,
-  };
+    grid: fallbackGrid,
+  });
 }
 
 function buildDrunkWalkPainterRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: DrunkWalkPainterControlState | null,
 ): DrunkWalkPainterGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultDrunkWalkPainterControlState();
@@ -3270,11 +3291,11 @@ function buildDrunkWalkPainterRecord(
     roomChance: 0.15,
   } satisfies DrunkWalkPainterParameters;
 
-  return buildChaoticProceduralRecord(rng, {
+  return buildChaoticProceduralRecord(rng, contentSize, {
     algorithm: "drunk-walk-painter",
     title: DRUNK_WALK_PAINTER_LABEL,
     randomize: () => randomizeDrunkWalkPainterParameters(rng, defaults),
-    buildBytes: buildDrunkWalkPainterMaskBytes,
+    buildGrid: buildDrunkWalkPainterMaskBytes,
     buildSummary: buildDrunkWalkPainterSummary,
     fallback,
   });
@@ -3282,6 +3303,7 @@ function buildDrunkWalkPainterRecord(
 
 function buildParticleFlowFieldRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: ParticleFlowFieldControlState | null,
 ): ParticleFlowFieldGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultParticleFlowFieldControlState();
@@ -3295,11 +3317,11 @@ function buildParticleFlowFieldRecord(
     strokeWidth: 1,
   } satisfies ParticleFlowFieldParameters;
 
-  return buildChaoticProceduralRecord(rng, {
+  return buildChaoticProceduralRecord(rng, contentSize, {
     algorithm: "particle-flow-field",
     title: PARTICLE_FLOW_FIELD_LABEL,
     randomize: () => randomizeParticleFlowFieldParameters(rng, defaults),
-    buildBytes: buildParticleFlowFieldMaskBytes,
+    buildGrid: buildParticleFlowFieldMaskBytes,
     buildSummary: buildParticleFlowFieldSummary,
     fallback,
   });
@@ -3307,6 +3329,7 @@ function buildParticleFlowFieldRecord(
 
 function buildStampBrushGeneratorRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: StampBrushGeneratorControlState | null,
 ): StampBrushGeneratorGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultStampBrushGeneratorControlState();
@@ -3320,11 +3343,11 @@ function buildStampBrushGeneratorRecord(
     scatter: 2,
   } satisfies StampBrushGeneratorParameters;
 
-  return buildChaoticProceduralRecord(rng, {
+  return buildChaoticProceduralRecord(rng, contentSize, {
     algorithm: "stamp-brush-generator",
     title: STAMP_BRUSH_GENERATOR_LABEL,
     randomize: () => randomizeStampBrushGeneratorParameters(rng, defaults),
-    buildBytes: buildStampBrushGeneratorMaskBytes,
+    buildGrid: buildStampBrushGeneratorMaskBytes,
     buildSummary: buildStampBrushGeneratorSummary,
     fallback,
   });
@@ -3332,6 +3355,7 @@ function buildStampBrushGeneratorRecord(
 
 function buildCutoutCollageRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: CutoutCollageControlState | null,
 ): CutoutCollageGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultCutoutCollageControlState();
@@ -3345,11 +3369,11 @@ function buildCutoutCollageRecord(
     subtractChance: 0.45,
   } satisfies CutoutCollageParameters;
 
-  return buildChaoticProceduralRecord(rng, {
+  return buildChaoticProceduralRecord(rng, contentSize, {
     algorithm: "cutout-collage",
     title: CUTOUT_COLLAGE_LABEL,
     randomize: () => randomizeCutoutCollageParameters(rng, defaults),
-    buildBytes: buildCutoutCollageMaskBytes,
+    buildGrid: buildCutoutCollageMaskBytes,
     buildSummary: buildCutoutCollageSummary,
     fallback,
   });
@@ -3357,6 +3381,7 @@ function buildCutoutCollageRecord(
 
 function buildGlitchBlocksRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: GlitchBlocksControlState | null,
 ): GlitchBlocksGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultGlitchBlocksControlState();
@@ -3370,11 +3395,11 @@ function buildGlitchBlocksRecord(
     cellSize: 2,
   } satisfies GlitchBlocksParameters;
 
-  return buildChaoticProceduralRecord(rng, {
+  return buildChaoticProceduralRecord(rng, contentSize, {
     algorithm: "glitch-blocks",
     title: GLITCH_BLOCKS_LABEL,
     randomize: () => randomizeGlitchBlocksParameters(rng, defaults),
-    buildBytes: buildGlitchBlocksMaskBytes,
+    buildGrid: buildGlitchBlocksMaskBytes,
     buildSummary: buildGlitchBlocksSummary,
     fallback,
   });
@@ -3395,52 +3420,52 @@ function buildGrowthSystemRecord<
     | ErosionDilationPipelineParameters,
 >(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   options: Readonly<{
     algorithm: Algorithm;
     title: string;
     randomize: () => Params;
-    buildBytes: (params: Params) => Uint8Array;
+    buildGrid: (params: Params, contentSize: GeneratedContentSize) => WallGrid;
     buildSummary: (params: Params) => string;
     fallback: Params;
   }>,
 ): BaseGeneratedLayoutRecord<Algorithm, Params> {
-  let lastAttempt: Readonly<{ params: Params; bytes: Uint8Array }> | null = null;
+  let lastAttempt: Readonly<{ params: Params; grid: WallGrid }> | null = null;
 
   for (let attempt = 0; attempt < 24; attempt++) {
     const params = options.randomize();
-    const bytes = options.buildBytes(params);
-    lastAttempt = { params, bytes };
-    const wallCount = countSetBits(bytes);
+    const grid = options.buildGrid(params, contentSize);
+    lastAttempt = { params, grid };
+    const wallCount = countFilledWallGridCells(grid);
     if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
       continue;
 
-    return {
-      wallKey: wallMaskKeyFromBytes(bytes),
+    return buildGeneratedRecord(contentSize, {
       algorithm: options.algorithm,
       title: options.title,
       summary: options.buildSummary(params),
       seedLabel: `Seed ${params.seed}`,
-      inverted: false,
       params,
-    };
+      grid,
+    });
   }
 
   const fallbackParams = lastAttempt?.params ?? options.fallback;
-  const fallbackBytes = lastAttempt?.bytes ?? options.buildBytes(options.fallback);
+  const fallbackGrid = lastAttempt?.grid ?? options.buildGrid(options.fallback, contentSize);
 
-  return {
-    wallKey: wallMaskKeyFromBytes(fallbackBytes),
+  return buildGeneratedRecord(contentSize, {
     algorithm: options.algorithm,
     title: options.title,
     summary: options.buildSummary(fallbackParams),
     seedLabel: `Seed ${fallbackParams.seed}`,
-    inverted: false,
     params: fallbackParams,
-  };
+    grid: fallbackGrid,
+  });
 }
 
 function buildGameOfLifeVariantsRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: GameOfLifeVariantsControlState | null,
 ): GameOfLifeVariantsGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultGameOfLifeVariantsControlState();
@@ -3453,11 +3478,11 @@ function buildGameOfLifeVariantsRecord(
     variant: "life",
   } satisfies GameOfLifeVariantsParameters;
 
-  return buildGrowthSystemRecord(rng, {
+  return buildGrowthSystemRecord(rng, contentSize, {
     algorithm: "game-of-life-variants",
     title: GAME_OF_LIFE_VARIANTS_LABEL,
     randomize: () => randomizeGameOfLifeVariantsParameters(rng, defaults),
-    buildBytes: buildGameOfLifeVariantsMaskBytes,
+    buildGrid: buildGameOfLifeVariantsMaskBytes,
     buildSummary: buildGameOfLifeVariantsSummary,
     fallback,
   });
@@ -3465,6 +3490,7 @@ function buildGameOfLifeVariantsRecord(
 
 function buildDiffusionLimitedAggregationRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: DiffusionLimitedAggregationControlState | null,
 ): DiffusionLimitedAggregationGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultDiffusionLimitedAggregationControlState();
@@ -3477,11 +3503,11 @@ function buildDiffusionLimitedAggregationRecord(
     seedMode: "point",
   } satisfies DiffusionLimitedAggregationParameters;
 
-  return buildGrowthSystemRecord(rng, {
+  return buildGrowthSystemRecord(rng, contentSize, {
     algorithm: "diffusion-limited-aggregation",
     title: DIFFUSION_LIMITED_AGGREGATION_LABEL,
     randomize: () => randomizeDiffusionLimitedAggregationParameters(rng, defaults),
-    buildBytes: buildDiffusionLimitedAggregationMaskBytes,
+    buildGrid: buildDiffusionLimitedAggregationMaskBytes,
     buildSummary: buildDiffusionLimitedAggregationSummary,
     fallback,
   });
@@ -3489,6 +3515,7 @@ function buildDiffusionLimitedAggregationRecord(
 
 function buildReactionDiffusionApproximationRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: ReactionDiffusionApproximationControlState | null,
 ): ReactionDiffusionApproximationGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultReactionDiffusionApproximationControlState();
@@ -3502,11 +3529,11 @@ function buildReactionDiffusionApproximationRecord(
     kill: 0.062,
   } satisfies ReactionDiffusionApproximationParameters;
 
-  return buildGrowthSystemRecord(rng, {
+  return buildGrowthSystemRecord(rng, contentSize, {
     algorithm: "reaction-diffusion-approximation",
     title: REACTION_DIFFUSION_APPROXIMATION_LABEL,
     randomize: () => randomizeReactionDiffusionApproximationParameters(rng, defaults),
-    buildBytes: buildReactionDiffusionApproximationMaskBytes,
+    buildGrid: buildReactionDiffusionApproximationMaskBytes,
     buildSummary: buildReactionDiffusionApproximationSummary,
     fallback,
   });
@@ -3514,6 +3541,7 @@ function buildReactionDiffusionApproximationRecord(
 
 function buildVoronoiRegionCarverRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: VoronoiRegionCarverControlState | null,
 ): VoronoiRegionCarverGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultVoronoiRegionCarverControlState();
@@ -3526,11 +3554,11 @@ function buildVoronoiRegionCarverRecord(
     jitter: 0.1,
   } satisfies VoronoiRegionCarverParameters;
 
-  return buildGrowthSystemRecord(rng, {
+  return buildGrowthSystemRecord(rng, contentSize, {
     algorithm: "voronoi-region-carver",
     title: VORONOI_REGION_CARVER_LABEL,
     randomize: () => randomizeVoronoiRegionCarverParameters(rng, defaults),
-    buildBytes: buildVoronoiRegionCarverMaskBytes,
+    buildGrid: buildVoronoiRegionCarverMaskBytes,
     buildSummary: buildVoronoiRegionCarverSummary,
     fallback,
   });
@@ -3538,6 +3566,7 @@ function buildVoronoiRegionCarverRecord(
 
 function buildErosionDilationPipelineRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: ErosionDilationPipelineControlState | null,
 ): ErosionDilationPipelineGeneratedLayoutRecord {
   const defaults = controls ?? createDefaultErosionDilationPipelineControlState();
@@ -3551,11 +3580,11 @@ function buildErosionDilationPipelineRecord(
     punctureChance: 0.2,
   } satisfies ErosionDilationPipelineParameters;
 
-  return buildGrowthSystemRecord(rng, {
+  return buildGrowthSystemRecord(rng, contentSize, {
     algorithm: "erosion-dilation-pipeline",
     title: EROSION_DILATION_PIPELINE_LABEL,
     randomize: () => randomizeErosionDilationPipelineParameters(rng, defaults),
-    buildBytes: buildErosionDilationPipelineMaskBytes,
+    buildGrid: buildErosionDilationPipelineMaskBytes,
     buildSummary: buildErosionDilationPipelineSummary,
     fallback,
   });
@@ -3563,180 +3592,174 @@ function buildErosionDilationPipelineRecord(
 
 function buildBacktrackingRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: BacktrackingControlState | null,
 ): BacktrackingGeneratedLayoutRecord {
   const params = randomizeMazeBaseParameters(
     rng,
+    contentSize,
     controls ?? createDefaultBacktrackingControlState(),
   );
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildMazeMaskBytes(params, "backtracking", createSeededRandom(params.seed)),
-    ),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "backtracking-generator",
     title: BACKTRACKING_LABEL,
     summary: buildBacktrackingSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildMazeMaskBytes(params, "backtracking", createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildPrimsRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: PrimsControlState | null,
 ): PrimsGeneratedLayoutRecord {
-  const params = randomizeMazeBaseParameters(rng, controls ?? createDefaultPrimsControlState());
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildMazeMaskBytes(params, "prims", createSeededRandom(params.seed)),
-    ),
+  const params = randomizeMazeBaseParameters(
+    rng,
+    contentSize,
+    controls ?? createDefaultPrimsControlState(),
+  );
+  return buildGeneratedRecord(contentSize, {
     algorithm: "prims",
     title: PRIMS_LABEL,
     summary: buildPrimsSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildMazeMaskBytes(params, "prims", createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildKruskalsRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: KruskalsControlState | null,
 ): KruskalsGeneratedLayoutRecord {
   const params = randomizeMazeSeedBlockParameters(
     rng,
     controls ?? createDefaultKruskalsControlState(),
   );
-  return {
-    wallKey: wallMaskKeyFromBytes(buildKruskalsMaskBytes(params, createSeededRandom(params.seed))),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "kruskals",
     title: KRUSKALS_LABEL,
     summary: buildKruskalsSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildKruskalsMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildSidewinderRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: SidewinderControlState | null,
 ): SidewinderGeneratedLayoutRecord {
   const params = randomizeSidewinderParameters(
     rng,
     controls ?? createDefaultSidewinderControlState(),
   );
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildSidewinderMaskBytes(params, createSeededRandom(params.seed)),
-    ),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "sidewinder",
     title: SIDEWINDER_LABEL,
     summary: buildSidewinderSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildSidewinderMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildBinaryTreeRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: BinaryTreeControlState | null,
 ): BinaryTreeGeneratedLayoutRecord {
   const params = randomizeBinaryTreeParameters(
     rng,
     controls ?? createDefaultBinaryTreeControlState(),
   );
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildBinaryTreeMaskBytes(params, createSeededRandom(params.seed)),
-    ),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "binary-tree",
     title: BINARY_TREE_LABEL,
     summary: buildBinaryTreeSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildBinaryTreeMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildHuntAndKillRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: HuntAndKillControlState | null,
 ): HuntAndKillGeneratedLayoutRecord {
   const params = randomizeHuntOrderParameters(
     rng,
     controls ?? createDefaultHuntAndKillControlState(),
   );
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildHuntAndKillMaskBytes(params, createSeededRandom(params.seed)),
-    ),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "hunt-and-kill",
     title: HUNT_AND_KILL_LABEL,
     summary: buildHuntAndKillSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildHuntAndKillMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildWilsonsRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: WilsonsControlState | null,
 ): WilsonsGeneratedLayoutRecord {
   const params = randomizeHuntOrderParameters(rng, controls ?? createDefaultWilsonsControlState());
-  return {
-    wallKey: wallMaskKeyFromBytes(buildWilsonsMaskBytes(params, createSeededRandom(params.seed))),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "wilsons",
     title: WILSONS_LABEL,
     summary: buildWilsonsSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildWilsonsMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildAldousBroderRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: AldousBroderControlState | null,
 ): AldousBroderGeneratedLayoutRecord {
   const params = randomizeMazeSeedBlockParameters(
     rng,
     controls ?? createDefaultAldousBroderControlState(),
   );
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildAldousBroderMaskBytes(params, createSeededRandom(params.seed)),
-    ),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "aldous-broder",
     title: ALDOUS_BRODER_LABEL,
     summary: buildAldousBroderSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildAldousBroderMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildEllersRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: EllersControlState | null,
 ): EllersGeneratedLayoutRecord {
   const params = randomizeEllersParameters(rng, controls ?? createDefaultEllersControlState());
-  return {
-    wallKey: wallMaskKeyFromBytes(buildEllersMaskBytes(params, createSeededRandom(params.seed))),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "ellers",
     title: ELLERS_LABEL,
     summary: buildEllersSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildEllersMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildCellularAutomatonRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: CellularAutomatonControlState | null,
 ): CellularAutomatonGeneratedLayoutRecord {
   for (let attempt = 0; attempt < 24; attempt++) {
@@ -3744,20 +3767,23 @@ function buildCellularAutomatonRecord(
       rng,
       controls ?? createDefaultCellularAutomatonControlState(),
     );
-    const bytes = buildCellularAutomatonMaskBytes(params, createSeededRandom(params.seed));
-    const wallCount = countSetBits(bytes);
+    const grid = buildCellularAutomatonMaskBytes(
+      params,
+      createSeededRandom(params.seed),
+      contentSize,
+    );
+    const wallCount = countFilledWallGridCells(grid);
     if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
       continue;
 
-    return {
-      wallKey: wallMaskKeyFromBytes(bytes),
+    return buildGeneratedRecord(contentSize, {
       algorithm: "cellular-automaton",
       title: CELLULAR_AUTOMATON_LABEL,
       summary: buildCellularAutomatonSummary(params),
       seedLabel: `Seed ${params.seed}`,
-      inverted: false,
       params,
-    };
+      grid,
+    });
   }
 
   const fallback = {
@@ -3767,98 +3793,88 @@ function buildCellularAutomatonRecord(
     density: 0.6,
   } satisfies CellularAutomatonParameters;
 
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildCellularAutomatonMaskBytes(fallback, createSeededRandom(fallback.seed)),
-    ),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "cellular-automaton",
     title: CELLULAR_AUTOMATON_LABEL,
     summary: buildCellularAutomatonSummary(fallback),
     seedLabel: `Seed ${fallback.seed}`,
-    inverted: false,
     params: fallback,
-  };
+    grid: buildCellularAutomatonMaskBytes(fallback, createSeededRandom(fallback.seed), contentSize),
+  });
 }
 
 function buildDungeonRoomsRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: DungeonRoomsControlState | null,
 ): DungeonRoomsGeneratedLayoutRecord {
   const params = randomizeDungeonRoomsParameters(
     rng,
+    contentSize,
     controls ?? createDefaultDungeonRoomsControlState(),
   );
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildDungeonRoomsMaskBytes(params, createSeededRandom(params.seed)),
-    ),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "dungeon-rooms",
     title: DUNGEON_ROOMS_LABEL,
     summary: buildDungeonRoomsSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildDungeonRoomsMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildTrivialMazeRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: TrivialMazeControlState | null,
 ): TrivialMazeGeneratedLayoutRecord {
   const params = randomizeTrivialMazeParameters(
     rng,
     controls ?? createDefaultTrivialMazeControlState(),
   );
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildTrivialMazeMaskBytes(params, createSeededRandom(params.seed)),
-    ),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "trivial-maze",
     title: TRIVIAL_MAZE_LABEL,
     summary: buildTrivialMazeSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildTrivialMazeMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildGrowingTreeRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: GrowingTreeControlState | null,
 ): GrowingTreeGeneratedLayoutRecord {
-  const params = randomizeGrowingTreeParameters(rng, controls);
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildMazeMaskBytes(params, "growing-tree", createSeededRandom(params.seed)),
-    ),
+  const params = randomizeGrowingTreeParameters(rng, contentSize, controls);
+  return buildGeneratedRecord(contentSize, {
     algorithm: "growing-tree",
     title: GROWING_TREE_LABEL,
     summary: buildGrowingTreeSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildMazeMaskBytes(params, "growing-tree", createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function buildRecursiveDivisionRecord(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: RecursiveDivisionControlState | null,
 ): RecursiveDivisionGeneratedLayoutRecord {
   const params = randomizeRecursiveDivisionParameters(
     rng,
     controls ?? createDefaultRecursiveDivisionControlState(),
   );
-  return {
-    wallKey: wallMaskKeyFromBytes(
-      buildRecursiveDivisionMaskBytes(params, createSeededRandom(params.seed)),
-    ),
+  return buildGeneratedRecord(contentSize, {
     algorithm: "recursive-division",
     title: RECURSIVE_DIVISION_LABEL,
     summary: buildRecursiveDivisionSummary(params),
     seedLabel: `Seed ${params.seed}`,
-    inverted: false,
     params,
-  };
+    grid: buildRecursiveDivisionMaskBytes(params, createSeededRandom(params.seed), contentSize),
+  });
 }
 
 function randomizeRandomNoiseParameters(
@@ -4882,10 +4898,15 @@ function randomizeErosionDilationPipelineParameters(
 
 function randomizeMazeBaseParameters(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   defaults: MazeBaseControlState,
 ): MazeAlgorithmParameters {
   const base = randomizeMazeSeedBlockParameters(rng, defaults);
-  const dims = mazeGridDimensionsForBlockSize(base.blockSize);
+  const dims = mazeGridDimensionsForBlockSize(
+    base.blockSize,
+    contentSize.width,
+    contentSize.height,
+  );
   return {
     ...base,
     startColumn: resolveRandomizableValue(
@@ -4922,10 +4943,11 @@ function randomizeMazeSeedBlockParameters(
 
 function randomizeGrowingTreeParameters(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   controls: GrowingTreeControlState | null,
 ): GrowingTreeParameters {
   const defaults = controls ?? createDefaultGrowingTreeControlState();
-  const base = randomizeMazeBaseParameters(rng, defaults);
+  const base = randomizeMazeBaseParameters(rng, contentSize, defaults);
   return {
     ...base,
     backtrackChance: resolveRandomizableValue(
@@ -5041,10 +5063,11 @@ function randomizeCellularAutomatonParameters(
 
 function randomizeDungeonRoomsParameters(
   rng: () => number,
+  contentSize: GeneratedContentSize,
   defaults: DungeonRoomsControlState,
 ): DungeonRoomsParameters {
   const base = randomizeMazeSeedBlockParameters(rng, defaults);
-  const limits = dungeonRoomParameterLimits(base.blockSize);
+  const limits = dungeonRoomParameterLimits(base.blockSize, contentSize.width, contentSize.height);
   return {
     ...base,
     huntOrder: resolveRandomizableValue(
@@ -5095,10 +5118,13 @@ function randomizeRecursiveDivisionParameters(
   return randomizeMazeSeedBlockParameters(rng, defaults);
 }
 
-function buildRandomNoiseMaskBytes(params: RandomNoiseParameters): Uint8Array {
-  const bytes = new Uint8Array(128);
-  const contentWidth = activeGeneratedContentSize.width;
-  const contentHeight = activeGeneratedContentSize.height;
+function buildRandomNoiseMaskBytes(
+  params: RandomNoiseParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createWallGrid(contentSize.width, contentSize.height);
+  const contentWidth = grid.width;
+  const contentHeight = grid.height;
   const sourceWidth = Math.ceil(contentWidth / params.blockSize);
   const sourceHeight = Math.ceil(contentHeight / params.blockSize);
   const cells = new Uint8Array(sourceWidth * sourceHeight);
@@ -5122,15 +5148,18 @@ function buildRandomNoiseMaskBytes(params: RandomNoiseParameters): Uint8Array {
       );
       const filled = params.invert ? !sample : sample;
       if (!filled) continue;
-      setMaskBit(bytes, y * GENERATED_LAYOUT_GRID_SIZE + x);
+      grid.cells[y * grid.width + x] = 1;
     }
   }
 
-  return bytes;
+  return grid;
 }
 
-function buildPerlinNoiseMaskBytes(params: PerlinNoiseParameters): Uint8Array {
-  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+function buildPerlinNoiseMaskBytes(
+  params: PerlinNoiseParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  return buildNoiseTerrainMaskBytes(params, contentSize, (sampleX, sampleY) =>
     fractalNoise(
       params.seed,
       sampleX * params.scale,
@@ -5142,8 +5171,11 @@ function buildPerlinNoiseMaskBytes(params: PerlinNoiseParameters): Uint8Array {
   );
 }
 
-function buildValueFractalNoiseMaskBytes(params: ValueFractalNoiseParameters): Uint8Array {
-  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+function buildValueFractalNoiseMaskBytes(
+  params: ValueFractalNoiseParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  return buildNoiseTerrainMaskBytes(params, contentSize, (sampleX, sampleY) =>
     fractalNoise(
       params.seed,
       sampleX * params.scale,
@@ -5155,16 +5187,20 @@ function buildValueFractalNoiseMaskBytes(params: ValueFractalNoiseParameters): U
   );
 }
 
-function buildWorleyNoiseMaskBytes(params: WorleyNoiseParameters): Uint8Array {
-  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+function buildWorleyNoiseMaskBytes(
+  params: WorleyNoiseParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  return buildNoiseTerrainMaskBytes(params, contentSize, (sampleX, sampleY) =>
     worleyNoise2D(params.seed, sampleX, sampleY, params.cellCount, params.jitter),
   );
 }
 
 function buildThresholdedGradientNoiseMaskBytes(
   params: ThresholdedGradientNoiseParameters,
-): Uint8Array {
-  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  return buildNoiseTerrainMaskBytes(params, contentSize, (sampleX, sampleY) =>
     thresholdedGradientNoise(
       params.seed,
       sampleX,
@@ -5176,8 +5212,11 @@ function buildThresholdedGradientNoiseMaskBytes(
   );
 }
 
-function buildDomainWarpedNoiseMaskBytes(params: DomainWarpedNoiseParameters): Uint8Array {
-  return buildNoiseTerrainMaskBytes(params, (sampleX, sampleY) =>
+function buildDomainWarpedNoiseMaskBytes(
+  params: DomainWarpedNoiseParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  return buildNoiseTerrainMaskBytes(params, contentSize, (sampleX, sampleY) =>
     domainWarpedNoise(
       params.seed,
       sampleX,
@@ -5192,11 +5231,12 @@ function buildDomainWarpedNoiseMaskBytes(params: DomainWarpedNoiseParameters): U
 
 function buildNoiseTerrainMaskBytes(
   params: NoiseTerrainBaseParameters,
+  contentSize: GeneratedContentSize,
   sampleField: (sampleX: number, sampleY: number) => number,
-): Uint8Array {
-  const bytes = new Uint8Array(128);
-  const contentWidth = activeGeneratedContentSize.width;
-  const contentHeight = activeGeneratedContentSize.height;
+): WallGrid {
+  const grid = createWallGrid(contentSize.width, contentSize.height);
+  const contentWidth = grid.width;
+  const contentHeight = grid.height;
   const sourceWidth = Math.ceil(contentWidth / params.blockSize);
   const sourceHeight = Math.ceil(contentHeight / params.blockSize);
   const cells = new Uint8Array(sourceWidth * sourceHeight);
@@ -5216,66 +5256,83 @@ function buildNoiseTerrainMaskBytes(
       const sourceX = Math.min(sourceWidth - 1, Math.floor(x / params.blockSize));
       const sourceY = Math.min(sourceHeight - 1, Math.floor(y / params.blockSize));
       if (cells[sourceY * sourceWidth + sourceX] !== 1) continue;
-      setMaskBit(bytes, y * GENERATED_LAYOUT_GRID_SIZE + x);
+      grid.cells[y * grid.width + x] = 1;
     }
   }
 
-  return bytes;
+  return grid;
 }
 
-function buildRadialSymmetryMaskBytes(params: RadialSymmetryParameters): Uint8Array {
-  const bytes = buildScalarPatternMaskBytes(params.blockSize, (sampleX, sampleY) => {
-    const dx = sampleX * 2 - 1;
-    const dy = sampleY * 2 - 1;
-    const radius = Math.hypot(dx, dy);
-    if (radius > 1) return false;
+function buildRadialSymmetryMaskBytes(
+  params: RadialSymmetryParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = buildScalarPatternMaskBytes(
+    params.blockSize,
+    (sampleX, sampleY) => {
+      const dx = sampleX * 2 - 1;
+      const dy = sampleY * 2 - 1;
+      const radius = Math.hypot(dx, dy);
+      if (radius > 1) return false;
 
-    const phase = hashFloat(params.seed, 11, 17) * Math.PI * 2;
-    const sector = (Math.PI * 2) / params.folds;
-    const angle = Math.atan2(dy, dx) + phase;
-    const folded = normalizedFoldedAngle(angle, sector);
-    const spokeWidth = params.thickness * (0.55 + (1 - radius) * 0.5);
-    const twistPhase = radius * params.twist * Math.PI * 2;
-    const ringWave = Math.abs(Math.sin(radius * params.rings * Math.PI * 2 + twistPhase + phase));
-    const rosetteWave = Math.abs(
-      Math.cos(radius * (params.rings + 1) * Math.PI + folded * params.folds * Math.PI * 0.5),
-    );
+      const phase = hashFloat(params.seed, 11, 17) * Math.PI * 2;
+      const sector = (Math.PI * 2) / params.folds;
+      const angle = Math.atan2(dy, dx) + phase;
+      const folded = normalizedFoldedAngle(angle, sector);
+      const spokeWidth = params.thickness * (0.55 + (1 - radius) * 0.5);
+      const twistPhase = radius * params.twist * Math.PI * 2;
+      const ringWave = Math.abs(Math.sin(radius * params.rings * Math.PI * 2 + twistPhase + phase));
+      const rosetteWave = Math.abs(
+        Math.cos(radius * (params.rings + 1) * Math.PI + folded * params.folds * Math.PI * 0.5),
+      );
 
-    return (
-      folded < spokeWidth ||
-      ringWave > 1 - params.thickness * 2.25 ||
-      (folded < params.thickness * 1.5 && rosetteWave > 0.55)
-    );
-  });
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+      return (
+        folded < spokeWidth ||
+        ringWave > 1 - params.thickness * 2.25 ||
+        (folded < params.thickness * 1.5 && rosetteWave > 0.55)
+      );
+    },
+    contentSize,
+  );
+  return params.invert ? invertWallGrid(grid) : grid;
 }
 
-function buildKaleidoscopeMaskBytes(params: KaleidoscopeParameters): Uint8Array {
-  const bytes = buildScalarPatternMaskBytes(params.blockSize, (sampleX, sampleY) => {
-    const dx = sampleX * 2 - 1;
-    const dy = sampleY * 2 - 1;
-    const radius = Math.hypot(dx, dy);
-    if (radius > 1) return false;
+function buildKaleidoscopeMaskBytes(
+  params: KaleidoscopeParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = buildScalarPatternMaskBytes(
+    params.blockSize,
+    (sampleX, sampleY) => {
+      const dx = sampleX * 2 - 1;
+      const dy = sampleY * 2 - 1;
+      const radius = Math.hypot(dx, dy);
+      if (radius > 1) return false;
 
-    const sector = (Math.PI * 2) / params.segments;
-    const angle = Math.atan2(dy, dx) + hashFloat(params.seed, 5, 9) * sector;
-    const folded = normalizedFoldedAngle(angle, sector);
-    const localX = folded * params.scale * 2.25 + radius * 0.35;
-    const localY = radius * params.scale * 3.25;
-    const primary = fractalNoise(params.seed, localX, localY, 3, 0.55, valueNoise2D);
-    const secondary = gradientNoise2D(
-      params.seed + 177,
-      localX * 1.35 + radius,
-      localY * 0.75 + folded * params.segments,
-    );
-    const field = clamp01(primary * 0.72 + secondary * 0.28);
-    return field >= params.threshold;
-  });
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+      const sector = (Math.PI * 2) / params.segments;
+      const angle = Math.atan2(dy, dx) + hashFloat(params.seed, 5, 9) * sector;
+      const folded = normalizedFoldedAngle(angle, sector);
+      const localX = folded * params.scale * 2.25 + radius * 0.35;
+      const localY = radius * params.scale * 3.25;
+      const primary = fractalNoise(params.seed, localX, localY, 3, 0.55, valueNoise2D);
+      const secondary = gradientNoise2D(
+        params.seed + 177,
+        localX * 1.35 + radius,
+        localY * 0.75 + folded * params.segments,
+      );
+      const field = clamp01(primary * 0.72 + secondary * 0.28);
+      return field >= params.threshold;
+    },
+    contentSize,
+  );
+  return params.invert ? invertWallGrid(grid) : grid;
 }
 
-function buildLSystemTurtleMaskBytes(params: LSystemTurtleParameters): Uint8Array {
-  const grid = createPatternSourceGrid(params.blockSize);
+function buildLSystemTurtleMaskBytes(
+  params: LSystemTurtleParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const preset = lSystemPresetConfig(params.preset);
   const sequence = expandLSystemSequence(preset.axiom, preset.rules, params.iterations);
   const seededAngleOffset = hashFloat(params.seed, 23, 41) * 270 - 135;
@@ -5292,17 +5349,21 @@ function buildLSystemTurtleMaskBytes(params: LSystemTurtleParameters): Uint8Arra
     params.strokeWidth,
     1 + hashFloat(params.seed, 31, 59) * 1.5,
   );
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildRoseCurvesMaskBytes(params: RoseCurvesParameters): Uint8Array {
-  const grid = createPatternSourceGrid(params.blockSize);
+function buildRoseCurvesMaskBytes(
+  params: RoseCurvesParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const centerX = (grid.width - 1) / 2;
   const centerY = (grid.height - 1) / 2;
   const radius =
@@ -5341,17 +5402,21 @@ function buildRoseCurvesMaskBytes(params: RoseCurvesParameters): Uint8Array {
     previous = point;
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildTileableMotifRepeaterMaskBytes(params: TileableMotifRepeaterParameters): Uint8Array {
-  const grid = createPatternSourceGrid(params.blockSize);
+function buildTileableMotifRepeaterMaskBytes(
+  params: TileableMotifRepeaterParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
 
   for (let tileY = 0; tileY < grid.height + params.spacing; tileY += params.spacing) {
     for (let tileX = 0; tileX < grid.width + params.spacing; tileX += params.spacing) {
@@ -5372,18 +5437,22 @@ function buildTileableMotifRepeaterMaskBytes(params: TileableMotifRepeaterParame
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildBspRoomPartitionerMaskBytes(params: BspRoomPartitionerParameters): Uint8Array {
+function buildBspRoomPartitionerMaskBytes(
+  params: BspRoomPartitionerParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createFilledPatternSourceGrid(params.blockSize);
+  const grid = createFilledPatternSourceGrid(params.blockSize, contentSize);
   const root = {
     x: 1,
     y: 1,
@@ -5492,18 +5561,22 @@ function buildBspRoomPartitionerMaskBytes(params: BspRoomPartitionerParameters):
 
   splitRegion(root, params.splitDepth);
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildCorridorGridMaskBytes(params: CorridorGridParameters): Uint8Array {
+function buildCorridorGridMaskBytes(
+  params: CorridorGridParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   strokePatternRect(grid.cells, grid.width, grid.height, 0, 0, grid.width, grid.height, 1, 1);
 
   const startX = 1 + randomInt(rng, 0, Math.max(0, params.columnSpacing - 1));
@@ -5591,18 +5664,22 @@ function buildCorridorGridMaskBytes(params: CorridorGridParameters): Uint8Array 
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildRoomScatterMaskBytes(params: RoomScatterParameters): Uint8Array {
+function buildRoomScatterMaskBytes(
+  params: RoomScatterParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createFilledPatternSourceGrid(params.blockSize);
+  const grid = createFilledPatternSourceGrid(params.blockSize, contentSize);
   const rooms: PatternRect[] = [];
   const maxRoomSize = Math.min(params.roomSize, grid.width - 2, grid.height - 2);
   const attempts = Math.max(24, params.roomCount * 12);
@@ -5666,18 +5743,22 @@ function buildRoomScatterMaskBytes(params: RoomScatterParameters): Uint8Array {
     );
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildCourtyardGeneratorMaskBytes(params: CourtyardGeneratorParameters): Uint8Array {
+function buildCourtyardGeneratorMaskBytes(
+  params: CourtyardGeneratorParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const centerX = Math.floor(grid.width / 2);
   const centerY = Math.floor(grid.height / 2);
   const step = params.ringGap + 2;
@@ -5749,18 +5830,22 @@ function buildCourtyardGeneratorMaskBytes(params: CourtyardGeneratorParameters):
     );
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildBlueprintGeneratorMaskBytes(params: BlueprintGeneratorParameters): Uint8Array {
+function buildBlueprintGeneratorMaskBytes(
+  params: BlueprintGeneratorParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createFilledPatternSourceGrid(params.blockSize);
+  const grid = createFilledPatternSourceGrid(params.blockSize, contentSize);
   const centerX = Math.floor(grid.width / 2);
   const centerY = Math.floor(grid.height / 2);
   const hallWidth = Math.min(params.hallWidth, grid.width - 4, grid.height - 4);
@@ -5906,17 +5991,21 @@ function buildBlueprintGeneratorMaskBytes(params: BlueprintGeneratorParameters):
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildStripePlaidGeneratorMaskBytes(params: StripePlaidGeneratorParameters): Uint8Array {
-  const grid = createPatternSourceGrid(params.blockSize);
+function buildStripePlaidGeneratorMaskBytes(
+  params: StripePlaidGeneratorParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const spacing = Math.max(params.bandWidth + 1, params.spacing);
   const horizontalOffset = positiveModulo(
     params.offset + Math.floor(hashFloat(params.seed, 17, 29) * spacing),
@@ -5938,17 +6027,21 @@ function buildStripePlaidGeneratorMaskBytes(params: StripePlaidGeneratorParamete
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildCheckerDiamondLatticeMaskBytes(params: CheckerDiamondLatticeParameters): Uint8Array {
-  const grid = createPatternSourceGrid(params.blockSize);
+function buildCheckerDiamondLatticeMaskBytes(
+  params: CheckerDiamondLatticeParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const period = Math.max(2, params.cellSize * 2);
   const lineWidth = Math.min(params.lineWidth, params.cellSize);
   const phaseX = params.phase + Math.floor(hashFloat(params.seed, 13, 19) * period);
@@ -5988,17 +6081,21 @@ function buildCheckerDiamondLatticeMaskBytes(params: CheckerDiamondLatticeParame
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildConcentricBoxesMaskBytes(params: ConcentricBoxesParameters): Uint8Array {
-  const grid = createPatternSourceGrid(params.blockSize);
+function buildConcentricBoxesMaskBytes(
+  params: ConcentricBoxesParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
 
   for (let ring = 0; ring < params.ringCount; ring++) {
     const inset = ring * params.spacing;
@@ -6025,17 +6122,21 @@ function buildConcentricBoxesMaskBytes(params: ConcentricBoxesParameters): Uint8
     );
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildLineInterferenceMaskBytes(params: LineInterferenceParameters): Uint8Array {
-  const grid = createPatternSourceGrid(params.blockSize);
+function buildLineInterferenceMaskBytes(
+  params: LineInterferenceParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   drawLineInterferenceField(
     grid.cells,
     grid.width,
@@ -6055,18 +6156,22 @@ function buildLineInterferenceMaskBytes(params: LineInterferenceParameters): Uin
     hashFloat(params.seed, 67, 79) * params.spacing,
   );
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildCirclePackingMaskBytes(params: CirclePackingParameters): Uint8Array {
+function buildCirclePackingMaskBytes(
+  params: CirclePackingParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const maxAllowedRadius = Math.max(1, Math.floor((Math.min(grid.width, grid.height) - 1) / 2));
   const minRadius = Math.min(params.minRadius, maxAllowedRadius);
   const maxRadius = Math.max(minRadius, Math.min(params.maxRadius, maxAllowedRadius));
@@ -6112,18 +6217,22 @@ function buildCirclePackingMaskBytes(params: CirclePackingParameters): Uint8Arra
     );
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildDrunkWalkPainterMaskBytes(params: DrunkWalkPainterParameters): Uint8Array {
+function buildDrunkWalkPainterMaskBytes(
+  params: DrunkWalkPainterParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const directions = [
     { x: 1, y: 0 },
     { x: -1, y: 0 },
@@ -6174,18 +6283,22 @@ function buildDrunkWalkPainterMaskBytes(params: DrunkWalkPainterParameters): Uin
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildParticleFlowFieldMaskBytes(params: ParticleFlowFieldParameters): Uint8Array {
+function buildParticleFlowFieldMaskBytes(
+  params: ParticleFlowFieldParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
 
   for (let agentIndex = 0; agentIndex < params.agentCount; agentIndex++) {
     let x = rng() * Math.max(1, grid.width - 1);
@@ -6201,18 +6314,22 @@ function buildParticleFlowFieldMaskBytes(params: ParticleFlowFieldParameters): U
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildStampBrushGeneratorMaskBytes(params: StampBrushGeneratorParameters): Uint8Array {
+function buildStampBrushGeneratorMaskBytes(
+  params: StampBrushGeneratorParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const columns = Math.max(1, Math.round(Math.sqrt(params.stampCount)));
   const rows = Math.max(1, Math.ceil(params.stampCount / columns));
   const spacingX = Math.max(2, Math.floor(grid.width / columns));
@@ -6273,18 +6390,22 @@ function buildStampBrushGeneratorMaskBytes(params: StampBrushGeneratorParameters
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildCutoutCollageMaskBytes(params: CutoutCollageParameters): Uint8Array {
+function buildCutoutCollageMaskBytes(
+  params: CutoutCollageParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const insetX = Math.max(1, Math.floor(grid.width * (0.12 + rng() * 0.12)));
   const insetY = Math.max(1, Math.floor(grid.height * (0.12 + rng() * 0.12)));
   fillPatternRect(
@@ -6352,18 +6473,22 @@ function buildCutoutCollageMaskBytes(params: CutoutCollageParameters): Uint8Arra
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildGlitchBlocksMaskBytes(params: GlitchBlocksParameters): Uint8Array {
+function buildGlitchBlocksMaskBytes(
+  params: GlitchBlocksParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
 
   for (let bandIndex = 0; bandIndex < params.bandCount; bandIndex++) {
     const horizontal = rng() < 0.65;
@@ -6436,18 +6561,22 @@ function buildGlitchBlocksMaskBytes(params: GlitchBlocksParameters): Uint8Array 
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildGameOfLifeVariantsMaskBytes(params: GameOfLifeVariantsParameters): Uint8Array {
+function buildGameOfLifeVariantsMaskBytes(
+  params: GameOfLifeVariantsParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   let current = new Uint8Array(grid.width * grid.height);
   for (let index = 0; index < current.length; index++) {
     current[index] = rng() < params.density ? 1 : 0;
@@ -6477,15 +6606,22 @@ function buildGameOfLifeVariantsMaskBytes(params: GameOfLifeVariantsParameters):
     current = next;
   }
 
-  const bytes = expandPatternCellsToMaskBytes(current, grid.width, grid.height, params.blockSize);
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  const patternGrid = expandPatternCellsToMaskBytes(
+    current,
+    grid.width,
+    grid.height,
+    params.blockSize,
+    contentSize,
+  );
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
 function buildDiffusionLimitedAggregationMaskBytes(
   params: DiffusionLimitedAggregationParameters,
-): Uint8Array {
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const centerX = Math.floor(grid.width / 2);
   const centerY = Math.floor(grid.height / 2);
   if (params.seedMode === "point") {
@@ -6535,20 +6671,22 @@ function buildDiffusionLimitedAggregationMaskBytes(
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
 function buildReactionDiffusionApproximationMaskBytes(
   params: ReactionDiffusionApproximationParameters,
-): Uint8Array {
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const size = grid.width * grid.height;
   let a = new Float32Array(size);
   let b = new Float32Array(size);
@@ -6590,12 +6728,21 @@ function buildReactionDiffusionApproximationMaskBytes(
   for (let index = 0; index < size; index++) {
     cells[index] = b[index]! > 0.22 ? 1 : 0;
   }
-  const bytes = expandPatternCellsToMaskBytes(cells, grid.width, grid.height, params.blockSize);
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  const patternGrid = expandPatternCellsToMaskBytes(
+    cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+    contentSize,
+  );
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
-function buildVoronoiRegionCarverMaskBytes(params: VoronoiRegionCarverParameters): Uint8Array {
-  const grid = createPatternSourceGrid(params.blockSize);
+function buildVoronoiRegionCarverMaskBytes(
+  params: VoronoiRegionCarverParameters,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   const sites: Array<Readonly<{ x: number; y: number }>> = [];
   for (let index = 0; index < params.siteCount; index++) {
     sites.push({
@@ -6626,20 +6773,22 @@ function buildVoronoiRegionCarverMaskBytes(params: VoronoiRegionCarverParameters
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(
+  const patternGrid = expandPatternCellsToMaskBytes(
     grid.cells,
     grid.width,
     grid.height,
     params.blockSize,
+    contentSize,
   );
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
 function buildErosionDilationPipelineMaskBytes(
   params: ErosionDilationPipelineParameters,
-): Uint8Array {
+  contentSize: GeneratedContentSize,
+): WallGrid {
   const rng = createSeededRandom(params.seed);
-  const grid = createPatternSourceGrid(params.blockSize);
+  const grid = createPatternSourceGrid(params.blockSize, contentSize);
   let current: Uint8Array = new Uint8Array(grid.width * grid.height);
   for (let index = 0; index < current.length; index++) {
     current[index] = rng() < params.density ? 1 : 0;
@@ -6671,17 +6820,24 @@ function buildErosionDilationPipelineMaskBytes(
     }
   }
 
-  const bytes = expandPatternCellsToMaskBytes(current, grid.width, grid.height, params.blockSize);
-  return params.invert ? invertMaskBytes(bytes) : bytes;
+  const patternGrid = expandPatternCellsToMaskBytes(
+    current,
+    grid.width,
+    grid.height,
+    params.blockSize,
+    contentSize,
+  );
+  return params.invert ? invertWallGrid(patternGrid) : patternGrid;
 }
 
 function buildMazeMaskBytes(
   params: MazeAlgorithmParameters | GrowingTreeParameters,
   algorithm: "backtracking" | "growing-tree" | "prims",
   rng: () => number,
-): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = createFilledMazeWalls();
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
+  const walls = createFilledMazeWalls(contentSize.width, contentSize.height);
   const visited = new Uint8Array(metrics.columns * metrics.rows);
   const start = {
     x: clamp(params.startColumn, MAZE_START_MIN, metrics.columns) - 1,
@@ -6771,12 +6927,16 @@ function buildMazeMaskBytes(
     }
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
-function buildKruskalsMaskBytes(params: KruskalsParameters, rng: () => number): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = createFilledMazeWalls();
+function buildKruskalsMaskBytes(
+  params: KruskalsParameters,
+  rng: () => number,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
+  const walls = createFilledMazeWalls(contentSize.width, contentSize.height);
   const cellCount = metrics.columns * metrics.rows;
   const parent = Array.from({ length: cellCount }, (_, index) => index);
   const rank = new Uint8Array(cellCount);
@@ -6814,12 +6974,16 @@ function buildKruskalsMaskBytes(params: KruskalsParameters, rng: () => number): 
     carveMazePassage(walls, metrics, edge.from, edge.to);
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
-function buildSidewinderMaskBytes(params: SidewinderParameters, rng: () => number): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = createFilledMazeWalls();
+function buildSidewinderMaskBytes(
+  params: SidewinderParameters,
+  rng: () => number,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
+  const walls = createFilledMazeWalls(contentSize.width, contentSize.height);
   const topRowY = 0;
 
   for (let x = 0; x < metrics.columns; x++) {
@@ -6851,12 +7015,16 @@ function buildSidewinderMaskBytes(params: SidewinderParameters, rng: () => numbe
     }
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
-function buildBinaryTreeMaskBytes(params: BinaryTreeParameters, rng: () => number): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = createFilledMazeWalls();
+function buildBinaryTreeMaskBytes(
+  params: BinaryTreeParameters,
+  rng: () => number,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
+  const walls = createFilledMazeWalls(contentSize.width, contentSize.height);
   const directionOffsets = resolveBinaryTreeDirectionOffsets(params.skew);
 
   for (let y = 0; y < metrics.rows; y++) {
@@ -6878,12 +7046,16 @@ function buildBinaryTreeMaskBytes(params: BinaryTreeParameters, rng: () => numbe
     }
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
-function buildHuntAndKillMaskBytes(params: HuntAndKillParameters, rng: () => number): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = createFilledMazeWalls();
+function buildHuntAndKillMaskBytes(
+  params: HuntAndKillParameters,
+  rng: () => number,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
+  const walls = createFilledMazeWalls(contentSize.width, contentSize.height);
   const visited = new Uint8Array(metrics.columns * metrics.rows);
   let current: Readonly<{ x: number; y: number }> | null = {
     x: randomInt(rng, 0, metrics.columns - 1),
@@ -6912,12 +7084,16 @@ function buildHuntAndKillMaskBytes(params: HuntAndKillParameters, rng: () => num
     );
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
-function buildWilsonsMaskBytes(params: WilsonsParameters, rng: () => number): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = createFilledMazeWalls();
+function buildWilsonsMaskBytes(
+  params: WilsonsParameters,
+  rng: () => number,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
+  const walls = createFilledMazeWalls(contentSize.width, contentSize.height);
   const visited = new Uint8Array(metrics.columns * metrics.rows);
   const root = {
     x: randomInt(rng, 0, metrics.columns - 1),
@@ -6961,12 +7137,16 @@ function buildWilsonsMaskBytes(params: WilsonsParameters, rng: () => number): Ui
     }
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
-function buildAldousBroderMaskBytes(params: AldousBroderParameters, rng: () => number): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = createFilledMazeWalls();
+function buildAldousBroderMaskBytes(
+  params: AldousBroderParameters,
+  rng: () => number,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
+  const walls = createFilledMazeWalls(contentSize.width, contentSize.height);
   const visited = new Uint8Array(metrics.columns * metrics.rows);
   const totalCells = metrics.columns * metrics.rows;
   let current = {
@@ -6991,12 +7171,16 @@ function buildAldousBroderMaskBytes(params: AldousBroderParameters, rng: () => n
     current = next;
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
-function buildEllersMaskBytes(params: EllersParameters, rng: () => number): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
-  const walls = createFilledMazeWalls();
+function buildEllersMaskBytes(
+  params: EllersParameters,
+  rng: () => number,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
+  const walls = createFilledMazeWalls(contentSize.width, contentSize.height);
   let nextSetId = 0;
   let rowSets = new Array<number | null>(metrics.columns).fill(null);
 
@@ -7055,14 +7239,15 @@ function buildEllersMaskBytes(params: EllersParameters, rng: () => number): Uint
     rowSets = nextRowSets;
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
 function buildCellularAutomatonMaskBytes(
   params: CellularAutomatonParameters,
   rng: () => number,
-): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
   const { grid, width, height } = createSourceMazeGrid(metrics, 0);
   const logicalDensity = Math.max(1, Math.round(params.density * (metrics.columns * metrics.rows)));
   const logicalComplexity = Math.max(
@@ -7107,11 +7292,15 @@ function buildCellularAutomatonMaskBytes(
     }
   }
 
-  return sourceGridToMaskBytes(grid, metrics);
+  return sourceGridToMaskBytes(grid, metrics, contentSize.width, contentSize.height);
 }
 
-function buildDungeonRoomsMaskBytes(params: DungeonRoomsParameters, rng: () => number): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
+function buildDungeonRoomsMaskBytes(
+  params: DungeonRoomsParameters,
+  rng: () => number,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
   const { grid, width, height } = createSourceMazeGrid(metrics, 1);
   const rooms = placeDungeonRooms(metrics, params.roomCount, params.roomSize, rng);
 
@@ -7133,11 +7322,15 @@ function buildDungeonRoomsMaskBytes(params: DungeonRoomsParameters, rng: () => n
   }
 
   reconnectDungeonSourceGrid(grid, width, height, rng);
-  return sourceGridToMaskBytes(grid, metrics);
+  return sourceGridToMaskBytes(grid, metrics, contentSize.width, contentSize.height);
 }
 
-function buildTrivialMazeMaskBytes(params: TrivialMazeParameters, rng: () => number): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
+function buildTrivialMazeMaskBytes(
+  params: TrivialMazeParameters,
+  rng: () => number,
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
   const { grid, width, height } = createSourceMazeGrid(metrics, 1);
 
   if (params.mazeType === "serpentine") {
@@ -7200,17 +7393,18 @@ function buildTrivialMazeMaskBytes(params: TrivialMazeParameters, rng: () => num
   if (rng() < 0.5) flipSourceGridVertically(grid, width, height);
   openRandomSourceBoundary(grid, width, height, rng);
 
-  return sourceGridToMaskBytes(grid, metrics);
+  return sourceGridToMaskBytes(grid, metrics, contentSize.width, contentSize.height);
 }
 
 function buildRecursiveDivisionMaskBytes(
   params: RecursiveDivisionParameters,
   rng: () => number,
-): Uint8Array {
-  const metrics = resolveMazeMetrics(params.blockSize);
-  const width = activeGeneratedContentSize.width;
-  const height = activeGeneratedContentSize.height;
-  const walls = createFilledMazeWalls();
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const metrics = resolveMazeMetrics(params.blockSize, contentSize.width, contentSize.height);
+  const width = contentSize.width;
+  const height = contentSize.height;
+  const walls = createFilledMazeWalls(contentSize.width, contentSize.height);
 
   fillRect(walls, 0, 0, width, 1);
   fillRect(walls, 0, height - 1, width, 1);
@@ -7291,7 +7485,7 @@ function buildRecursiveDivisionMaskBytes(
     }
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
 function sampleMirroredCell(
@@ -7775,6 +7969,51 @@ function buildRecursiveDivisionSummary(params: RecursiveDivisionParameters): str
   return `${params.blockSize} blocks`;
 }
 
+function countFilledWallGridCells(grid: WallGrid): number {
+  let count = 0;
+  for (const cell of grid.cells) {
+    if (cell === 1) count += 1;
+  }
+  return count;
+}
+
+function buildGeneratedRecord<
+  Algorithm extends Exclude<GeneratedLayoutRecord["algorithm"], "starred">,
+  Params extends Exclude<GeneratedLayoutRecord["params"], null>,
+>(
+  contentSize: GeneratedContentSize,
+  options: Readonly<{
+    algorithm: Algorithm;
+    title: string;
+    summary: string;
+    seedLabel: string;
+    params: Params;
+    grid: WallGrid;
+  }>,
+): BaseGeneratedLayoutRecord<Algorithm, Params> {
+  const grid =
+    options.grid.width === contentSize.width && options.grid.height === contentSize.height
+      ? options.grid
+      : createWallGrid(contentSize.width, contentSize.height);
+  if (grid !== options.grid) {
+    for (let y = 0; y < Math.min(options.grid.height, grid.height); y += 1) {
+      for (let x = 0; x < Math.min(options.grid.width, grid.width); x += 1) {
+        grid.cells[y * grid.width + x] = options.grid.cells[y * options.grid.width + x] ?? 0;
+      }
+    }
+  }
+  return {
+    wallKey: wallMaskKeyFromBytes(wallGridToMaskBytes(grid)),
+    grid,
+    algorithm: options.algorithm,
+    title: options.title,
+    summary: options.summary,
+    seedLabel: options.seedLabel,
+    inverted: false,
+    params: options.params,
+  };
+}
+
 function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
   return {
     wallKey,
@@ -7790,18 +8029,13 @@ function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
 
 function frameGeneratedLayoutRecord(
   record: GeneratedLayoutRecord,
-  contentSize: GeneratedContentSize,
   layoutWidth: number,
   layoutHeight: number,
   invert: boolean,
 ): GeneratedLayoutRecord {
   if (record.algorithm === "starred" || !record.wallKey) return record;
 
-  const sourceGrid = wallGridFromMaskBytes(
-    wallMaskBytesFromKey(record.wallKey),
-    contentSize.width,
-    contentSize.height,
-  );
+  const sourceGrid = record.grid ?? wallGridFromMaskBytes(wallMaskBytesFromKey(record.wallKey));
   const grid = invert ? invertWallGrid(sourceGrid) : sourceGrid;
   const framedBytes = frameGeneratedGridToMaskBytes(grid, layoutWidth, layoutHeight);
   return {
@@ -7849,8 +8083,9 @@ function frameGeneratedGridToMaskBytes(
 function buildScalarPatternMaskBytes(
   blockSize: number,
   isFilled: (sampleX: number, sampleY: number) => boolean,
-): Uint8Array {
-  const grid = createPatternSourceGrid(blockSize);
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createPatternSourceGrid(blockSize, contentSize);
 
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
@@ -7861,14 +8096,15 @@ function buildScalarPatternMaskBytes(
     }
   }
 
-  return expandPatternCellsToMaskBytes(grid.cells, grid.width, grid.height, blockSize);
+  return expandPatternCellsToMaskBytes(grid.cells, grid.width, grid.height, blockSize, contentSize);
 }
 
 function createPatternSourceGrid(
   blockSize: number,
+  contentSize: GeneratedContentSize,
 ): Readonly<{ cells: Uint8Array; width: number; height: number }> {
-  const width = Math.ceil(activeGeneratedContentSize.width / blockSize);
-  const height = Math.ceil(activeGeneratedContentSize.height / blockSize);
+  const width = Math.ceil(contentSize.width / blockSize);
+  const height = Math.ceil(contentSize.height / blockSize);
   return {
     cells: new Uint8Array(width * height),
     width,
@@ -7885,8 +8121,9 @@ type PatternRect = Readonly<{
 
 function createFilledPatternSourceGrid(
   blockSize: number,
+  contentSize: GeneratedContentSize,
 ): Readonly<{ cells: Uint8Array; width: number; height: number }> {
-  const grid = createPatternSourceGrid(blockSize);
+  const grid = createPatternSourceGrid(blockSize, contentSize);
   grid.cells.fill(1);
   return grid;
 }
@@ -7896,17 +8133,18 @@ function expandPatternCellsToMaskBytes(
   width: number,
   height: number,
   blockSize: number,
-): Uint8Array {
-  const bytes = new Uint8Array(128);
-  for (let y = 0; y < activeGeneratedContentSize.height; y++) {
-    for (let x = 0; x < activeGeneratedContentSize.width; x++) {
+  contentSize: GeneratedContentSize,
+): WallGrid {
+  const grid = createWallGrid(contentSize.width, contentSize.height);
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
       const sourceX = Math.min(width - 1, Math.floor(x / blockSize));
       const sourceY = Math.min(height - 1, Math.floor(y / blockSize));
       if (cells[sourceY * width + sourceX] !== 1) continue;
-      setMaskBit(bytes, y * GENERATED_LAYOUT_GRID_SIZE + x);
+      grid.cells[y * grid.width + x] = 1;
     }
   }
-  return bytes;
+  return grid;
 }
 
 function fillPatternRect(
@@ -8689,14 +8927,18 @@ function addFrontierNeighbors(
   }
 }
 
-function resolveMazeMetrics(blockSize: MazeBlockSize): Readonly<{
+function resolveMazeMetrics(
+  blockSize: MazeBlockSize,
+  contentWidth: number,
+  contentHeight: number,
+): Readonly<{
   blockWidth: number;
   blockHeight: number;
   columns: number;
   rows: number;
 }> {
   const dims = mazeBlockDimensions(blockSize);
-  const grid = mazeGridDimensionsForBlockSize(blockSize);
+  const grid = mazeGridDimensionsForBlockSize(blockSize, contentWidth, contentHeight);
   return {
     blockWidth: dims.width,
     blockHeight: dims.height,
@@ -8713,7 +8955,7 @@ function mazeBlockDimensions(
 }
 
 function carveMazeCell(
-  walls: Uint8Array,
+  walls: WallGrid,
   metrics: Readonly<{ blockWidth: number; blockHeight: number }>,
   cellX: number,
   cellY: number,
@@ -8728,7 +8970,7 @@ function carveMazeCell(
 }
 
 function carveMazePassage(
-  walls: Uint8Array,
+  walls: WallGrid,
   metrics: Readonly<{ blockWidth: number; blockHeight: number }>,
   from: Readonly<{ x: number; y: number }>,
   to: Readonly<{ x: number; y: number }>,
@@ -8748,47 +8990,32 @@ function carveMazePassage(
   carveRect(walls, fromX, connectorY, metrics.blockWidth, 1);
 }
 
-function carveRect(walls: Uint8Array, x: number, y: number, width: number, height: number): void {
+function carveRect(walls: WallGrid, x: number, y: number, width: number, height: number): void {
   for (let dy = 0; dy < height; dy++) {
     for (let dx = 0; dx < width; dx++) {
-      walls[mazeTileIndex(x + dx, y + dy)] = 0;
+      walls.cells[mazeTileIndex(walls.width, x + dx, y + dy)] = 0;
     }
   }
 }
 
-function fillRect(walls: Uint8Array, x: number, y: number, width: number, height: number): void {
+function fillRect(walls: WallGrid, x: number, y: number, width: number, height: number): void {
   for (let dy = 0; dy < height; dy++) {
     for (let dx = 0; dx < width; dx++) {
-      walls[mazeTileIndex(x + dx, y + dy)] = 1;
+      walls.cells[mazeTileIndex(walls.width, x + dx, y + dy)] = 1;
     }
   }
 }
 
-function mazeTileIndex(x: number, y: number): number {
-  return y * activeGeneratedContentSize.width + x;
+function mazeTileIndex(width: number, x: number, y: number): number {
+  return y * width + x;
 }
 
 function mazeCellIndex(columns: number, x: number, y: number): number {
   return y * columns + x;
 }
 
-function wallsToMaskBytes(walls: Uint8Array): Uint8Array {
-  const bytes = new Uint8Array(128);
-  for (let y = 0; y < activeGeneratedContentSize.height; y++) {
-    for (let x = 0; x < activeGeneratedContentSize.width; x++) {
-      if (walls[mazeTileIndex(x, y)] !== 1) continue;
-      setMaskBit(bytes, y * GENERATED_LAYOUT_GRID_SIZE + x);
-    }
-  }
-  return bytes;
-}
-
-function createFilledMazeWalls(): Uint8Array {
-  const walls = new Uint8Array(
-    activeGeneratedContentSize.width * activeGeneratedContentSize.height,
-  );
-  walls.fill(1);
-  return walls;
+function createFilledMazeWalls(contentWidth: number, contentHeight: number): WallGrid {
+  return createWallGrid(contentWidth, contentHeight, 1);
 }
 
 function markVisited(visited: Uint8Array, width: number, x: number, y: number): void {
@@ -8817,8 +9044,8 @@ function sanitizeTrivialMazeType(value: TrivialMazeType): TrivialMazeType {
 
 export function dungeonRoomParameterLimits(
   blockSize: MazeBlockSize,
-  contentWidth = activeGeneratedContentSize.width,
-  contentHeight = activeGeneratedContentSize.height,
+  contentWidth = GENERATED_LAYOUT_GRID_SIZE,
+  contentHeight = GENERATED_LAYOUT_GRID_SIZE,
 ): Readonly<{ roomCountMax: number; roomSizeMax: number }> {
   const dims = mazeGridDimensionsForBlockSize(blockSize, contentWidth, contentHeight);
   return {
@@ -9039,8 +9266,10 @@ function randomBoundarySourcePoint(
 function sourceGridToMaskBytes(
   sourceGrid: Uint8Array,
   metrics: Readonly<{ blockWidth: number; blockHeight: number; columns: number; rows: number }>,
-): Uint8Array {
-  const walls = createFilledMazeWalls();
+  contentWidth: number,
+  contentHeight: number,
+): WallGrid {
+  const walls = createFilledMazeWalls(contentWidth, contentHeight);
   const width = metrics.columns * 2 + 1;
   const height = metrics.rows * 2 + 1;
 
@@ -9052,7 +9281,7 @@ function sourceGridToMaskBytes(
     }
   }
 
-  return wallsToMaskBytes(walls);
+  return walls;
 }
 
 function sourceGridRect(
