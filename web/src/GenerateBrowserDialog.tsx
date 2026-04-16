@@ -394,7 +394,7 @@ const DEFAULT_GENERATE_BROWSER_DIALOG_LABELS: GenerateBrowserDialogLabels = {
 export type GenerateBrowserDialogProps = Readonly<{
   starredKeys: ReadonlySet<string>;
   onToggleStar: (wallKey: string) => void;
-  onImport: (wallKey: string) => void;
+  onImport: (record: GeneratedLayoutRecord) => void;
   onClose: () => void;
   labels?: Partial<GenerateBrowserDialogLabels>;
 }>;
@@ -404,7 +404,7 @@ type GeneratedRecordCardProps = Readonly<{
   selected: boolean;
   starred: boolean;
   onSelect: (wallKey: string) => void;
-  onImport: (wallKey: string) => void;
+  onImport: (record: GeneratedLayoutRecord) => void;
   onToggleStar: (wallKey: string) => void;
 }>;
 
@@ -1060,7 +1060,7 @@ function GeneratedRecordCard({
       className={`generateCard ${selected ? "selected" : ""}`}
       title={cardTitle}
       onClick={() => onSelect(record.wallKey)}
-      onDoubleClick={() => onImport(record.wallKey)}
+      onDoubleClick={() => onImport(record)}
       onPointerDown={stopEvent}
     >
       <div className="generateCardPreview">
@@ -1073,7 +1073,7 @@ function GeneratedRecordCard({
           className="secondaryButton generateCardImportButton"
           onClick={(event) => {
             stopEvent(event);
-            onImport(record.wallKey);
+            onImport(record);
           }}
         >
           Import
@@ -6388,7 +6388,7 @@ function GeneratedRecordDetails({
 }: Readonly<{
   record: GeneratedLayoutRecord | null;
   starred: boolean;
-  onImport: (wallKey: string) => void;
+  onImport: (record: GeneratedLayoutRecord) => void;
   onToggleStar: (wallKey: string) => void;
   onMoreLikeThis: (record: GeneratedLayoutRecord) => void;
 }>): JSX.Element {
@@ -7358,7 +7358,7 @@ function GeneratedRecordDetails({
       <button
         type="button"
         className="actionButton generateDetailImportButton"
-        onClick={() => onImport(record.wallKey)}
+        onClick={() => onImport(record)}
       >
         Import Selected
       </button>
@@ -9109,7 +9109,7 @@ export function GenerateBrowserDialog({
             disabled={!selectedRecord}
             onClick={() => {
               if (!selectedRecord) return;
-              onImport(selectedRecord.wallKey);
+              onImport(selectedRecord);
             }}
           >
             Import Selected

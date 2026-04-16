@@ -49,7 +49,10 @@ import {
   type DatLevelJson,
   type DatLevelsetJsonV1,
 } from "@/src/dat/datLevelsetJsonV1";
-import { applyWallMaskToLevel } from "@/src/dat/wallsBank";
+import {
+  applyGeneratedWallGridToDatLevel,
+  applyWallMask32ToDatLevel,
+} from "@/src/walls-dat/adapter";
 import type { CC1SpriteSet } from "@/src/dat/render/cc1SpriteSet";
 import {
   drawCc1CellToContext,
@@ -85,6 +88,7 @@ import { createNewLevelsetFileName } from "@/web/src/levelsetFileName";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
 import { getPaletteSections } from "@/web/src/paletteSections";
 import { platform } from "@/web/src/platform";
+import type { GeneratedLayoutRecord } from "@/web/src/generatedLayouts";
 import {
   APP_PREFERENCES_STORAGE_KEY,
   EDITOR_SESSION_STORAGE_KEY,
@@ -3806,8 +3810,20 @@ export default function App() {
     });
   }
 
-  function importWallLayout(wallKey: string): void {
-    commitSelectedLevelUpdate((level) => applyWallMaskToLevel(level, wallKey));
+  function importBankWallLayout(wallKey: string): void {
+    commitSelectedLevelUpdate((level) => applyWallMask32ToDatLevel(level, wallKey));
+    setOpenDialog(null);
+  }
+
+  function importGeneratedWallLayout(record: GeneratedLayoutRecord): void {
+    commitSelectedLevelUpdate((level) =>
+      record.grid && record.layout
+        ? applyGeneratedWallGridToDatLevel(level, record.grid, {
+            layoutWidth: record.layout.width,
+            layoutHeight: record.layout.height,
+          })
+        : applyWallMask32ToDatLevel(level, record.wallKey),
+    );
     setOpenDialog(null);
   }
 
@@ -6003,7 +6019,7 @@ export default function App() {
           labels={{ eyebrow: "Ideas", title: "Browse Walls" }}
           onToggleStar={toggleWallsStar}
           onToggleHidden={toggleWallsHidden}
-          onImport={importWallLayout}
+          onImport={importBankWallLayout}
           onClose={() => setOpenDialog(null)}
         />
       ) : null}
@@ -6013,7 +6029,7 @@ export default function App() {
           starredKeys={generatedStarredKeys}
           labels={{ eyebrow: "Ideas", title: "Generate Walls" }}
           onToggleStar={toggleGeneratedStar}
-          onImport={importWallLayout}
+          onImport={importGeneratedWallLayout}
           onClose={() => setOpenDialog(null)}
         />
       ) : null}

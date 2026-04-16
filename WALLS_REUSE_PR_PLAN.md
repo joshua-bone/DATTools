@@ -339,7 +339,7 @@ Acceptance criteria:
 
 Status:
 
-- next
+- done
 
 Goal:
 
@@ -358,6 +358,10 @@ Acceptance criteria:
 - import still works through undo history
 
 ### PR 6: Publish A Stable Library Surface From `DATTools`
+
+Status:
+
+- next
 
 Goal:
 

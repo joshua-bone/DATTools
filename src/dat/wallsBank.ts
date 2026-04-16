@@ -1,17 +1,14 @@
 import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
+import { applyWallMask32ToDatLevel, createDatWallsPreviewLevel } from "@/src/walls-dat/adapter";
 import {
   WALL_MASK_BYTE_LENGTH,
   WALL_MASK_CELL_COUNT,
-  WALL_MASK_HEIGHT,
-  WALL_MASK_WIDTH,
   setWallMaskBit,
-  wallMaskBitIsSet,
   wallMaskBytesFromKey,
   wallMaskKeyFromBytes,
 } from "@/src/walls-core/mask32";
 
 const FLOOR_TILE = "FLOOR";
-const WALL_TILE = "WALL";
 
 const CC1_ACTOR_TILE_NAMES = new Set<string>([
   "BLOCK",
@@ -100,23 +97,6 @@ function resolveTerrainTile(level: DatLevelJson, index: number): string {
   return top;
 }
 
-function buildMaskLevelMap(bytes: Uint8Array): DatLevelJson["map"] {
-  const top = Array<string>(WALL_MASK_CELL_COUNT).fill(FLOOR_TILE);
-  const bottom = Array<string>(WALL_MASK_CELL_COUNT).fill(FLOOR_TILE);
-
-  for (let index = 0; index < WALL_MASK_CELL_COUNT; index++) {
-    if (!wallMaskBitIsSet(bytes, index)) continue;
-    top[index] = WALL_TILE;
-  }
-
-  return {
-    width: WALL_MASK_WIDTH,
-    height: WALL_MASK_HEIGHT,
-    top,
-    bottom,
-  };
-}
-
 export function isWallBankTerrainTile(name: string): boolean {
   return WALL_BANK_TILE_NAME_SET.has(name);
 }
@@ -140,28 +120,9 @@ export function createWallsPreviewLevel(
   wallKey: string,
   metadata?: Partial<Pick<DatLevelJson, "number" | "title">>,
 ): DatLevelJson {
-  return {
-    number: metadata?.number ?? 1,
-    time: 0,
-    chips: 0,
-    mapDetail: 1,
-    ...(metadata?.title ? { title: metadata.title } : {}),
-    map: buildMaskLevelMap(wallMaskBytesFromKey(wallKey)),
-    trapControls: [],
-    cloneControls: [],
-    movement: [],
-    fieldOrder: [],
-    extraFields: [],
-  };
+  return createDatWallsPreviewLevel(wallKey, metadata);
 }
 
 export function applyWallMaskToLevel(level: DatLevelJson, wallKey: string): DatLevelJson {
-  return {
-    ...level,
-    chips: 0,
-    map: buildMaskLevelMap(wallMaskBytesFromKey(wallKey)),
-    trapControls: [],
-    cloneControls: [],
-    movement: [],
-  };
+  return applyWallMask32ToDatLevel(level, wallKey);
 }

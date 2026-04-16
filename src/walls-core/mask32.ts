@@ -5,6 +5,11 @@ export const WALL_MASK_HEIGHT = 32;
 export const WALL_MASK_CELL_COUNT = WALL_MASK_WIDTH * WALL_MASK_HEIGHT;
 export const WALL_MASK_BYTE_LENGTH = WALL_MASK_CELL_COUNT / 8;
 
+export type WallMask32 = Readonly<{
+  key: string;
+  bytes: Uint8Array;
+}>;
+
 function toBase64Url(base64: string): string {
   return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
@@ -42,4 +47,19 @@ export function wallMaskBytesFromKey(key: string): Uint8Array {
     );
   }
   return bytes;
+}
+
+export function wallMask32FromBytes(bytes: Uint8Array): WallMask32 {
+  const normalized = new Uint8Array(bytes);
+  return {
+    key: wallMaskKeyFromBytes(normalized),
+    bytes: normalized,
+  };
+}
+
+export function wallMask32FromKey(key: string): WallMask32 {
+  return {
+    key,
+    bytes: wallMaskBytesFromKey(key),
+  };
 }

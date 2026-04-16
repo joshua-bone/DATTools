@@ -313,6 +313,11 @@ export type GenerateAlgorithmId =
   | "trivial-maze";
 export type GenerateAlgorithmChoice = GenerateAlgorithmId | "any";
 export type GenerateRecordAlgorithm = GenerateAlgorithmId | "starred";
+
+export type GeneratedLayoutFrame = Readonly<{
+  width: number;
+  height: number;
+}>;
 export type RandomNoiseMirrorMode = "none" | "horizontal" | "vertical" | "quad";
 export type MazeBlockSize = (typeof MAZE_BLOCK_SIZE_OPTIONS)[number]["value"];
 export type BinaryTreeSkew = "NW" | "NE" | "SW" | "SE";
@@ -1118,6 +1123,7 @@ type BaseGeneratedLayoutRecord<
 > = Readonly<{
   wallKey: string;
   grid?: WallGrid;
+  layout?: GeneratedLayoutFrame;
   algorithm: Algorithm;
   title: string;
   summary: string;
@@ -8082,6 +8088,10 @@ function frameGeneratedLayoutRecord(
   return {
     ...record,
     grid,
+    layout: {
+      width: sanitizeGeneratedLayoutSize(layoutWidth),
+      height: sanitizeGeneratedLayoutSize(layoutHeight),
+    },
     inverted: invert,
     wallKey: wallMaskKeyFromBytes(framedBytes),
   };

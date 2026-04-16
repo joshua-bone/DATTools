@@ -135,6 +135,7 @@ describe("generated layouts", () => {
     expect(records[0]?.algorithm).toBe("starred");
     expect(records[0]?.grid?.width).toBe(32);
     expect(records[0]?.grid?.height).toBe(32);
+    expect(records[0]?.layout).toBeUndefined();
   });
 
   it("derives algorithm picker options from the ordered generate registry", () => {
@@ -236,6 +237,7 @@ describe("generated layouts", () => {
     expect(record?.grid?.width).toBe(8);
     expect(record?.grid?.height).toBe(12);
     expect(record?.grid?.cells.length).toBe(96);
+    expect(record?.layout).toEqual({ width: 10, height: 14 });
   });
 
   it("applies global invert separately from algorithm parameters", () => {
