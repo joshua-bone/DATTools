@@ -1,4 +1,4 @@
-import { wallMaskBytesFromKey, wallMaskKeyFromBytes } from "@/src/dat/wallsBank";
+import { wallMaskBytesFromKey, wallMaskKeyFromBytes } from "@/src/walls-core/mask32";
 
 export const GENERATED_LAYOUT_CARD_COUNT = 18;
 export const GENERATED_LAYOUT_GRID_SIZE = 32;

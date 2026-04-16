@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { wallMaskBytesFromKey } from "@/src/dat/wallsBank";
+import { wallMaskBytesFromKey } from "@/src/walls-core/mask32";
 import {
   createDefaultAldousBroderControlState,
   createDefaultBacktrackingControlState,

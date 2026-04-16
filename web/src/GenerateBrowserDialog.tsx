@@ -8,7 +8,7 @@ import {
   type SyntheticEvent,
 } from "react";
 
-import { wallMaskBytesFromKey } from "@/src/dat/wallsBank";
+import { wallMaskBytesFromKey } from "@/src/walls-core/mask32";
 import {
   BINARY_TREE_SKEW_OPTIONS,
   BLUEPRINT_CHAMBER_DEPTH_MAX,

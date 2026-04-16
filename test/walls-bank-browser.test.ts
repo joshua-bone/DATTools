@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { wallMaskKeyFromBytes } from "@/src/dat/wallsBank";
+import { wallMaskKeyFromBytes } from "@/src/walls-core/mask32";
 import {
   filterWallsBankRecords,
   findWallsBankRecord,
