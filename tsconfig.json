@@ -15,5 +15,6 @@
     "types": ["node"],
     "outDir": "dist"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/walls-react"]
 }

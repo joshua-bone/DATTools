@@ -379,11 +379,24 @@ import {
   type WorleyNoiseControlState,
 } from "@/web/src/generatedLayouts";
 
-type GenerateBrowserDialogProps = Readonly<{
+type GenerateBrowserDialogLabels = Readonly<{
+  eyebrow: string;
+  title: string;
+  closeAriaLabel: string;
+}>;
+
+const DEFAULT_GENERATE_BROWSER_DIALOG_LABELS: GenerateBrowserDialogLabels = {
+  eyebrow: "Ideas",
+  title: "Generate Walls",
+  closeAriaLabel: "Close generate walls dialog",
+};
+
+export type GenerateBrowserDialogProps = Readonly<{
   starredKeys: ReadonlySet<string>;
   onToggleStar: (wallKey: string) => void;
   onImport: (wallKey: string) => void;
   onClose: () => void;
+  labels?: Partial<GenerateBrowserDialogLabels>;
 }>;
 
 type GeneratedRecordCardProps = Readonly<{
@@ -7358,7 +7371,12 @@ export function GenerateBrowserDialog({
   onToggleStar,
   onImport,
   onClose,
+  labels,
 }: GenerateBrowserDialogProps): JSX.Element {
+  const dialogLabels = {
+    ...DEFAULT_GENERATE_BROWSER_DIALOG_LABELS,
+    ...labels,
+  };
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<GenerateAlgorithmChoice>("any");
   const [starredOnly, setStarredOnly] = useState(false);
   const [randomSeed, setRandomSeed] = useState(() => randomSeedFromClock());
@@ -8727,15 +8745,15 @@ export function GenerateBrowserDialog({
       >
         <div className="modalHeader">
           <div>
-            <div className="sectionEyebrow">File</div>
+            <div className="sectionEyebrow">{dialogLabels.eyebrow}</div>
             <h2 id="generate-browser-title" className="modalTitle">
-              Generate
+              {dialogLabels.title}
             </h2>
           </div>
           <button
             type="button"
             className="modalCloseButton"
-            aria-label="Close generate dialog"
+            aria-label={dialogLabels.closeAriaLabel}
             onClick={onClose}
           >
             ×

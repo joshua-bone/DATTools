@@ -318,7 +318,7 @@ Acceptance criteria:
 
 Status:
 
-- next
+- done
 
 Goal:
 
@@ -336,6 +336,10 @@ Acceptance criteria:
 - dialogs are reusable by another React app shell
 
 ### PR 5: Add DAT Host Adapter
+
+Status:
+
+- next
 
 Goal:
 

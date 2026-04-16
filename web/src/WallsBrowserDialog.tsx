@@ -12,26 +12,38 @@ import {
   filterWallsBankRecords,
   findWallsBankRecord,
   pickRandomWallsBankRecords,
-  type LoadedWallsBank,
   type WallsBankRecord,
-} from "@/web/src/wallsBank";
+} from "@/src/walls-core/bank";
 
 const WALLS_BROWSER_CARD_COUNT = 18;
 const WALLS_PREVIEW_GRID_SIZE = 32;
 const WALLS_PREVIEW_CELL_SIZE = 4;
 
-type WallsBankLoadState = "idle" | "loading" | "ready" | "error";
+export type WallsBrowserLoadState = "idle" | "loading" | "ready" | "error";
 
-type WallsBrowserDialogProps = Readonly<{
-  wallsBank: LoadedWallsBank | null;
-  wallsBankLoadState: WallsBankLoadState;
-  wallsBankError: string | null;
+type WallsBrowserDialogLabels = Readonly<{
+  eyebrow: string;
+  title: string;
+  closeAriaLabel: string;
+}>;
+
+const DEFAULT_WALLS_BROWSER_DIALOG_LABELS: WallsBrowserDialogLabels = {
+  eyebrow: "Ideas",
+  title: "Browse Walls",
+  closeAriaLabel: "Close browse walls dialog",
+};
+
+export type WallsBrowserDialogProps = Readonly<{
+  records: ReadonlyArray<WallsBankRecord>;
+  loadState: WallsBrowserLoadState;
+  errorMessage: string | null;
   starredKeys: ReadonlySet<string>;
   hiddenKeys: ReadonlySet<string>;
   onToggleStar: (wallKey: string) => void;
   onToggleHidden: (wallKey: string) => void;
   onImport: (wallKey: string) => void;
   onClose: () => void;
+  labels?: Partial<WallsBrowserDialogLabels>;
 }>;
 
 type WallsRecordCardProps = Readonly<{
@@ -146,15 +158,16 @@ function WallsRecordCard({
 }
 
 export function WallsBrowserDialog({
-  wallsBank,
-  wallsBankLoadState,
-  wallsBankError,
+  records,
+  loadState,
+  errorMessage,
   starredKeys,
   hiddenKeys,
   onToggleStar,
   onToggleHidden,
   onImport,
   onClose,
+  labels,
 }: WallsBrowserDialogProps): JSX.Element {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -164,7 +177,11 @@ export function WallsBrowserDialog({
   const [selectedWallKey, setSelectedWallKey] = useState<string | null>(null);
   const [detailsWallKey, setDetailsWallKey] = useState<string | null>(null);
 
-  const allRecords = wallsBank?.records ?? [];
+  const dialogLabels = {
+    ...DEFAULT_WALLS_BROWSER_DIALOG_LABELS,
+    ...labels,
+  };
+  const allRecords = records;
   const filteredRecords = useMemo(
     () =>
       filterWallsBankRecords(allRecords, {
@@ -214,15 +231,15 @@ export function WallsBrowserDialog({
         >
           <div className="modalHeader">
             <div>
-              <div className="sectionEyebrow">File</div>
+              <div className="sectionEyebrow">{dialogLabels.eyebrow}</div>
               <h2 id="walls-browser-title" className="modalTitle">
-                Walls Bank
+                {dialogLabels.title}
               </h2>
             </div>
             <button
               type="button"
               className="modalCloseButton"
-              aria-label="Close walls bank"
+              aria-label={dialogLabels.closeAriaLabel}
               onClick={onClose}
             >
               ×
@@ -266,11 +283,11 @@ export function WallsBrowserDialog({
               </div>
             </div>
 
-            {wallsBankLoadState === "idle" || wallsBankLoadState === "loading" ? (
+            {loadState === "idle" || loadState === "loading" ? (
               <div className="banner">Loading walls bank...</div>
-            ) : wallsBankLoadState === "error" ? (
+            ) : loadState === "error" ? (
               <div className="banner errorBanner">
-                {wallsBankError ?? "Failed to load walls bank."}
+                {errorMessage ?? "Failed to load walls bank."}
               </div>
             ) : visibleRecords.length === 0 ? (
               <div className="banner">

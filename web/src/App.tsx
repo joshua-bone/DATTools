@@ -134,8 +134,9 @@ import {
   undoLevelsetEvent,
 } from "@/web/src/levelEditing";
 import { TilePreview } from "@/web/src/TilePreview";
-import { GenerateBrowserDialog } from "@/web/src/GenerateBrowserDialog";
-import { WallsBrowserDialog } from "@/web/src/WallsBrowserDialog";
+import { type WallsBrowserLoadState } from "@/src/walls-react/BrowseWallsDialog";
+import { BrowseWallsDialog } from "@/src/walls-react/BrowseWallsDialog";
+import { GenerateWallsDialog } from "@/src/walls-react/GenerateWallsDialog";
 import {
   GENERATED_LAYOUT_STARRED_STORAGE_KEY,
   parsePersistedGeneratedLayoutKeySet,
@@ -157,7 +158,6 @@ type LayoutModePreference = "auto" | "desktop" | "tablet";
 type TabletDrawerSide = "left" | "right" | null;
 type PaletteAssignmentTarget = "primary" | "secondary";
 type LatestDesktopReleaseLoadState = "idle" | "loading" | "ready" | "error";
-type WallsBankLoadState = "idle" | "loading" | "ready" | "error";
 
 type MetadataDraft = Readonly<{
   number: string;
@@ -3260,7 +3260,7 @@ export default function App() {
   const [latestDesktopReleaseLoadState, setLatestDesktopReleaseLoadState] =
     useState<LatestDesktopReleaseLoadState>("idle");
   const [wallsBank, setWallsBank] = useState<LoadedWallsBank | null>(null);
-  const [wallsBankLoadState, setWallsBankLoadState] = useState<WallsBankLoadState>("idle");
+  const [wallsBankLoadState, setWallsBankLoadState] = useState<WallsBrowserLoadState>("idle");
   const [wallsBankError, setWallsBankError] = useState<string | null>(null);
   const [wallsStarredKeys, setWallsStarredKeys] = useState<ReadonlySet<string>>(() =>
     parsePersistedWallsKeySet(readLocalStorage(WALLS_BANK_STARRED_STORAGE_KEY)),
@@ -5994,12 +5994,13 @@ export default function App() {
       ) : null}
 
       {openDialog === "wallsBrowser" ? (
-        <WallsBrowserDialog
-          wallsBank={wallsBank}
-          wallsBankLoadState={wallsBankLoadState}
-          wallsBankError={wallsBankError}
+        <BrowseWallsDialog
+          records={wallsBank?.records ?? []}
+          loadState={wallsBankLoadState}
+          errorMessage={wallsBankError}
           starredKeys={wallsStarredKeys}
           hiddenKeys={wallsHiddenKeys}
+          labels={{ eyebrow: "Ideas", title: "Browse Walls" }}
           onToggleStar={toggleWallsStar}
           onToggleHidden={toggleWallsHidden}
           onImport={importWallLayout}
@@ -6008,8 +6009,9 @@ export default function App() {
       ) : null}
 
       {openDialog === "generateBrowser" ? (
-        <GenerateBrowserDialog
+        <GenerateWallsDialog
           starredKeys={generatedStarredKeys}
+          labels={{ eyebrow: "Ideas", title: "Generate Walls" }}
           onToggleStar={toggleGeneratedStar}
           onImport={importWallLayout}
           onClose={() => setOpenDialog(null)}
