@@ -357,16 +357,6 @@ const DESKTOP_RELEASE_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 });
 const EYEDROPPER_CURSOR =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g transform='rotate(45 12 12)'><rect x='10' y='2.5' width='4' height='11' rx='1.4' fill='%23f6fbff' stroke='%23121a1f' stroke-width='1.6'/><path d='M10 5.5H8.4A1.4 1.4 0 0 0 7 6.9v3.7A1.4 1.4 0 0 0 8.4 12H10' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 13v6' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><path d='M10.3 19.3h7.4' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><circle cx='14' cy='21' r='1.5' fill='%23235f7a'/></g></svg>\") 4 20, crosshair";
-const TRANSFORM_MENU_ITEMS: ReadonlyArray<Readonly<{ kind: DatTransformKind; label: string }>> = [
-  { kind: "ROTATE_90", label: "Rotate 90°" },
-  { kind: "ROTATE_180", label: "Rotate 180°" },
-  { kind: "ROTATE_270", label: "Rotate 270°" },
-  { kind: "FLIP_H", label: "Flip Horizontal" },
-  { kind: "FLIP_V", label: "Flip Vertical" },
-  { kind: "FLIP_DIAG_NWSE", label: "Flip Diagonal NW-SE" },
-  { kind: "FLIP_DIAG_NESW", label: "Flip Diagonal NE-SW" },
-];
-
 type BoardBaseRenderSnapshot = Readonly<{
   level: DatLevelJson | null;
   renderKey: string | null;
@@ -3257,9 +3247,9 @@ export default function App() {
   const [levelContextMenu, setLevelContextMenu] = useState<LevelContextMenuState>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(236);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
-  const [boardMenuOpen, setBoardMenuOpen] = useState<
-    "file" | "view" | "options" | "transform" | null
-  >(null);
+  const [boardMenuOpen, setBoardMenuOpen] = useState<"file" | "view" | "options" | "ideas" | null>(
+    null,
+  );
   const [openDialog, setOpenDialog] = useState<
     "brandingHelp" | "threeDHelp" | "wallsBrowser" | "generateBrowser" | null
   >(null);
@@ -4547,7 +4537,7 @@ export default function App() {
     });
   }
 
-  function toggleBoardMenu(menu: "file" | "view" | "options" | "transform"): void {
+  function toggleBoardMenu(menu: "file" | "view" | "options" | "ideas"): void {
     setBoardMenuOpen((current) => (current === menu ? null : menu));
   }
 
@@ -5009,30 +4999,6 @@ export default function App() {
                       onClick={() => {
                         if (!doc) return;
                         setBoardMenuOpen(null);
-                        setOpenDialog("generateBrowser");
-                      }}
-                    >
-                      Generate
-                    </button>
-                    <button
-                      type="button"
-                      className="dropdownMenuItem"
-                      disabled={!doc}
-                      onClick={() => {
-                        if (!doc) return;
-                        setBoardMenuOpen(null);
-                        setOpenDialog("wallsBrowser");
-                      }}
-                    >
-                      Browse Walls
-                    </button>
-                    <button
-                      type="button"
-                      className="dropdownMenuItem"
-                      disabled={!doc}
-                      onClick={() => {
-                        if (!doc) return;
-                        setBoardMenuOpen(null);
                         void saveCurrentJson();
                       }}
                     >
@@ -5210,24 +5176,37 @@ export default function App() {
                 <button
                   type="button"
                   className="menuButton"
-                  aria-expanded={boardMenuOpen === "transform"}
-                  onClick={() => toggleBoardMenu("transform")}
+                  aria-expanded={boardMenuOpen === "ideas"}
+                  onClick={() => toggleBoardMenu("ideas")}
                 >
-                  Transform
+                  Ideas
                 </button>
-                {boardMenuOpen === "transform" ? (
+                {boardMenuOpen === "ideas" ? (
                   <div className="dropdownMenu">
-                    {TRANSFORM_MENU_ITEMS.map((item) => (
-                      <button
-                        key={item.kind}
-                        type="button"
-                        className="dropdownMenuItem"
-                        disabled={!doc}
-                        onClick={() => applySelectedLevelTransform(item.kind)}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!doc}
+                      onClick={() => {
+                        if (!doc) return;
+                        setBoardMenuOpen(null);
+                        setOpenDialog("generateBrowser");
+                      }}
+                    >
+                      Generate Walls
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!doc}
+                      onClick={() => {
+                        if (!doc) return;
+                        setBoardMenuOpen(null);
+                        setOpenDialog("wallsBrowser");
+                      }}
+                    >
+                      Browse Walls
+                    </button>
                   </div>
                 ) : null}
               </div>
