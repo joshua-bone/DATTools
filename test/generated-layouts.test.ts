@@ -7,6 +7,9 @@ import {
   createDefaultBlueprintGeneratorControlState,
   createDefaultBspRoomPartitionerControlState,
   createDefaultCellularAutomatonControlState,
+  createDefaultCheckerDiamondLatticeControlState,
+  createDefaultCirclePackingControlState,
+  createDefaultConcentricBoxesControlState,
   createDefaultCorridorGridControlState,
   createDefaultCourtyardGeneratorControlState,
   createDefaultDiffusionLimitedAggregationControlState,
@@ -20,6 +23,7 @@ import {
   createDefaultKaleidoscopeControlState,
   createDefaultKruskalsControlState,
   createDefaultLSystemTurtleControlState,
+  createDefaultLineInterferenceControlState,
   createDefaultPerlinNoiseControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
@@ -29,6 +33,7 @@ import {
   createDefaultRoomScatterControlState,
   createDefaultRoseCurvesControlState,
   createDefaultSidewinderControlState,
+  createDefaultStripePlaidGeneratorControlState,
   createDefaultThresholdedGradientNoiseControlState,
   createDefaultTileableMotifRepeaterControlState,
   createDefaultTrivialMazeControlState,
@@ -75,6 +80,11 @@ describe("generated layouts", () => {
           record.algorithm === "room-scatter" ||
           record.algorithm === "courtyard-generator" ||
           record.algorithm === "blueprint-generator" ||
+          record.algorithm === "stripe-plaid-generator" ||
+          record.algorithm === "checker-diamond-lattice" ||
+          record.algorithm === "concentric-boxes" ||
+          record.algorithm === "line-interference" ||
+          record.algorithm === "circle-packing" ||
           record.algorithm === "game-of-life-variants" ||
           record.algorithm === "diffusion-limited-aggregation" ||
           record.algorithm === "reaction-diffusion-approximation" ||
@@ -862,6 +872,251 @@ describe("generated layouts", () => {
           record.params.hallWidth === 6 &&
           record.params.pillarSpacing === 4 &&
           record.params.chamberDepth === 7,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic stripe-plaid-generator layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "stripe-plaid-generator",
+      count: 6,
+      seed: 60607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "stripe-plaid-generator",
+      count: 6,
+      seed: 60607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "stripe-plaid-generator")).toBe(true);
+  });
+
+  it("keeps locked stripe-plaid-generator parameters fixed across generated cards", () => {
+    const controls = createDefaultStripePlaidGeneratorControlState();
+    const records = generateLayoutRecords({
+      algorithm: "stripe-plaid-generator",
+      count: 6,
+      seed: 61607,
+      stripePlaidGeneratorControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: true },
+        mode: { randomize: false, value: "plaid" },
+        spacing: { randomize: false, value: 7 },
+        bandWidth: { randomize: false, value: 3 },
+        offset: { randomize: false, value: 4 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "stripe-plaid-generator" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === true &&
+          record.params.mode === "plaid" &&
+          record.params.spacing === 7 &&
+          record.params.bandWidth === 3 &&
+          record.params.offset === 4,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic checker-diamond-lattice layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "checker-diamond-lattice",
+      count: 6,
+      seed: 62607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "checker-diamond-lattice",
+      count: 6,
+      seed: 62607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "checker-diamond-lattice")).toBe(true);
+  });
+
+  it("keeps locked checker-diamond-lattice parameters fixed across generated cards", () => {
+    const controls = createDefaultCheckerDiamondLatticeControlState();
+    const records = generateLayoutRecords({
+      algorithm: "checker-diamond-lattice",
+      count: 6,
+      seed: 63607,
+      checkerDiamondLatticeControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        invert: { randomize: false, value: false },
+        style: { randomize: false, value: "diamond" },
+        cellSize: { randomize: false, value: 5 },
+        lineWidth: { randomize: false, value: 2 },
+        phase: { randomize: false, value: 3 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "checker-diamond-lattice" &&
+          record.params.blockSize === 1 &&
+          record.params.invert === false &&
+          record.params.style === "diamond" &&
+          record.params.cellSize === 5 &&
+          record.params.lineWidth === 2 &&
+          record.params.phase === 3,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic concentric-boxes layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "concentric-boxes",
+      count: 6,
+      seed: 64607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "concentric-boxes",
+      count: 6,
+      seed: 64607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "concentric-boxes")).toBe(true);
+  });
+
+  it("keeps locked concentric-boxes parameters fixed across generated cards", () => {
+    const controls = createDefaultConcentricBoxesControlState();
+    const records = generateLayoutRecords({
+      algorithm: "concentric-boxes",
+      count: 6,
+      seed: 65607,
+      concentricBoxesControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: true },
+        ringCount: { randomize: false, value: 6 },
+        spacing: { randomize: false, value: 2 },
+        lineWidth: { randomize: false, value: 2 },
+        drift: { randomize: false, value: 3 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "concentric-boxes" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === true &&
+          record.params.ringCount === 6 &&
+          record.params.spacing === 2 &&
+          record.params.lineWidth === 2 &&
+          record.params.drift === 3,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic line-interference layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "line-interference",
+      count: 6,
+      seed: 66607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "line-interference",
+      count: 6,
+      seed: 66607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "line-interference")).toBe(true);
+  });
+
+  it("keeps locked line-interference parameters fixed across generated cards", () => {
+    const controls = createDefaultLineInterferenceControlState();
+    const records = generateLayoutRecords({
+      algorithm: "line-interference",
+      count: 6,
+      seed: 67607,
+      lineInterferenceControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        invert: { randomize: false, value: false },
+        angleA: { randomize: false, value: 45 },
+        angleB: { randomize: false, value: 135 },
+        spacing: { randomize: false, value: 5 },
+        strokeWidth: { randomize: false, value: 2 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "line-interference" &&
+          record.params.blockSize === 1 &&
+          record.params.invert === false &&
+          record.params.angleA === 45 &&
+          record.params.angleB === 135 &&
+          record.params.spacing === 5 &&
+          record.params.strokeWidth === 2,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic circle-packing layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "circle-packing",
+      count: 6,
+      seed: 68607,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "circle-packing",
+      count: 6,
+      seed: 68607,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "circle-packing")).toBe(true);
+  });
+
+  it("keeps locked circle-packing parameters fixed across generated cards", () => {
+    const controls = createDefaultCirclePackingControlState();
+    const records = generateLayoutRecords({
+      algorithm: "circle-packing",
+      count: 6,
+      seed: 69607,
+      circlePackingControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        invert: { randomize: false, value: false },
+        circleCount: { randomize: false, value: 8 },
+        minRadius: { randomize: false, value: 2 },
+        maxRadius: { randomize: false, value: 5 },
+        outline: { randomize: false, value: true },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "circle-packing" &&
+          record.params.blockSize === 1 &&
+          record.params.invert === false &&
+          record.params.circleCount === 8 &&
+          record.params.minRadius === 2 &&
+          record.params.maxRadius === 5 &&
+          record.params.outline === true,
       ),
     ).toBe(true);
   });

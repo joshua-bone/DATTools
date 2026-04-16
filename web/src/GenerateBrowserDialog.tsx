@@ -11,6 +11,13 @@ import {
   BLUEPRINT_PILLAR_SPACING_MIN,
   BLUEPRINT_WING_COUNT_MAX,
   BLUEPRINT_WING_COUNT_MIN,
+  CHECKER_DIAMOND_CELL_SIZE_MAX,
+  CHECKER_DIAMOND_CELL_SIZE_MIN,
+  CHECKER_DIAMOND_LATTICE_STYLE_OPTIONS,
+  CHECKER_DIAMOND_LINE_WIDTH_MAX,
+  CHECKER_DIAMOND_LINE_WIDTH_MIN,
+  CHECKER_DIAMOND_PHASE_MAX,
+  CHECKER_DIAMOND_PHASE_MIN,
   BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MAX,
   BSP_ROOM_PARTITIONER_CORRIDOR_WIDTH_MIN,
   BSP_ROOM_PARTITIONER_ROOM_PADDING_MAX,
@@ -23,6 +30,20 @@ import {
   CELLULAR_AUTOMATON_DENSITY_MAX,
   CELLULAR_AUTOMATON_DENSITY_MIN,
   CELLULAR_AUTOMATON_DENSITY_STEP,
+  CIRCLE_PACKING_COUNT_MAX,
+  CIRCLE_PACKING_COUNT_MIN,
+  CIRCLE_PACKING_MAX_RADIUS_MAX,
+  CIRCLE_PACKING_MAX_RADIUS_MIN,
+  CIRCLE_PACKING_MIN_RADIUS_MAX,
+  CIRCLE_PACKING_MIN_RADIUS_MIN,
+  CONCENTRIC_BOX_DRIFT_MAX,
+  CONCENTRIC_BOX_DRIFT_MIN,
+  CONCENTRIC_BOX_LINE_WIDTH_MAX,
+  CONCENTRIC_BOX_LINE_WIDTH_MIN,
+  CONCENTRIC_BOX_RING_COUNT_MAX,
+  CONCENTRIC_BOX_RING_COUNT_MIN,
+  CONCENTRIC_BOX_SPACING_MAX,
+  CONCENTRIC_BOX_SPACING_MIN,
   CORRIDOR_GRID_COLUMN_SPACING_MAX,
   CORRIDOR_GRID_COLUMN_SPACING_MIN,
   CORRIDOR_GRID_GAP_CHANCE_MAX,
@@ -153,6 +174,9 @@ import {
   createDefaultBlueprintGeneratorControlState,
   createDefaultBspRoomPartitionerControlState,
   createDefaultCellularAutomatonControlState,
+  createDefaultCheckerDiamondLatticeControlState,
+  createDefaultCirclePackingControlState,
+  createDefaultConcentricBoxesControlState,
   createDefaultCorridorGridControlState,
   createDefaultCourtyardGeneratorControlState,
   createDefaultDiffusionLimitedAggregationControlState,
@@ -166,6 +190,7 @@ import {
   createDefaultKaleidoscopeControlState,
   createDefaultKruskalsControlState,
   createDefaultLSystemTurtleControlState,
+  createDefaultLineInterferenceControlState,
   createDefaultPerlinNoiseControlState,
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
@@ -175,6 +200,7 @@ import {
   createDefaultRoomScatterControlState,
   createDefaultRoseCurvesControlState,
   createDefaultSidewinderControlState,
+  createDefaultStripePlaidGeneratorControlState,
   createDefaultThresholdedGradientNoiseControlState,
   createDefaultTileableMotifRepeaterControlState,
   createDefaultTrivialMazeControlState,
@@ -195,6 +221,10 @@ import {
   type BlueprintGeneratorControlState,
   type BspRoomPartitionerControlState,
   type CellularAutomatonControlState,
+  type CheckerDiamondLatticeControlState,
+  type CheckerDiamondLatticeStyle,
+  type CirclePackingControlState,
+  type ConcentricBoxesControlState,
   type CorridorGridControlState,
   type CourtyardGeneratorControlState,
   type DiffusionLimitedAggregationControlState,
@@ -214,6 +244,11 @@ import {
   type KruskalsControlState,
   type LSystemPreset,
   type LSystemTurtleControlState,
+  LINE_INTERFERENCE_SPACING_MAX,
+  LINE_INTERFERENCE_SPACING_MIN,
+  LINE_INTERFERENCE_STROKE_WIDTH_MAX,
+  LINE_INTERFERENCE_STROKE_WIDTH_MIN,
+  type LineInterferenceControlState,
   type MazeBlockSize,
   type PerlinNoiseControlState,
   type PrimsControlState,
@@ -244,6 +279,15 @@ import {
   type RoomScatterControlState,
   type RoseCurvesControlState,
   type SidewinderControlState,
+  STRIPE_PLAID_BAND_WIDTH_MAX,
+  STRIPE_PLAID_BAND_WIDTH_MIN,
+  STRIPE_PLAID_MODE_OPTIONS,
+  STRIPE_PLAID_OFFSET_MAX,
+  STRIPE_PLAID_OFFSET_MIN,
+  STRIPE_PLAID_SPACING_MAX,
+  STRIPE_PLAID_SPACING_MIN,
+  type StripePlaidGeneratorControlState,
+  type StripePlaidMode,
   type ThresholdedGradientNoiseControlState,
   type TileableMotifRepeaterControlState,
   type TileableMotifType,
@@ -417,6 +461,46 @@ type BlueprintGeneratorSettingsPanelProps = Readonly<{
   onUpdate: <K extends keyof BlueprintGeneratorControlState>(
     key: K,
     nextValue: Partial<BlueprintGeneratorControlState[K]>,
+  ) => void;
+}>;
+
+type StripePlaidGeneratorSettingsPanelProps = Readonly<{
+  controls: StripePlaidGeneratorControlState;
+  onUpdate: <K extends keyof StripePlaidGeneratorControlState>(
+    key: K,
+    nextValue: Partial<StripePlaidGeneratorControlState[K]>,
+  ) => void;
+}>;
+
+type CheckerDiamondLatticeSettingsPanelProps = Readonly<{
+  controls: CheckerDiamondLatticeControlState;
+  onUpdate: <K extends keyof CheckerDiamondLatticeControlState>(
+    key: K,
+    nextValue: Partial<CheckerDiamondLatticeControlState[K]>,
+  ) => void;
+}>;
+
+type ConcentricBoxesSettingsPanelProps = Readonly<{
+  controls: ConcentricBoxesControlState;
+  onUpdate: <K extends keyof ConcentricBoxesControlState>(
+    key: K,
+    nextValue: Partial<ConcentricBoxesControlState[K]>,
+  ) => void;
+}>;
+
+type LineInterferenceSettingsPanelProps = Readonly<{
+  controls: LineInterferenceControlState;
+  onUpdate: <K extends keyof LineInterferenceControlState>(
+    key: K,
+    nextValue: Partial<LineInterferenceControlState[K]>,
+  ) => void;
+}>;
+
+type CirclePackingSettingsPanelProps = Readonly<{
+  controls: CirclePackingControlState;
+  onUpdate: <K extends keyof CirclePackingControlState>(
+    key: K,
+    nextValue: Partial<CirclePackingControlState[K]>,
   ) => void;
 }>;
 
@@ -620,6 +704,28 @@ function formatTileableMotifLabel(motif: TileableMotifType): string {
       return "Chevron";
     case "petal":
       return "Petal";
+  }
+}
+
+function formatStripePlaidModeLabel(mode: StripePlaidMode): string {
+  switch (mode) {
+    case "horizontal":
+      return "Horizontal";
+    case "vertical":
+      return "Vertical";
+    case "plaid":
+      return "Plaid";
+  }
+}
+
+function formatCheckerDiamondLatticeStyleLabel(style: CheckerDiamondLatticeStyle): string {
+  switch (style) {
+    case "checker":
+      return "Checker";
+    case "diamond":
+      return "Diamond";
+    case "lattice":
+      return "Lattice";
   }
 }
 
@@ -2850,6 +2956,627 @@ function BlueprintGeneratorSettingsPanel({
             />
             <div className="statusBadge generateValueBadge">{controls.chamberDepth.value}</div>
           </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function StripePlaidGeneratorSettingsPanel({
+  controls,
+  onUpdate,
+}: StripePlaidGeneratorSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Stripe / Plaid Generator</h3>
+      <div className="fieldHint">
+        Builds horizontal bands, vertical bands, or plaid overlays from repeating stripe spacing.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Mode</span>
+          <ParameterToggle
+            checked={controls.mode.randomize}
+            onChange={(checked) => onUpdate("mode", { randomize: checked })}
+          />
+        </div>
+        {controls.mode.randomize ? (
+          <div className="fieldHint">Can render horizontal, vertical, or plaid band sets.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.mode.value}
+            onChange={(event) => onUpdate("mode", { value: event.target.value as StripePlaidMode })}
+          >
+            {STRIPE_PLAID_MODE_OPTIONS.map((mode) => (
+              <option key={mode} value={mode}>
+                {formatStripePlaidModeLabel(mode)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Spacing</span>
+          <ParameterToggle
+            checked={controls.spacing.randomize}
+            onChange={(checked) => onUpdate("spacing", { randomize: checked })}
+          />
+        </div>
+        {controls.spacing.randomize ? (
+          <div className="fieldHint">Controls how far apart each stripe band repeats.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={STRIPE_PLAID_SPACING_MIN}
+              max={STRIPE_PLAID_SPACING_MAX}
+              step={1}
+              value={controls.spacing.value}
+              onChange={(event) => onUpdate("spacing", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.spacing.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Band Width</span>
+          <ParameterToggle
+            checked={controls.bandWidth.randomize}
+            onChange={(checked) => onUpdate("bandWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.bandWidth.randomize ? (
+          <div className="fieldHint">Wider bands make heavier woven blocks and bars.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={STRIPE_PLAID_BAND_WIDTH_MIN}
+              max={STRIPE_PLAID_BAND_WIDTH_MAX}
+              step={1}
+              value={controls.bandWidth.value}
+              onChange={(event) => onUpdate("bandWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.bandWidth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Offset</span>
+          <ParameterToggle
+            checked={controls.offset.randomize}
+            onChange={(checked) => onUpdate("offset", { randomize: checked })}
+          />
+        </div>
+        {controls.offset.randomize ? (
+          <div className="fieldHint">
+            Shifts the repeat phase so the bands don’t always start at zero.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={STRIPE_PLAID_OFFSET_MIN}
+              max={STRIPE_PLAID_OFFSET_MAX}
+              step={1}
+              value={controls.offset.value}
+              onChange={(event) => onUpdate("offset", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.offset.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function CheckerDiamondLatticeSettingsPanel({
+  controls,
+  onUpdate,
+}: CheckerDiamondLatticeSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Checker / Diamond / Lattice</h3>
+      <div className="fieldHint">
+        Chooses a regular tiling style, then scales and phases it across the source grid.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Style</span>
+          <ParameterToggle
+            checked={controls.style.randomize}
+            onChange={(checked) => onUpdate("style", { randomize: checked })}
+          />
+        </div>
+        {controls.style.randomize ? (
+          <div className="fieldHint">
+            Can switch between checkerboard fills, diamonds, and lattices.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.style.value}
+            onChange={(event) =>
+              onUpdate("style", {
+                value: event.target.value as CheckerDiamondLatticeStyle,
+              })
+            }
+          >
+            {CHECKER_DIAMOND_LATTICE_STYLE_OPTIONS.map((style) => (
+              <option key={style} value={style}>
+                {formatCheckerDiamondLatticeStyleLabel(style)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Cell Size</span>
+          <ParameterToggle
+            checked={controls.cellSize.randomize}
+            onChange={(checked) => onUpdate("cellSize", { randomize: checked })}
+          />
+        </div>
+        {controls.cellSize.randomize ? (
+          <div className="fieldHint">Larger cells make chunkier tilings with fewer repeats.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CHECKER_DIAMOND_CELL_SIZE_MIN}
+              max={CHECKER_DIAMOND_CELL_SIZE_MAX}
+              step={1}
+              value={controls.cellSize.value}
+              onChange={(event) => onUpdate("cellSize", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.cellSize.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Line Width</span>
+          <ParameterToggle
+            checked={controls.lineWidth.randomize}
+            onChange={(checked) => onUpdate("lineWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.lineWidth.randomize ? (
+          <div className="fieldHint">
+            Controls how heavy the lattice or diamond outline becomes.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CHECKER_DIAMOND_LINE_WIDTH_MIN}
+              max={CHECKER_DIAMOND_LINE_WIDTH_MAX}
+              step={1}
+              value={controls.lineWidth.value}
+              onChange={(event) => onUpdate("lineWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.lineWidth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Phase</span>
+          <ParameterToggle
+            checked={controls.phase.randomize}
+            onChange={(checked) => onUpdate("phase", { randomize: checked })}
+          />
+        </div>
+        {controls.phase.randomize ? (
+          <div className="fieldHint">
+            Offsets the tiling so the pattern lands on different grid phases.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CHECKER_DIAMOND_PHASE_MIN}
+              max={CHECKER_DIAMOND_PHASE_MAX}
+              step={1}
+              value={controls.phase.value}
+              onChange={(event) => onUpdate("phase", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.phase.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function ConcentricBoxesSettingsPanel({
+  controls,
+  onUpdate,
+}: ConcentricBoxesSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Concentric Boxes</h3>
+      <div className="fieldHint">
+        Stacks nested rectangle strokes into target forms, ziggurats, and stepped frames.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Ring Count</span>
+          <ParameterToggle
+            checked={controls.ringCount.randomize}
+            onChange={(checked) => onUpdate("ringCount", { randomize: checked })}
+          />
+        </div>
+        {controls.ringCount.randomize ? (
+          <div className="fieldHint">Determines how many nested rectangles are drawn.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CONCENTRIC_BOX_RING_COUNT_MIN}
+              max={CONCENTRIC_BOX_RING_COUNT_MAX}
+              step={1}
+              value={controls.ringCount.value}
+              onChange={(event) => onUpdate("ringCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.ringCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Gap</span>
+          <ParameterToggle
+            checked={controls.spacing.randomize}
+            onChange={(checked) => onUpdate("spacing", { randomize: checked })}
+          />
+        </div>
+        {controls.spacing.randomize ? (
+          <div className="fieldHint">Sets how quickly each inner rectangle steps inward.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CONCENTRIC_BOX_SPACING_MIN}
+              max={CONCENTRIC_BOX_SPACING_MAX}
+              step={1}
+              value={controls.spacing.value}
+              onChange={(event) => onUpdate("spacing", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.spacing.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Line Width</span>
+          <ParameterToggle
+            checked={controls.lineWidth.randomize}
+            onChange={(checked) => onUpdate("lineWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.lineWidth.randomize ? (
+          <div className="fieldHint">Wider box lines make bolder stepped silhouettes.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CONCENTRIC_BOX_LINE_WIDTH_MIN}
+              max={CONCENTRIC_BOX_LINE_WIDTH_MAX}
+              step={1}
+              value={controls.lineWidth.value}
+              onChange={(event) => onUpdate("lineWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.lineWidth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Drift</span>
+          <ParameterToggle
+            checked={controls.drift.randomize}
+            onChange={(checked) => onUpdate("drift", { randomize: checked })}
+          />
+        </div>
+        {controls.drift.randomize ? (
+          <div className="fieldHint">Offsets each ring so the stack can skew into ziggurats.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CONCENTRIC_BOX_DRIFT_MIN}
+              max={CONCENTRIC_BOX_DRIFT_MAX}
+              step={1}
+              value={controls.drift.value}
+              onChange={(event) => onUpdate("drift", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.drift.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function LineInterferenceSettingsPanel({
+  controls,
+  onUpdate,
+}: LineInterferenceSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Line Interference</h3>
+      <div className="fieldHint">
+        Layers two angled line fields on top of each other to create technical interference
+        patterns.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Angle A</span>
+          <ParameterToggle
+            checked={controls.angleA.randomize}
+            onChange={(checked) => onUpdate("angleA", { randomize: checked })}
+          />
+        </div>
+        {controls.angleA.randomize ? (
+          <div className="fieldHint">Controls the first line-field angle.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={THRESHOLDED_GRADIENT_ANGLE_MIN}
+              max={THRESHOLDED_GRADIENT_ANGLE_MAX}
+              step={THRESHOLDED_GRADIENT_ANGLE_STEP}
+              value={controls.angleA.value}
+              onChange={(event) => onUpdate("angleA", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.angleA.value}°</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Angle B</span>
+          <ParameterToggle
+            checked={controls.angleB.randomize}
+            onChange={(checked) => onUpdate("angleB", { randomize: checked })}
+          />
+        </div>
+        {controls.angleB.randomize ? (
+          <div className="fieldHint">Controls the second field that crosses the first.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={THRESHOLDED_GRADIENT_ANGLE_MIN}
+              max={THRESHOLDED_GRADIENT_ANGLE_MAX}
+              step={THRESHOLDED_GRADIENT_ANGLE_STEP}
+              value={controls.angleB.value}
+              onChange={(event) => onUpdate("angleB", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.angleB.value}°</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Spacing</span>
+          <ParameterToggle
+            checked={controls.spacing.randomize}
+            onChange={(checked) => onUpdate("spacing", { randomize: checked })}
+          />
+        </div>
+        {controls.spacing.randomize ? (
+          <div className="fieldHint">
+            Tighter spacing increases moire density and crosshatching.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={LINE_INTERFERENCE_SPACING_MIN}
+              max={LINE_INTERFERENCE_SPACING_MAX}
+              step={1}
+              value={controls.spacing.value}
+              onChange={(event) => onUpdate("spacing", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.spacing.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Stroke Width</span>
+          <ParameterToggle
+            checked={controls.strokeWidth.randomize}
+            onChange={(checked) => onUpdate("strokeWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.strokeWidth.randomize ? (
+          <div className="fieldHint">Thicker strokes create denser interference blocks.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={LINE_INTERFERENCE_STROKE_WIDTH_MIN}
+              max={LINE_INTERFERENCE_STROKE_WIDTH_MAX}
+              step={1}
+              value={controls.strokeWidth.value}
+              onChange={(event) => onUpdate("strokeWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.strokeWidth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function CirclePackingSettingsPanel({
+  controls,
+  onUpdate,
+}: CirclePackingSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Circle Packing</h3>
+      <div className="fieldHint">
+        Packs discs or rings into the source grid and turns their overlap into rounded wall
+        clusters.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Circle Count</span>
+          <ParameterToggle
+            checked={controls.circleCount.randomize}
+            onChange={(checked) => onUpdate("circleCount", { randomize: checked })}
+          />
+        </div>
+        {controls.circleCount.randomize ? (
+          <div className="fieldHint">More circles creates denser bubble fields and clumps.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CIRCLE_PACKING_COUNT_MIN}
+              max={CIRCLE_PACKING_COUNT_MAX}
+              step={1}
+              value={controls.circleCount.value}
+              onChange={(event) => onUpdate("circleCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.circleCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Min Radius</span>
+          <ParameterToggle
+            checked={controls.minRadius.randomize}
+            onChange={(checked) => onUpdate("minRadius", { randomize: checked })}
+          />
+        </div>
+        {controls.minRadius.randomize ? (
+          <div className="fieldHint">
+            Smaller minimums allow tight filler circles around larger ones.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CIRCLE_PACKING_MIN_RADIUS_MIN}
+              max={CIRCLE_PACKING_MIN_RADIUS_MAX}
+              step={1}
+              value={controls.minRadius.value}
+              onChange={(event) => onUpdate("minRadius", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.minRadius.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Max Radius</span>
+          <ParameterToggle
+            checked={controls.maxRadius.randomize}
+            onChange={(checked) => onUpdate("maxRadius", { randomize: checked })}
+          />
+        </div>
+        {controls.maxRadius.randomize ? (
+          <div className="fieldHint">
+            Larger maximums create dominant discs and wider rounded voids.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={CIRCLE_PACKING_MAX_RADIUS_MIN}
+              max={CIRCLE_PACKING_MAX_RADIUS_MAX}
+              step={1}
+              value={controls.maxRadius.value}
+              onChange={(event) => onUpdate("maxRadius", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.maxRadius.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Outline</span>
+          <ParameterToggle
+            checked={controls.outline.randomize}
+            onChange={(checked) => onUpdate("outline", { randomize: checked })}
+          />
+        </div>
+        {controls.outline.randomize ? (
+          <div className="fieldHint">
+            Can switch between filled discs and hollow ring silhouettes.
+          </div>
+        ) : (
+          <label className="generateBooleanField">
+            <input
+              type="checkbox"
+              checked={controls.outline.value}
+              onChange={(event) => onUpdate("outline", { value: event.target.checked })}
+            />
+            <span>Use ring outlines instead of filled discs</span>
+          </label>
         )}
       </section>
 
@@ -5418,6 +6145,161 @@ function GeneratedRecordDetails({
             <div>{record.params.invert ? "On" : "Off"}</div>
           </div>
         </div>
+      ) : record.algorithm === "stripe-plaid-generator" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Mode</span>
+            <div>{formatStripePlaidModeLabel(record.params.mode)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Spacing</span>
+            <div>{record.params.spacing}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Band Width</span>
+            <div>{record.params.bandWidth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Offset</span>
+            <div>{record.params.offset}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "checker-diamond-lattice" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Style</span>
+            <div>{formatCheckerDiamondLatticeStyleLabel(record.params.style)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Cell Size</span>
+            <div>{record.params.cellSize}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Line Width</span>
+            <div>{record.params.lineWidth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Phase</span>
+            <div>{record.params.phase}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "concentric-boxes" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Ring Count</span>
+            <div>{record.params.ringCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Gap</span>
+            <div>{record.params.spacing}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Line Width</span>
+            <div>{record.params.lineWidth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Drift</span>
+            <div>{record.params.drift}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "line-interference" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Angle A</span>
+            <div>{record.params.angleA}°</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Angle B</span>
+            <div>{record.params.angleB}°</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Spacing</span>
+            <div>{record.params.spacing}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Stroke Width</span>
+            <div>{record.params.strokeWidth}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
+      ) : record.algorithm === "circle-packing" ? (
+        <div className="generateDetailList">
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Seed</span>
+            <div>{record.params.seed}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Block Size</span>
+            <div>{formatNoiseBlockSizeLabel(record.params.blockSize)}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Circle Count</span>
+            <div>{record.params.circleCount}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Min Radius</span>
+            <div>{record.params.minRadius}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Max Radius</span>
+            <div>{record.params.maxRadius}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Render</span>
+            <div>{record.params.outline ? "Outline" : "Filled"}</div>
+          </div>
+          <div className="generateDetailRow">
+            <span className="fieldLabel">Invert</span>
+            <div>{record.params.invert ? "On" : "Off"}</div>
+          </div>
+        </div>
       ) : record.algorithm === "backtracking-generator" ? (
         <div className="generateDetailList">
           <div className="generateDetailRow">
@@ -5722,6 +6604,21 @@ export function GenerateBrowserDialog({
     useState<CourtyardGeneratorControlState>(() => createDefaultCourtyardGeneratorControlState());
   const [blueprintGeneratorControls, setBlueprintGeneratorControls] =
     useState<BlueprintGeneratorControlState>(() => createDefaultBlueprintGeneratorControlState());
+  const [stripePlaidGeneratorControls, setStripePlaidGeneratorControls] =
+    useState<StripePlaidGeneratorControlState>(() =>
+      createDefaultStripePlaidGeneratorControlState(),
+    );
+  const [checkerDiamondLatticeControls, setCheckerDiamondLatticeControls] =
+    useState<CheckerDiamondLatticeControlState>(() =>
+      createDefaultCheckerDiamondLatticeControlState(),
+    );
+  const [concentricBoxesControls, setConcentricBoxesControls] =
+    useState<ConcentricBoxesControlState>(() => createDefaultConcentricBoxesControlState());
+  const [lineInterferenceControls, setLineInterferenceControls] =
+    useState<LineInterferenceControlState>(() => createDefaultLineInterferenceControlState());
+  const [circlePackingControls, setCirclePackingControls] = useState<CirclePackingControlState>(
+    () => createDefaultCirclePackingControlState(),
+  );
   const [gameOfLifeVariantsControls, setGameOfLifeVariantsControls] =
     useState<GameOfLifeVariantsControlState>(() => createDefaultGameOfLifeVariantsControlState());
   const [diffusionLimitedAggregationControls, setDiffusionLimitedAggregationControls] =
@@ -5819,6 +6716,18 @@ export function GenerateBrowserDialog({
               selectedAlgorithm === "courtyard-generator" ? courtyardGeneratorControls : null,
             blueprintGeneratorControls:
               selectedAlgorithm === "blueprint-generator" ? blueprintGeneratorControls : null,
+            stripePlaidGeneratorControls:
+              selectedAlgorithm === "stripe-plaid-generator" ? stripePlaidGeneratorControls : null,
+            checkerDiamondLatticeControls:
+              selectedAlgorithm === "checker-diamond-lattice"
+                ? checkerDiamondLatticeControls
+                : null,
+            concentricBoxesControls:
+              selectedAlgorithm === "concentric-boxes" ? concentricBoxesControls : null,
+            lineInterferenceControls:
+              selectedAlgorithm === "line-interference" ? lineInterferenceControls : null,
+            circlePackingControls:
+              selectedAlgorithm === "circle-packing" ? circlePackingControls : null,
             gameOfLifeVariantsControls:
               selectedAlgorithm === "game-of-life-variants" ? gameOfLifeVariantsControls : null,
             diffusionLimitedAggregationControls:
@@ -5864,6 +6773,9 @@ export function GenerateBrowserDialog({
       cellularAutomatonControls,
       corridorGridControls,
       courtyardGeneratorControls,
+      checkerDiamondLatticeControls,
+      circlePackingControls,
+      concentricBoxesControls,
       diffusionLimitedAggregationControls,
       domainWarpedNoiseControls,
       dungeonRoomsControls,
@@ -5875,6 +6787,7 @@ export function GenerateBrowserDialog({
       kaleidoscopeControls,
       kruskalsControls,
       lSystemTurtleControls,
+      lineInterferenceControls,
       perlinNoiseControls,
       primsControls,
       randomNoiseControls,
@@ -5886,6 +6799,7 @@ export function GenerateBrowserDialog({
       roseCurvesControls,
       selectedAlgorithm,
       sidewinderControls,
+      stripePlaidGeneratorControls,
       starredKeys,
       starredOnly,
       thresholdedGradientNoiseControls,
@@ -6112,6 +7026,71 @@ export function GenerateBrowserDialog({
     nextValue: Partial<BlueprintGeneratorControlState[K]>,
   ): void {
     setBlueprintGeneratorControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateStripePlaidGeneratorControl<K extends keyof StripePlaidGeneratorControlState>(
+    key: K,
+    nextValue: Partial<StripePlaidGeneratorControlState[K]>,
+  ): void {
+    setStripePlaidGeneratorControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateCheckerDiamondLatticeControl<K extends keyof CheckerDiamondLatticeControlState>(
+    key: K,
+    nextValue: Partial<CheckerDiamondLatticeControlState[K]>,
+  ): void {
+    setCheckerDiamondLatticeControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateConcentricBoxesControl<K extends keyof ConcentricBoxesControlState>(
+    key: K,
+    nextValue: Partial<ConcentricBoxesControlState[K]>,
+  ): void {
+    setConcentricBoxesControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateLineInterferenceControl<K extends keyof LineInterferenceControlState>(
+    key: K,
+    nextValue: Partial<LineInterferenceControlState[K]>,
+  ): void {
+    setLineInterferenceControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateCirclePackingControl<K extends keyof CirclePackingControlState>(
+    key: K,
+    nextValue: Partial<CirclePackingControlState[K]>,
+  ): void {
+    setCirclePackingControls((current) => ({
       ...current,
       [key]: {
         ...current[key],
@@ -6542,6 +7521,61 @@ export function GenerateBrowserDialog({
         pillarSpacing: { randomize: false, value: record.params.pillarSpacing },
         chamberDepth: { randomize: false, value: record.params.chamberDepth },
       });
+    } else if (record.algorithm === "stripe-plaid-generator") {
+      setSelectedAlgorithm("stripe-plaid-generator");
+      setStripePlaidGeneratorControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        mode: { randomize: false, value: record.params.mode },
+        spacing: { randomize: false, value: record.params.spacing },
+        bandWidth: { randomize: false, value: record.params.bandWidth },
+        offset: { randomize: false, value: record.params.offset },
+      });
+    } else if (record.algorithm === "checker-diamond-lattice") {
+      setSelectedAlgorithm("checker-diamond-lattice");
+      setCheckerDiamondLatticeControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        style: { randomize: false, value: record.params.style },
+        cellSize: { randomize: false, value: record.params.cellSize },
+        lineWidth: { randomize: false, value: record.params.lineWidth },
+        phase: { randomize: false, value: record.params.phase },
+      });
+    } else if (record.algorithm === "concentric-boxes") {
+      setSelectedAlgorithm("concentric-boxes");
+      setConcentricBoxesControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        ringCount: { randomize: false, value: record.params.ringCount },
+        spacing: { randomize: false, value: record.params.spacing },
+        lineWidth: { randomize: false, value: record.params.lineWidth },
+        drift: { randomize: false, value: record.params.drift },
+      });
+    } else if (record.algorithm === "line-interference") {
+      setSelectedAlgorithm("line-interference");
+      setLineInterferenceControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        angleA: { randomize: false, value: record.params.angleA },
+        angleB: { randomize: false, value: record.params.angleB },
+        spacing: { randomize: false, value: record.params.spacing },
+        strokeWidth: { randomize: false, value: record.params.strokeWidth },
+      });
+    } else if (record.algorithm === "circle-packing") {
+      setSelectedAlgorithm("circle-packing");
+      setCirclePackingControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        circleCount: { randomize: false, value: record.params.circleCount },
+        minRadius: { randomize: false, value: record.params.minRadius },
+        maxRadius: { randomize: false, value: record.params.maxRadius },
+        outline: { randomize: false, value: record.params.outline },
+      });
     } else if (record.algorithm === "game-of-life-variants") {
       setSelectedAlgorithm("game-of-life-variants");
       setGameOfLifeVariantsControls({
@@ -6848,6 +7882,31 @@ export function GenerateBrowserDialog({
                   <BlueprintGeneratorSettingsPanel
                     controls={blueprintGeneratorControls}
                     onUpdate={updateBlueprintGeneratorControl}
+                  />
+                ) : selectedAlgorithm === "stripe-plaid-generator" ? (
+                  <StripePlaidGeneratorSettingsPanel
+                    controls={stripePlaidGeneratorControls}
+                    onUpdate={updateStripePlaidGeneratorControl}
+                  />
+                ) : selectedAlgorithm === "checker-diamond-lattice" ? (
+                  <CheckerDiamondLatticeSettingsPanel
+                    controls={checkerDiamondLatticeControls}
+                    onUpdate={updateCheckerDiamondLatticeControl}
+                  />
+                ) : selectedAlgorithm === "concentric-boxes" ? (
+                  <ConcentricBoxesSettingsPanel
+                    controls={concentricBoxesControls}
+                    onUpdate={updateConcentricBoxesControl}
+                  />
+                ) : selectedAlgorithm === "line-interference" ? (
+                  <LineInterferenceSettingsPanel
+                    controls={lineInterferenceControls}
+                    onUpdate={updateLineInterferenceControl}
+                  />
+                ) : selectedAlgorithm === "circle-packing" ? (
+                  <CirclePackingSettingsPanel
+                    controls={circlePackingControls}
+                    onUpdate={updateCirclePackingControl}
                   />
                 ) : selectedAlgorithm === "game-of-life-variants" ? (
                   <GameOfLifeVariantsSettingsPanel

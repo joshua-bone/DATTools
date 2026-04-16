@@ -121,6 +121,36 @@ export const BLUEPRINT_PILLAR_SPACING_MIN = 0;
 export const BLUEPRINT_PILLAR_SPACING_MAX = 6;
 export const BLUEPRINT_CHAMBER_DEPTH_MIN = 4;
 export const BLUEPRINT_CHAMBER_DEPTH_MAX = 10;
+export const STRIPE_PLAID_SPACING_MIN = 3;
+export const STRIPE_PLAID_SPACING_MAX = 10;
+export const STRIPE_PLAID_BAND_WIDTH_MIN = 1;
+export const STRIPE_PLAID_BAND_WIDTH_MAX = 4;
+export const STRIPE_PLAID_OFFSET_MIN = 0;
+export const STRIPE_PLAID_OFFSET_MAX = 6;
+export const CHECKER_DIAMOND_CELL_SIZE_MIN = 2;
+export const CHECKER_DIAMOND_CELL_SIZE_MAX = 8;
+export const CHECKER_DIAMOND_LINE_WIDTH_MIN = 1;
+export const CHECKER_DIAMOND_LINE_WIDTH_MAX = 3;
+export const CHECKER_DIAMOND_PHASE_MIN = 0;
+export const CHECKER_DIAMOND_PHASE_MAX = 6;
+export const CONCENTRIC_BOX_RING_COUNT_MIN = 2;
+export const CONCENTRIC_BOX_RING_COUNT_MAX = 9;
+export const CONCENTRIC_BOX_SPACING_MIN = 1;
+export const CONCENTRIC_BOX_SPACING_MAX = 4;
+export const CONCENTRIC_BOX_LINE_WIDTH_MIN = 1;
+export const CONCENTRIC_BOX_LINE_WIDTH_MAX = 3;
+export const CONCENTRIC_BOX_DRIFT_MIN = 0;
+export const CONCENTRIC_BOX_DRIFT_MAX = 4;
+export const LINE_INTERFERENCE_SPACING_MIN = 3;
+export const LINE_INTERFERENCE_SPACING_MAX = 9;
+export const LINE_INTERFERENCE_STROKE_WIDTH_MIN = 1;
+export const LINE_INTERFERENCE_STROKE_WIDTH_MAX = 3;
+export const CIRCLE_PACKING_COUNT_MIN = 3;
+export const CIRCLE_PACKING_COUNT_MAX = 14;
+export const CIRCLE_PACKING_MIN_RADIUS_MIN = 1;
+export const CIRCLE_PACKING_MIN_RADIUS_MAX = 4;
+export const CIRCLE_PACKING_MAX_RADIUS_MIN = 2;
+export const CIRCLE_PACKING_MAX_RADIUS_MAX = 8;
 
 export const MAZE_SEED_MIN = 1;
 export const MAZE_SEED_MAX = 0x7ffffffe;
@@ -203,6 +233,11 @@ export type GenerateAlgorithmId =
   | "room-scatter"
   | "courtyard-generator"
   | "blueprint-generator"
+  | "stripe-plaid-generator"
+  | "checker-diamond-lattice"
+  | "concentric-boxes"
+  | "line-interference"
+  | "circle-packing"
   | "game-of-life-variants"
   | "diffusion-limited-aggregation"
   | "reaction-diffusion-approximation"
@@ -231,6 +266,8 @@ export type HuntOrder = "random" | "serpentine";
 export type TrivialMazeType = "spiral" | "serpentine";
 export type LSystemPreset = "plant" | "dragon" | "bush";
 export type TileableMotifType = "cross" | "diamond" | "box" | "chevron" | "petal";
+export type StripePlaidMode = "horizontal" | "vertical" | "plaid";
+export type CheckerDiamondLatticeStyle = "checker" | "diamond" | "lattice";
 export type GameOfLifeVariant = "life" | "highlife" | "maze";
 export type DlaSeedMode = "point" | "line" | "cross";
 
@@ -295,6 +332,12 @@ type OrnamentBaseParameters = Readonly<{
 }>;
 
 type ArchitectureBaseParameters = Readonly<{
+  seed: number;
+  blockSize: number;
+  invert: boolean;
+}>;
+
+type PatternedGeometricBaseParameters = Readonly<{
   seed: number;
   blockSize: number;
   invert: boolean;
@@ -383,6 +426,46 @@ export type BlueprintGeneratorParameters = ArchitectureBaseParameters &
     hallWidth: number;
     pillarSpacing: number;
     chamberDepth: number;
+  }>;
+
+export type StripePlaidGeneratorParameters = PatternedGeometricBaseParameters &
+  Readonly<{
+    mode: StripePlaidMode;
+    spacing: number;
+    bandWidth: number;
+    offset: number;
+  }>;
+
+export type CheckerDiamondLatticeParameters = PatternedGeometricBaseParameters &
+  Readonly<{
+    style: CheckerDiamondLatticeStyle;
+    cellSize: number;
+    lineWidth: number;
+    phase: number;
+  }>;
+
+export type ConcentricBoxesParameters = PatternedGeometricBaseParameters &
+  Readonly<{
+    ringCount: number;
+    spacing: number;
+    lineWidth: number;
+    drift: number;
+  }>;
+
+export type LineInterferenceParameters = PatternedGeometricBaseParameters &
+  Readonly<{
+    angleA: number;
+    angleB: number;
+    spacing: number;
+    strokeWidth: number;
+  }>;
+
+export type CirclePackingParameters = PatternedGeometricBaseParameters &
+  Readonly<{
+    circleCount: number;
+    minRadius: number;
+    maxRadius: number;
+    outline: boolean;
   }>;
 
 export type GameOfLifeVariantsParameters = GrowthBaseParameters &
@@ -555,6 +638,12 @@ type ArchitectureBaseControlState = Readonly<{
   invert: RandomizableValue<boolean>;
 }>;
 
+type PatternedGeometricBaseControlState = Readonly<{
+  seed: RandomizableValue<number>;
+  blockSize: RandomizableValue<number>;
+  invert: RandomizableValue<boolean>;
+}>;
+
 type GrowthBaseControlState = Readonly<{
   seed: RandomizableValue<number>;
   blockSize: RandomizableValue<number>;
@@ -638,6 +727,46 @@ export type BlueprintGeneratorControlState = ArchitectureBaseControlState &
     hallWidth: RandomizableValue<number>;
     pillarSpacing: RandomizableValue<number>;
     chamberDepth: RandomizableValue<number>;
+  }>;
+
+export type StripePlaidGeneratorControlState = PatternedGeometricBaseControlState &
+  Readonly<{
+    mode: RandomizableValue<StripePlaidMode>;
+    spacing: RandomizableValue<number>;
+    bandWidth: RandomizableValue<number>;
+    offset: RandomizableValue<number>;
+  }>;
+
+export type CheckerDiamondLatticeControlState = PatternedGeometricBaseControlState &
+  Readonly<{
+    style: RandomizableValue<CheckerDiamondLatticeStyle>;
+    cellSize: RandomizableValue<number>;
+    lineWidth: RandomizableValue<number>;
+    phase: RandomizableValue<number>;
+  }>;
+
+export type ConcentricBoxesControlState = PatternedGeometricBaseControlState &
+  Readonly<{
+    ringCount: RandomizableValue<number>;
+    spacing: RandomizableValue<number>;
+    lineWidth: RandomizableValue<number>;
+    drift: RandomizableValue<number>;
+  }>;
+
+export type LineInterferenceControlState = PatternedGeometricBaseControlState &
+  Readonly<{
+    angleA: RandomizableValue<number>;
+    angleB: RandomizableValue<number>;
+    spacing: RandomizableValue<number>;
+    strokeWidth: RandomizableValue<number>;
+  }>;
+
+export type CirclePackingControlState = PatternedGeometricBaseControlState &
+  Readonly<{
+    circleCount: RandomizableValue<number>;
+    minRadius: RandomizableValue<number>;
+    maxRadius: RandomizableValue<number>;
+    outline: RandomizableValue<boolean>;
   }>;
 
 export type GameOfLifeVariantsControlState = GrowthBaseControlState &
@@ -756,6 +885,11 @@ type BaseGeneratedLayoutRecord<
     | RoomScatterParameters
     | CourtyardGeneratorParameters
     | BlueprintGeneratorParameters
+    | StripePlaidGeneratorParameters
+    | CheckerDiamondLatticeParameters
+    | ConcentricBoxesParameters
+    | LineInterferenceParameters
+    | CirclePackingParameters
     | GameOfLifeVariantsParameters
     | DiffusionLimitedAggregationParameters
     | ReactionDiffusionApproximationParameters
@@ -865,6 +999,31 @@ export type BlueprintGeneratorGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   BlueprintGeneratorParameters
 >;
 
+export type StripePlaidGeneratorGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "stripe-plaid-generator",
+  StripePlaidGeneratorParameters
+>;
+
+export type CheckerDiamondLatticeGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "checker-diamond-lattice",
+  CheckerDiamondLatticeParameters
+>;
+
+export type ConcentricBoxesGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "concentric-boxes",
+  ConcentricBoxesParameters
+>;
+
+export type LineInterferenceGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "line-interference",
+  LineInterferenceParameters
+>;
+
+export type CirclePackingGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "circle-packing",
+  CirclePackingParameters
+>;
+
 export type GameOfLifeVariantsGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "game-of-life-variants",
   GameOfLifeVariantsParameters
@@ -963,6 +1122,11 @@ export type GeneratedLayoutRecord =
   | RoomScatterGeneratedLayoutRecord
   | CourtyardGeneratorGeneratedLayoutRecord
   | BlueprintGeneratorGeneratedLayoutRecord
+  | StripePlaidGeneratorGeneratedLayoutRecord
+  | CheckerDiamondLatticeGeneratedLayoutRecord
+  | ConcentricBoxesGeneratedLayoutRecord
+  | LineInterferenceGeneratedLayoutRecord
+  | CirclePackingGeneratedLayoutRecord
   | GameOfLifeVariantsGeneratedLayoutRecord
   | DiffusionLimitedAggregationGeneratedLayoutRecord
   | ReactionDiffusionApproximationGeneratedLayoutRecord
@@ -1004,6 +1168,11 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "room-scatter", label: "Room Scatter" },
   { value: "courtyard-generator", label: "Courtyard Generator" },
   { value: "blueprint-generator", label: "Blueprint Generator" },
+  { value: "stripe-plaid-generator", label: "Stripe / Plaid Generator" },
+  { value: "checker-diamond-lattice", label: "Checker / Diamond / Lattice" },
+  { value: "concentric-boxes", label: "Concentric Boxes" },
+  { value: "line-interference", label: "Line Interference" },
+  { value: "circle-packing", label: "Circle Packing" },
   { value: "game-of-life-variants", label: "Game of Life Variants" },
   { value: "diffusion-limited-aggregation", label: "Diffusion-Limited Aggregation" },
   {
@@ -1044,6 +1213,11 @@ const CORRIDOR_GRID_LABEL = "Corridor Grid";
 const ROOM_SCATTER_LABEL = "Room Scatter";
 const COURTYARD_GENERATOR_LABEL = "Courtyard Generator";
 const BLUEPRINT_GENERATOR_LABEL = "Blueprint Generator";
+const STRIPE_PLAID_GENERATOR_LABEL = "Stripe / Plaid Generator";
+const CHECKER_DIAMOND_LATTICE_LABEL = "Checker / Diamond / Lattice";
+const CONCENTRIC_BOXES_LABEL = "Concentric Boxes";
+const LINE_INTERFERENCE_LABEL = "Line Interference";
+const CIRCLE_PACKING_LABEL = "Circle Packing";
 const GAME_OF_LIFE_VARIANTS_LABEL = "Game of Life Variants";
 const DIFFUSION_LIMITED_AGGREGATION_LABEL = "Diffusion-Limited Aggregation";
 const REACTION_DIFFUSION_APPROXIMATION_LABEL = "Reaction-Diffusion Approximation";
@@ -1082,6 +1256,11 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "room-scatter",
   "courtyard-generator",
   "blueprint-generator",
+  "stripe-plaid-generator",
+  "checker-diamond-lattice",
+  "concentric-boxes",
+  "line-interference",
+  "circle-packing",
   "game-of-life-variants",
   "diffusion-limited-aggregation",
   "reaction-diffusion-approximation",
@@ -1160,6 +1339,21 @@ const BLUEPRINT_WING_COUNT_VALUES = [1, 2, 3, 4];
 const BLUEPRINT_HALL_WIDTH_VALUES = [3, 4, 5, 6, 7, 8];
 const BLUEPRINT_PILLAR_SPACING_VALUES = [0, 3, 4, 5, 6];
 const BLUEPRINT_CHAMBER_DEPTH_VALUES = [4, 5, 6, 7, 8, 9, 10];
+const STRIPE_PLAID_SPACING_VALUES = [3, 4, 5, 6, 7, 8, 9, 10];
+const STRIPE_PLAID_BAND_WIDTH_VALUES = [1, 2, 3, 4];
+const STRIPE_PLAID_OFFSET_VALUES = [0, 1, 2, 3, 4, 5, 6];
+const CHECKER_DIAMOND_CELL_SIZE_VALUES = [2, 3, 4, 5, 6, 7, 8];
+const CHECKER_DIAMOND_LINE_WIDTH_VALUES = [1, 2, 3];
+const CHECKER_DIAMOND_PHASE_VALUES = [0, 1, 2, 3, 4, 5, 6];
+const CONCENTRIC_BOX_RING_COUNT_VALUES = [2, 3, 4, 5, 6, 7, 8, 9];
+const CONCENTRIC_BOX_SPACING_VALUES = [1, 2, 3, 4];
+const CONCENTRIC_BOX_LINE_WIDTH_VALUES = [1, 2, 3];
+const CONCENTRIC_BOX_DRIFT_VALUES = [0, 1, 2, 3, 4];
+const LINE_INTERFERENCE_SPACING_VALUES = [3, 4, 5, 6, 7, 8, 9];
+const LINE_INTERFERENCE_STROKE_WIDTH_VALUES = [1, 2, 3];
+const CIRCLE_PACKING_COUNT_VALUES = [3, 4, 5, 6, 7, 8, 10, 12, 14];
+const CIRCLE_PACKING_MIN_RADIUS_VALUES = [1, 2, 3, 4];
+const CIRCLE_PACKING_MAX_RADIUS_VALUES = [2, 3, 4, 5, 6, 7, 8];
 const GAME_OF_LIFE_DENSITY_VALUES = [0.18, 0.24, 0.3, 0.36, 0.42, 0.48, 0.54, 0.6];
 const GAME_OF_LIFE_STEPS_VALUES = [2, 3, 4, 5, 6, 7, 8];
 const DLA_WALKER_VALUES = [120, 180, 240, 360, 480, 720, 960];
@@ -1181,6 +1375,16 @@ export const TILEABLE_MOTIF_TYPE_OPTIONS: ReadonlyArray<TileableMotifType> = [
   "box",
   "chevron",
   "petal",
+];
+export const STRIPE_PLAID_MODE_OPTIONS: ReadonlyArray<StripePlaidMode> = [
+  "horizontal",
+  "vertical",
+  "plaid",
+];
+export const CHECKER_DIAMOND_LATTICE_STYLE_OPTIONS: ReadonlyArray<CheckerDiamondLatticeStyle> = [
+  "checker",
+  "diamond",
+  "lattice",
 ];
 export const RIGHT_ANGLE_ROTATION_OPTIONS: ReadonlyArray<number> = [0, 90, 180, 270];
 export const BINARY_TREE_SKEW_OPTIONS: ReadonlyArray<BinaryTreeSkew> = ["NW", "NE", "SW", "SE"];
@@ -1232,6 +1436,11 @@ export function generateLayoutRecords(
     roomScatterControls?: RoomScatterControlState | null;
     courtyardGeneratorControls?: CourtyardGeneratorControlState | null;
     blueprintGeneratorControls?: BlueprintGeneratorControlState | null;
+    stripePlaidGeneratorControls?: StripePlaidGeneratorControlState | null;
+    checkerDiamondLatticeControls?: CheckerDiamondLatticeControlState | null;
+    concentricBoxesControls?: ConcentricBoxesControlState | null;
+    lineInterferenceControls?: LineInterferenceControlState | null;
+    circlePackingControls?: CirclePackingControlState | null;
     gameOfLifeVariantsControls?: GameOfLifeVariantsControlState | null;
     diffusionLimitedAggregationControls?: DiffusionLimitedAggregationControlState | null;
     reactionDiffusionApproximationControls?: ReactionDiffusionApproximationControlState | null;
@@ -1278,6 +1487,11 @@ export function generateLayoutRecords(
       roomScatterControls: options.roomScatterControls ?? null,
       courtyardGeneratorControls: options.courtyardGeneratorControls ?? null,
       blueprintGeneratorControls: options.blueprintGeneratorControls ?? null,
+      stripePlaidGeneratorControls: options.stripePlaidGeneratorControls ?? null,
+      checkerDiamondLatticeControls: options.checkerDiamondLatticeControls ?? null,
+      concentricBoxesControls: options.concentricBoxesControls ?? null,
+      lineInterferenceControls: options.lineInterferenceControls ?? null,
+      circlePackingControls: options.circlePackingControls ?? null,
       gameOfLifeVariantsControls: options.gameOfLifeVariantsControls ?? null,
       diffusionLimitedAggregationControls: options.diffusionLimitedAggregationControls ?? null,
       reactionDiffusionApproximationControls:
@@ -1500,6 +1714,66 @@ export function createDefaultBlueprintGeneratorControlState(): BlueprintGenerato
   };
 }
 
+export function createDefaultStripePlaidGeneratorControlState(): StripePlaidGeneratorControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    mode: { randomize: true, value: "plaid" },
+    spacing: { randomize: true, value: 6 },
+    bandWidth: { randomize: true, value: 2 },
+    offset: { randomize: true, value: 1 },
+  };
+}
+
+export function createDefaultCheckerDiamondLatticeControlState(): CheckerDiamondLatticeControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    style: { randomize: true, value: "checker" },
+    cellSize: { randomize: true, value: 4 },
+    lineWidth: { randomize: true, value: 1 },
+    phase: { randomize: true, value: 0 },
+  };
+}
+
+export function createDefaultConcentricBoxesControlState(): ConcentricBoxesControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    ringCount: { randomize: true, value: 5 },
+    spacing: { randomize: true, value: 2 },
+    lineWidth: { randomize: true, value: 1 },
+    drift: { randomize: true, value: 1 },
+  };
+}
+
+export function createDefaultLineInterferenceControlState(): LineInterferenceControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    angleA: { randomize: true, value: 45 },
+    angleB: { randomize: true, value: 135 },
+    spacing: { randomize: true, value: 5 },
+    strokeWidth: { randomize: true, value: 1 },
+  };
+}
+
+export function createDefaultCirclePackingControlState(): CirclePackingControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    circleCount: { randomize: true, value: 7 },
+    minRadius: { randomize: true, value: 1 },
+    maxRadius: { randomize: true, value: 4 },
+    outline: { randomize: true, value: false },
+  };
+}
+
 export function createDefaultGameOfLifeVariantsControlState(): GameOfLifeVariantsControlState {
   return {
     seed: { randomize: true, value: 1 },
@@ -1702,6 +1976,11 @@ function generateRecordForAlgorithm(
     roomScatterControls: RoomScatterControlState | null;
     courtyardGeneratorControls: CourtyardGeneratorControlState | null;
     blueprintGeneratorControls: BlueprintGeneratorControlState | null;
+    stripePlaidGeneratorControls: StripePlaidGeneratorControlState | null;
+    checkerDiamondLatticeControls: CheckerDiamondLatticeControlState | null;
+    concentricBoxesControls: ConcentricBoxesControlState | null;
+    lineInterferenceControls: LineInterferenceControlState | null;
+    circlePackingControls: CirclePackingControlState | null;
     gameOfLifeVariantsControls: GameOfLifeVariantsControlState | null;
     diffusionLimitedAggregationControls: DiffusionLimitedAggregationControlState | null;
     reactionDiffusionApproximationControls: ReactionDiffusionApproximationControlState | null;
@@ -1756,6 +2035,16 @@ function generateRecordForAlgorithm(
       return buildCourtyardGeneratorRecord(rng, controls.courtyardGeneratorControls);
     case "blueprint-generator":
       return buildBlueprintGeneratorRecord(rng, controls.blueprintGeneratorControls);
+    case "stripe-plaid-generator":
+      return buildStripePlaidGeneratorRecord(rng, controls.stripePlaidGeneratorControls);
+    case "checker-diamond-lattice":
+      return buildCheckerDiamondLatticeRecord(rng, controls.checkerDiamondLatticeControls);
+    case "concentric-boxes":
+      return buildConcentricBoxesRecord(rng, controls.concentricBoxesControls);
+    case "line-interference":
+      return buildLineInterferenceRecord(rng, controls.lineInterferenceControls);
+    case "circle-packing":
+      return buildCirclePackingRecord(rng, controls.circlePackingControls);
     case "game-of-life-variants":
       return buildGameOfLifeVariantsRecord(rng, controls.gameOfLifeVariantsControls);
     case "diffusion-limited-aggregation":
@@ -2364,6 +2653,188 @@ function buildBlueprintGeneratorRecord(
     randomize: () => randomizeBlueprintGeneratorParameters(rng, defaults),
     buildBytes: buildBlueprintGeneratorMaskBytes,
     buildSummary: buildBlueprintGeneratorSummary,
+    fallback,
+  });
+}
+
+function buildPatternedGeometricRecord<
+  Algorithm extends
+    | "stripe-plaid-generator"
+    | "checker-diamond-lattice"
+    | "concentric-boxes"
+    | "line-interference"
+    | "circle-packing",
+  Params extends
+    | StripePlaidGeneratorParameters
+    | CheckerDiamondLatticeParameters
+    | ConcentricBoxesParameters
+    | LineInterferenceParameters
+    | CirclePackingParameters,
+>(
+  rng: () => number,
+  options: Readonly<{
+    algorithm: Algorithm;
+    title: string;
+    randomize: () => Params;
+    buildBytes: (params: Params) => Uint8Array;
+    buildSummary: (params: Params) => string;
+    fallback: Params;
+  }>,
+): BaseGeneratedLayoutRecord<Algorithm, Params> {
+  let lastAttempt: Readonly<{ params: Params; bytes: Uint8Array }> | null = null;
+
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const params = options.randomize();
+    const bytes = options.buildBytes(params);
+    lastAttempt = { params, bytes };
+    const wallCount = countSetBits(bytes);
+    if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
+      continue;
+
+    return {
+      wallKey: wallMaskKeyFromBytes(bytes),
+      algorithm: options.algorithm,
+      title: options.title,
+      summary: options.buildSummary(params),
+      seedLabel: `Seed ${params.seed}`,
+      params,
+    };
+  }
+
+  const fallbackParams = lastAttempt?.params ?? options.fallback;
+  const fallbackBytes = lastAttempt?.bytes ?? options.buildBytes(options.fallback);
+
+  return {
+    wallKey: wallMaskKeyFromBytes(fallbackBytes),
+    algorithm: options.algorithm,
+    title: options.title,
+    summary: options.buildSummary(fallbackParams),
+    seedLabel: `Seed ${fallbackParams.seed}`,
+    params: fallbackParams,
+  };
+}
+
+function buildStripePlaidGeneratorRecord(
+  rng: () => number,
+  controls: StripePlaidGeneratorControlState | null,
+): StripePlaidGeneratorGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultStripePlaidGeneratorControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    mode: "plaid",
+    spacing: 6,
+    bandWidth: 2,
+    offset: 1,
+  } satisfies StripePlaidGeneratorParameters;
+
+  return buildPatternedGeometricRecord(rng, {
+    algorithm: "stripe-plaid-generator",
+    title: STRIPE_PLAID_GENERATOR_LABEL,
+    randomize: () => randomizeStripePlaidGeneratorParameters(rng, defaults),
+    buildBytes: buildStripePlaidGeneratorMaskBytes,
+    buildSummary: buildStripePlaidGeneratorSummary,
+    fallback,
+  });
+}
+
+function buildCheckerDiamondLatticeRecord(
+  rng: () => number,
+  controls: CheckerDiamondLatticeControlState | null,
+): CheckerDiamondLatticeGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultCheckerDiamondLatticeControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    style: "checker",
+    cellSize: 4,
+    lineWidth: 1,
+    phase: 0,
+  } satisfies CheckerDiamondLatticeParameters;
+
+  return buildPatternedGeometricRecord(rng, {
+    algorithm: "checker-diamond-lattice",
+    title: CHECKER_DIAMOND_LATTICE_LABEL,
+    randomize: () => randomizeCheckerDiamondLatticeParameters(rng, defaults),
+    buildBytes: buildCheckerDiamondLatticeMaskBytes,
+    buildSummary: buildCheckerDiamondLatticeSummary,
+    fallback,
+  });
+}
+
+function buildConcentricBoxesRecord(
+  rng: () => number,
+  controls: ConcentricBoxesControlState | null,
+): ConcentricBoxesGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultConcentricBoxesControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    ringCount: 5,
+    spacing: 2,
+    lineWidth: 1,
+    drift: 1,
+  } satisfies ConcentricBoxesParameters;
+
+  return buildPatternedGeometricRecord(rng, {
+    algorithm: "concentric-boxes",
+    title: CONCENTRIC_BOXES_LABEL,
+    randomize: () => randomizeConcentricBoxesParameters(rng, defaults),
+    buildBytes: buildConcentricBoxesMaskBytes,
+    buildSummary: buildConcentricBoxesSummary,
+    fallback,
+  });
+}
+
+function buildLineInterferenceRecord(
+  rng: () => number,
+  controls: LineInterferenceControlState | null,
+): LineInterferenceGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultLineInterferenceControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    angleA: 45,
+    angleB: 135,
+    spacing: 5,
+    strokeWidth: 1,
+  } satisfies LineInterferenceParameters;
+
+  return buildPatternedGeometricRecord(rng, {
+    algorithm: "line-interference",
+    title: LINE_INTERFERENCE_LABEL,
+    randomize: () => randomizeLineInterferenceParameters(rng, defaults),
+    buildBytes: buildLineInterferenceMaskBytes,
+    buildSummary: buildLineInterferenceSummary,
+    fallback,
+  });
+}
+
+function buildCirclePackingRecord(
+  rng: () => number,
+  controls: CirclePackingControlState | null,
+): CirclePackingGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultCirclePackingControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    circleCount: 7,
+    minRadius: 1,
+    maxRadius: 4,
+    outline: false,
+  } satisfies CirclePackingParameters;
+
+  return buildPatternedGeometricRecord(rng, {
+    algorithm: "circle-packing",
+    title: CIRCLE_PACKING_LABEL,
+    randomize: () => randomizeCirclePackingParameters(rng, defaults),
+    buildBytes: buildCirclePackingMaskBytes,
+    buildSummary: buildCirclePackingSummary,
     fallback,
   });
 }
@@ -3356,6 +3827,185 @@ function randomizeBlueprintGeneratorParameters(
       defaults.chamberDepth,
       () => sampleOne(rng, BLUEPRINT_CHAMBER_DEPTH_VALUES),
       sanitizeBlueprintChamberDepth,
+    ),
+  };
+}
+
+function randomizePatternedGeometricBaseParameters(
+  rng: () => number,
+  defaults: PatternedGeometricBaseControlState,
+): PatternedGeometricBaseParameters {
+  return {
+    seed: resolveRandomizableValue(
+      defaults.seed,
+      () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
+      sanitizeSeed,
+    ),
+    blockSize: resolveRandomizableValue(
+      defaults.blockSize,
+      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
+      sampleClosestNoiseBlockSize,
+    ),
+    invert: resolveRandomizableValue(
+      defaults.invert,
+      () => rng() < 0.12,
+      (value) => !!value,
+    ),
+  };
+}
+
+function randomizeStripePlaidGeneratorParameters(
+  rng: () => number,
+  defaults: StripePlaidGeneratorControlState,
+): StripePlaidGeneratorParameters {
+  const base = randomizePatternedGeometricBaseParameters(rng, defaults);
+  return {
+    ...base,
+    mode: resolveRandomizableValue(
+      defaults.mode,
+      () => sampleOne(rng, STRIPE_PLAID_MODE_OPTIONS),
+      sanitizeStripePlaidMode,
+    ),
+    spacing: resolveRandomizableValue(
+      defaults.spacing,
+      () => sampleOne(rng, STRIPE_PLAID_SPACING_VALUES),
+      sanitizeStripePlaidSpacing,
+    ),
+    bandWidth: resolveRandomizableValue(
+      defaults.bandWidth,
+      () => sampleOne(rng, STRIPE_PLAID_BAND_WIDTH_VALUES),
+      sanitizeStripePlaidBandWidth,
+    ),
+    offset: resolveRandomizableValue(
+      defaults.offset,
+      () => sampleOne(rng, STRIPE_PLAID_OFFSET_VALUES),
+      sanitizeStripePlaidOffset,
+    ),
+  };
+}
+
+function randomizeCheckerDiamondLatticeParameters(
+  rng: () => number,
+  defaults: CheckerDiamondLatticeControlState,
+): CheckerDiamondLatticeParameters {
+  const base = randomizePatternedGeometricBaseParameters(rng, defaults);
+  return {
+    ...base,
+    style: resolveRandomizableValue(
+      defaults.style,
+      () => sampleOne(rng, CHECKER_DIAMOND_LATTICE_STYLE_OPTIONS),
+      sanitizeCheckerDiamondLatticeStyle,
+    ),
+    cellSize: resolveRandomizableValue(
+      defaults.cellSize,
+      () => sampleOne(rng, CHECKER_DIAMOND_CELL_SIZE_VALUES),
+      sanitizeCheckerDiamondCellSize,
+    ),
+    lineWidth: resolveRandomizableValue(
+      defaults.lineWidth,
+      () => sampleOne(rng, CHECKER_DIAMOND_LINE_WIDTH_VALUES),
+      sanitizeCheckerDiamondLineWidth,
+    ),
+    phase: resolveRandomizableValue(
+      defaults.phase,
+      () => sampleOne(rng, CHECKER_DIAMOND_PHASE_VALUES),
+      sanitizeCheckerDiamondPhase,
+    ),
+  };
+}
+
+function randomizeConcentricBoxesParameters(
+  rng: () => number,
+  defaults: ConcentricBoxesControlState,
+): ConcentricBoxesParameters {
+  const base = randomizePatternedGeometricBaseParameters(rng, defaults);
+  return {
+    ...base,
+    ringCount: resolveRandomizableValue(
+      defaults.ringCount,
+      () => sampleOne(rng, CONCENTRIC_BOX_RING_COUNT_VALUES),
+      sanitizeConcentricBoxRingCount,
+    ),
+    spacing: resolveRandomizableValue(
+      defaults.spacing,
+      () => sampleOne(rng, CONCENTRIC_BOX_SPACING_VALUES),
+      sanitizeConcentricBoxSpacing,
+    ),
+    lineWidth: resolveRandomizableValue(
+      defaults.lineWidth,
+      () => sampleOne(rng, CONCENTRIC_BOX_LINE_WIDTH_VALUES),
+      sanitizeConcentricBoxLineWidth,
+    ),
+    drift: resolveRandomizableValue(
+      defaults.drift,
+      () => sampleOne(rng, CONCENTRIC_BOX_DRIFT_VALUES),
+      sanitizeConcentricBoxDrift,
+    ),
+  };
+}
+
+function randomizeLineInterferenceParameters(
+  rng: () => number,
+  defaults: LineInterferenceControlState,
+): LineInterferenceParameters {
+  const base = randomizePatternedGeometricBaseParameters(rng, defaults);
+  return {
+    ...base,
+    angleA: resolveRandomizableValue(
+      defaults.angleA,
+      () => sampleOne(rng, THRESHOLDED_GRADIENT_ANGLE_VALUES),
+      sanitizeThresholdedGradientAngle,
+    ),
+    angleB: resolveRandomizableValue(
+      defaults.angleB,
+      () => sampleOne(rng, THRESHOLDED_GRADIENT_ANGLE_VALUES),
+      sanitizeThresholdedGradientAngle,
+    ),
+    spacing: resolveRandomizableValue(
+      defaults.spacing,
+      () => sampleOne(rng, LINE_INTERFERENCE_SPACING_VALUES),
+      sanitizeLineInterferenceSpacing,
+    ),
+    strokeWidth: resolveRandomizableValue(
+      defaults.strokeWidth,
+      () => sampleOne(rng, LINE_INTERFERENCE_STROKE_WIDTH_VALUES),
+      sanitizeLineInterferenceStrokeWidth,
+    ),
+  };
+}
+
+function randomizeCirclePackingParameters(
+  rng: () => number,
+  defaults: CirclePackingControlState,
+): CirclePackingParameters {
+  const base = randomizePatternedGeometricBaseParameters(rng, defaults);
+  const minRadius = resolveRandomizableValue(
+    defaults.minRadius,
+    () => sampleOne(rng, CIRCLE_PACKING_MIN_RADIUS_VALUES),
+    sanitizeCirclePackingMinRadius,
+  );
+  const maxRadius = Math.max(
+    minRadius,
+    resolveRandomizableValue(
+      defaults.maxRadius,
+      () => sampleOne(rng, CIRCLE_PACKING_MAX_RADIUS_VALUES),
+      sanitizeCirclePackingMaxRadius,
+    ),
+  );
+
+  return {
+    ...base,
+    circleCount: resolveRandomizableValue(
+      defaults.circleCount,
+      () => sampleOne(rng, CIRCLE_PACKING_COUNT_VALUES),
+      sanitizeCirclePackingCount,
+    ),
+    minRadius,
+    maxRadius,
+    outline: resolveRandomizableValue(
+      defaults.outline,
+      () => rng() < 0.4,
+      (value) => !!value,
     ),
   };
 }
@@ -4549,6 +5199,212 @@ function buildBlueprintGeneratorMaskBytes(params: BlueprintGeneratorParameters):
   return params.invert ? invertMaskBytes(bytes) : bytes;
 }
 
+function buildStripePlaidGeneratorMaskBytes(params: StripePlaidGeneratorParameters): Uint8Array {
+  const grid = createPatternSourceGrid(params.blockSize);
+  const spacing = Math.max(params.bandWidth + 1, params.spacing);
+  const horizontalOffset = positiveModulo(
+    params.offset + Math.floor(hashFloat(params.seed, 17, 29) * spacing),
+    spacing,
+  );
+  const verticalOffset = positiveModulo(
+    params.offset + Math.floor(hashFloat(params.seed, 31, 43) * spacing),
+    spacing,
+  );
+
+  if (params.mode !== "vertical") {
+    for (let y = horizontalOffset; y < grid.height; y += spacing) {
+      fillPatternRect(grid.cells, grid.width, grid.height, 0, y, grid.width, params.bandWidth, 1);
+    }
+  }
+  if (params.mode !== "horizontal") {
+    for (let x = verticalOffset; x < grid.width; x += spacing) {
+      fillPatternRect(grid.cells, grid.width, grid.height, x, 0, params.bandWidth, grid.height, 1);
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildCheckerDiamondLatticeMaskBytes(params: CheckerDiamondLatticeParameters): Uint8Array {
+  const grid = createPatternSourceGrid(params.blockSize);
+  const period = Math.max(2, params.cellSize * 2);
+  const lineWidth = Math.min(params.lineWidth, params.cellSize);
+  const phaseX = params.phase + Math.floor(hashFloat(params.seed, 13, 19) * period);
+  const phaseY = params.phase + Math.floor(hashFloat(params.seed, 23, 37) * period);
+
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      if (params.style === "checker") {
+        const cellX = Math.floor((x + phaseX) / params.cellSize);
+        const cellY = Math.floor((y + phaseY) / params.cellSize);
+        if ((cellX + cellY) % 2 === 0) {
+          setPatternCell(grid.cells, grid.width, grid.height, x, y, 1);
+        }
+        continue;
+      }
+
+      if (params.style === "diamond") {
+        const localX = positiveModulo(x + phaseX, period);
+        const localY = positiveModulo(y + phaseY, period);
+        const distance = Math.abs(localX - params.cellSize) + Math.abs(localY - params.cellSize);
+        if (distance <= params.cellSize && distance >= params.cellSize - lineWidth + 1) {
+          setPatternCell(grid.cells, grid.width, grid.height, x, y, 1);
+        }
+        continue;
+      }
+
+      const localX = positiveModulo(x + phaseX, params.cellSize);
+      const localY = positiveModulo(y + phaseY, params.cellSize);
+      if (
+        localX < lineWidth ||
+        localY < lineWidth ||
+        localX >= params.cellSize - lineWidth ||
+        localY >= params.cellSize - lineWidth
+      ) {
+        setPatternCell(grid.cells, grid.width, grid.height, x, y, 1);
+      }
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildConcentricBoxesMaskBytes(params: ConcentricBoxesParameters): Uint8Array {
+  const grid = createPatternSourceGrid(params.blockSize);
+
+  for (let ring = 0; ring < params.ringCount; ring++) {
+    const inset = ring * params.spacing;
+    const shiftX = Math.round((hashFloat(params.seed, ring + 11, 17) * 2 - 1) * params.drift);
+    const shiftY = Math.round((hashFloat(params.seed, ring + 23, 31) * 2 - 1) * params.drift);
+    const leftInset = inset + Math.max(0, shiftX);
+    const rightInset = inset + Math.max(0, -shiftX);
+    const topInset = inset + Math.max(0, shiftY);
+    const bottomInset = inset + Math.max(0, -shiftY);
+    const rectWidth = grid.width - leftInset - rightInset;
+    const rectHeight = grid.height - topInset - bottomInset;
+    if (rectWidth < params.lineWidth * 2 + 1 || rectHeight < params.lineWidth * 2 + 1) break;
+
+    strokePatternRect(
+      grid.cells,
+      grid.width,
+      grid.height,
+      leftInset,
+      topInset,
+      rectWidth,
+      rectHeight,
+      params.lineWidth,
+      1,
+    );
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildLineInterferenceMaskBytes(params: LineInterferenceParameters): Uint8Array {
+  const grid = createPatternSourceGrid(params.blockSize);
+  drawLineInterferenceField(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.angleA,
+    params.spacing,
+    params.strokeWidth,
+    hashFloat(params.seed, 41, 53) * params.spacing,
+  );
+  drawLineInterferenceField(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.angleB,
+    params.spacing,
+    params.strokeWidth,
+    hashFloat(params.seed, 67, 79) * params.spacing,
+  );
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildCirclePackingMaskBytes(params: CirclePackingParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  const maxAllowedRadius = Math.max(1, Math.floor((Math.min(grid.width, grid.height) - 1) / 2));
+  const minRadius = Math.min(params.minRadius, maxAllowedRadius);
+  const maxRadius = Math.max(minRadius, Math.min(params.maxRadius, maxAllowedRadius));
+  const circles: Array<Readonly<{ x: number; y: number; radius: number }>> = [];
+
+  for (
+    let attempt = 0;
+    attempt < params.circleCount * 40 && circles.length < params.circleCount;
+    attempt++
+  ) {
+    const radius = randomInt(rng, minRadius, maxRadius);
+    const x = randomInt(rng, radius, Math.max(radius, grid.width - 1 - radius));
+    const y = randomInt(rng, radius, Math.max(radius, grid.height - 1 - radius));
+    if (
+      circles.some((circle) => {
+        const dx = circle.x - x;
+        const dy = circle.y - y;
+        return dx * dx + dy * dy < (circle.radius + radius + 1) ** 2;
+      })
+    ) {
+      continue;
+    }
+    circles.push({ x, y, radius });
+  }
+
+  if (circles.length === 0) {
+    circles.push({
+      x: Math.floor(grid.width / 2),
+      y: Math.floor(grid.height / 2),
+      radius: minRadius,
+    });
+  }
+
+  for (const circle of circles) {
+    stampPatternCircle(
+      grid.cells,
+      grid.width,
+      grid.height,
+      circle.x,
+      circle.y,
+      circle.radius,
+      params.outline,
+    );
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
 function buildGameOfLifeVariantsMaskBytes(params: GameOfLifeVariantsParameters): Uint8Array {
   const rng = createSeededRandom(params.seed);
   const grid = createPatternSourceGrid(params.blockSize);
@@ -5602,6 +6458,64 @@ function buildBlueprintGeneratorSummary(params: BlueprintGeneratorParameters): s
   );
 }
 
+function buildStripePlaidGeneratorSummary(params: StripePlaidGeneratorParameters): string {
+  return buildPatternedGeometricSummary(
+    [
+      formatStripePlaidModeLabel(params.mode),
+      `${params.spacing} spacing`,
+      `${params.bandWidth}-wide bands`,
+      `${params.offset} offset`,
+    ],
+    params,
+  );
+}
+
+function buildCheckerDiamondLatticeSummary(params: CheckerDiamondLatticeParameters): string {
+  return buildPatternedGeometricSummary(
+    [
+      formatCheckerDiamondLatticeStyleLabel(params.style),
+      `${params.cellSize} cell`,
+      `${params.lineWidth}px line`,
+      `${params.phase} phase`,
+    ],
+    params,
+  );
+}
+
+function buildConcentricBoxesSummary(params: ConcentricBoxesParameters): string {
+  return buildPatternedGeometricSummary(
+    [
+      `${params.ringCount} rings`,
+      `${params.spacing} gap`,
+      `${params.lineWidth}px line`,
+      `${params.drift} drift`,
+    ],
+    params,
+  );
+}
+
+function buildLineInterferenceSummary(params: LineInterferenceParameters): string {
+  return buildPatternedGeometricSummary(
+    [
+      `${params.angleA}° / ${params.angleB}°`,
+      `${params.spacing} spacing`,
+      `${params.strokeWidth}px stroke`,
+    ],
+    params,
+  );
+}
+
+function buildCirclePackingSummary(params: CirclePackingParameters): string {
+  return buildPatternedGeometricSummary(
+    [
+      `${params.circleCount} circles`,
+      `${params.minRadius}-${params.maxRadius} radius`,
+      params.outline ? "outline" : "filled",
+    ],
+    params,
+  );
+}
+
 function buildNoiseTerrainSummary(parts: string[], params: NoiseTerrainBaseParameters): string {
   return [
     `${params.blockSize}x${params.blockSize} blocks`,
@@ -5624,6 +6538,19 @@ function buildOrnamentSummary(parts: string[], params: OrnamentBaseParameters): 
 }
 
 function buildArchitectureSummary(parts: string[], params: ArchitectureBaseParameters): string {
+  return [
+    `${params.blockSize}x${params.blockSize} blocks`,
+    ...parts,
+    params.invert ? "inverted" : null,
+  ]
+    .filter((value): value is string => value !== null)
+    .join(" • ");
+}
+
+function buildPatternedGeometricSummary(
+  parts: string[],
+  params: PatternedGeometricBaseParameters,
+): string {
   return [
     `${params.blockSize}x${params.blockSize} blocks`,
     ...parts,
@@ -6132,6 +7059,68 @@ function stampSourceBrush(
 
   if (radius === 0) {
     setPatternCell(cells, width, height, roundedX, roundedY, 1);
+  }
+}
+
+function drawLineInterferenceField(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  angleDegrees: number,
+  spacing: number,
+  strokeWidth: number,
+  phase: number,
+): void {
+  const angle = (angleDegrees * Math.PI) / 180;
+  const directionX = Math.cos(angle);
+  const directionY = Math.sin(angle);
+  const normalX = -directionY;
+  const normalY = directionX;
+  const centerX = (width - 1) / 2;
+  const centerY = (height - 1) / 2;
+  const lineLength = Math.hypot(width, height) * 2;
+  const offsetRange = Math.hypot(width, height);
+
+  for (let offset = -offsetRange; offset <= offsetRange; offset += Math.max(1, spacing)) {
+    const shiftedOffset = offset + phase;
+    const lineCenterX = centerX + normalX * shiftedOffset;
+    const lineCenterY = centerY + normalY * shiftedOffset;
+    drawSourceLine(
+      cells,
+      width,
+      height,
+      lineCenterX - directionX * lineLength,
+      lineCenterY - directionY * lineLength,
+      lineCenterX + directionX * lineLength,
+      lineCenterY + directionY * lineLength,
+      strokeWidth,
+    );
+  }
+}
+
+function stampPatternCircle(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  radius: number,
+  outline: boolean,
+): void {
+  const radiusSq = radius * radius;
+  const innerRadius = Math.max(0, radius - 1);
+  const innerRadiusSq = innerRadius * innerRadius;
+
+  for (let y = centerY - radius; y <= centerY + radius; y++) {
+    for (let x = centerX - radius; x <= centerX + radius; x++) {
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq > radiusSq) continue;
+      if (outline && distanceSq < innerRadiusSq) continue;
+      setPatternCell(cells, width, height, x, y, 1);
+    }
   }
 }
 
@@ -7438,6 +8427,80 @@ function sanitizeBlueprintChamberDepth(value: number): number {
   return clamp(Math.round(value), BLUEPRINT_CHAMBER_DEPTH_MIN, BLUEPRINT_CHAMBER_DEPTH_MAX);
 }
 
+function sanitizeStripePlaidMode(value: StripePlaidMode): StripePlaidMode {
+  return STRIPE_PLAID_MODE_OPTIONS.includes(value) ? value : "plaid";
+}
+
+function sanitizeStripePlaidSpacing(value: number): number {
+  return clamp(Math.round(value), STRIPE_PLAID_SPACING_MIN, STRIPE_PLAID_SPACING_MAX);
+}
+
+function sanitizeStripePlaidBandWidth(value: number): number {
+  return clamp(Math.round(value), STRIPE_PLAID_BAND_WIDTH_MIN, STRIPE_PLAID_BAND_WIDTH_MAX);
+}
+
+function sanitizeStripePlaidOffset(value: number): number {
+  return clamp(Math.round(value), STRIPE_PLAID_OFFSET_MIN, STRIPE_PLAID_OFFSET_MAX);
+}
+
+function sanitizeCheckerDiamondLatticeStyle(
+  value: CheckerDiamondLatticeStyle,
+): CheckerDiamondLatticeStyle {
+  return CHECKER_DIAMOND_LATTICE_STYLE_OPTIONS.includes(value) ? value : "checker";
+}
+
+function sanitizeCheckerDiamondCellSize(value: number): number {
+  return clamp(Math.round(value), CHECKER_DIAMOND_CELL_SIZE_MIN, CHECKER_DIAMOND_CELL_SIZE_MAX);
+}
+
+function sanitizeCheckerDiamondLineWidth(value: number): number {
+  return clamp(Math.round(value), CHECKER_DIAMOND_LINE_WIDTH_MIN, CHECKER_DIAMOND_LINE_WIDTH_MAX);
+}
+
+function sanitizeCheckerDiamondPhase(value: number): number {
+  return clamp(Math.round(value), CHECKER_DIAMOND_PHASE_MIN, CHECKER_DIAMOND_PHASE_MAX);
+}
+
+function sanitizeConcentricBoxRingCount(value: number): number {
+  return clamp(Math.round(value), CONCENTRIC_BOX_RING_COUNT_MIN, CONCENTRIC_BOX_RING_COUNT_MAX);
+}
+
+function sanitizeConcentricBoxSpacing(value: number): number {
+  return clamp(Math.round(value), CONCENTRIC_BOX_SPACING_MIN, CONCENTRIC_BOX_SPACING_MAX);
+}
+
+function sanitizeConcentricBoxLineWidth(value: number): number {
+  return clamp(Math.round(value), CONCENTRIC_BOX_LINE_WIDTH_MIN, CONCENTRIC_BOX_LINE_WIDTH_MAX);
+}
+
+function sanitizeConcentricBoxDrift(value: number): number {
+  return clamp(Math.round(value), CONCENTRIC_BOX_DRIFT_MIN, CONCENTRIC_BOX_DRIFT_MAX);
+}
+
+function sanitizeLineInterferenceSpacing(value: number): number {
+  return clamp(Math.round(value), LINE_INTERFERENCE_SPACING_MIN, LINE_INTERFERENCE_SPACING_MAX);
+}
+
+function sanitizeLineInterferenceStrokeWidth(value: number): number {
+  return clamp(
+    Math.round(value),
+    LINE_INTERFERENCE_STROKE_WIDTH_MIN,
+    LINE_INTERFERENCE_STROKE_WIDTH_MAX,
+  );
+}
+
+function sanitizeCirclePackingCount(value: number): number {
+  return clamp(Math.round(value), CIRCLE_PACKING_COUNT_MIN, CIRCLE_PACKING_COUNT_MAX);
+}
+
+function sanitizeCirclePackingMinRadius(value: number): number {
+  return clamp(Math.round(value), CIRCLE_PACKING_MIN_RADIUS_MIN, CIRCLE_PACKING_MIN_RADIUS_MAX);
+}
+
+function sanitizeCirclePackingMaxRadius(value: number): number {
+  return clamp(Math.round(value), CIRCLE_PACKING_MAX_RADIUS_MIN, CIRCLE_PACKING_MAX_RADIUS_MAX);
+}
+
 function sanitizeGameOfLifeDensity(value: number): number {
   return normalizeSteppedValue(
     value,
@@ -7743,6 +8806,32 @@ function hashFloat(seed: number, x: number, y: number): number {
   state = Math.imul(state ^ (state >>> 13), 1274126177);
   state ^= state >>> 16;
   return (state >>> 0) / 4294967295;
+}
+
+function positiveModulo(value: number, modulus: number): number {
+  return ((value % modulus) + modulus) % modulus;
+}
+
+function formatStripePlaidModeLabel(mode: StripePlaidMode): string {
+  switch (mode) {
+    case "horizontal":
+      return "horizontal";
+    case "vertical":
+      return "vertical";
+    case "plaid":
+      return "plaid";
+  }
+}
+
+function formatCheckerDiamondLatticeStyleLabel(style: CheckerDiamondLatticeStyle): string {
+  switch (style) {
+    case "checker":
+      return "checker";
+    case "diamond":
+      return "diamond";
+    case "lattice":
+      return "lattice";
+  }
 }
 
 function formatNoiseScale(value: number): string {

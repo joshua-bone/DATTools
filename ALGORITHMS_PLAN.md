@@ -37,6 +37,11 @@ Currently implemented in the modal:
 - `Room Scatter`
 - `Courtyard Generator`
 - `Blueprint Generator`
+- `Stripe / Plaid Generator`
+- `Checker / Diamond / Lattice`
+- `Concentric Boxes`
+- `Line Interference`
+- `Circle Packing`
 - `Game of Life Variants`
 - `Diffusion-Limited Aggregation`
 - `Reaction-Diffusion Approximation`
@@ -121,11 +126,11 @@ These are good follow-up generators that are not primarily maze algorithms, but 
 
 ### Patterned And Geometric
 
-- `Stripe / Plaid Generator`: horizontal, vertical, and woven band patterns.
-- `Checker / Diamond / Lattice`: regular geometric tilings with phase and scale controls.
-- `Concentric Boxes`: nested rectangles, stepped ziggurats, or target-like layouts.
-- `Line Interference`: overlapping line fields at different angles for technical or abstract patterns.
-- `Circle Packing`: packed discs or rounded cells turned into walls by thresholding overlaps.
+- Done: `Stripe / Plaid Generator`, with mode, spacing, band-width, offset, invert, and block-size controls.
+- Done: `Checker / Diamond / Lattice`, with style, cell-size, line-width, phase, invert, and block-size controls.
+- Done: `Concentric Boxes`, with ring-count, spacing, line-width, drift, invert, and block-size controls.
+- Done: `Line Interference`, with angle-a, angle-b, spacing, stroke-width, invert, and block-size controls.
+- Done: `Circle Packing`, with circle-count, min-radius, max-radius, outline, invert, and block-size controls.
 
 ### Chaotic And Procedural Art
 
