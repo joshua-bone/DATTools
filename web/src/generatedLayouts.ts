@@ -1013,6 +1013,59 @@ export type GrowingTreeControlState = MazeBaseControlState &
 
 export type RecursiveDivisionControlState = MazeSeedBlockControlState;
 
+type GeneratedContentSize = Readonly<{
+  width: number;
+  height: number;
+}>;
+
+type GenerateAlgorithmControlSelections = Readonly<{
+  randomNoiseControls: RandomNoiseControlState | null;
+  perlinNoiseControls: PerlinNoiseControlState | null;
+  valueFractalNoiseControls: ValueFractalNoiseControlState | null;
+  worleyNoiseControls: WorleyNoiseControlState | null;
+  thresholdedGradientNoiseControls: ThresholdedGradientNoiseControlState | null;
+  domainWarpedNoiseControls: DomainWarpedNoiseControlState | null;
+  radialSymmetryControls: RadialSymmetryControlState | null;
+  kaleidoscopeControls: KaleidoscopeControlState | null;
+  lSystemTurtleControls: LSystemTurtleControlState | null;
+  roseCurvesControls: RoseCurvesControlState | null;
+  tileableMotifRepeaterControls: TileableMotifRepeaterControlState | null;
+  bspRoomPartitionerControls: BspRoomPartitionerControlState | null;
+  corridorGridControls: CorridorGridControlState | null;
+  roomScatterControls: RoomScatterControlState | null;
+  courtyardGeneratorControls: CourtyardGeneratorControlState | null;
+  blueprintGeneratorControls: BlueprintGeneratorControlState | null;
+  stripePlaidGeneratorControls: StripePlaidGeneratorControlState | null;
+  checkerDiamondLatticeControls: CheckerDiamondLatticeControlState | null;
+  concentricBoxesControls: ConcentricBoxesControlState | null;
+  lineInterferenceControls: LineInterferenceControlState | null;
+  circlePackingControls: CirclePackingControlState | null;
+  drunkWalkPainterControls: DrunkWalkPainterControlState | null;
+  particleFlowFieldControls: ParticleFlowFieldControlState | null;
+  stampBrushGeneratorControls: StampBrushGeneratorControlState | null;
+  cutoutCollageControls: CutoutCollageControlState | null;
+  glitchBlocksControls: GlitchBlocksControlState | null;
+  gameOfLifeVariantsControls: GameOfLifeVariantsControlState | null;
+  diffusionLimitedAggregationControls: DiffusionLimitedAggregationControlState | null;
+  reactionDiffusionApproximationControls: ReactionDiffusionApproximationControlState | null;
+  voronoiRegionCarverControls: VoronoiRegionCarverControlState | null;
+  erosionDilationPipelineControls: ErosionDilationPipelineControlState | null;
+  backtrackingControls: BacktrackingControlState | null;
+  primsControls: PrimsControlState | null;
+  kruskalsControls: KruskalsControlState | null;
+  sidewinderControls: SidewinderControlState | null;
+  binaryTreeControls: BinaryTreeControlState | null;
+  huntAndKillControls: HuntAndKillControlState | null;
+  wilsonsControls: WilsonsControlState | null;
+  aldousBroderControls: AldousBroderControlState | null;
+  ellersControls: EllersControlState | null;
+  cellularAutomatonControls: CellularAutomatonControlState | null;
+  dungeonRoomsControls: DungeonRoomsControlState | null;
+  trivialMazeControls: TrivialMazeControlState | null;
+  growingTreeControls: GrowingTreeControlState | null;
+  recursiveDivisionControls: RecursiveDivisionControlState | null;
+}>;
+
 type BaseGeneratedLayoutRecord<
   Algorithm extends GenerateRecordAlgorithm,
   Params extends
@@ -1332,60 +1385,6 @@ export type GeneratedLayoutRecord =
   | RecursiveDivisionGeneratedLayoutRecord
   | StarredGeneratedLayoutRecord;
 
-export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
-  Readonly<{ value: GenerateAlgorithmChoice; label: string }>
-> = [
-  { value: "any", label: "Any" },
-  { value: "random-noise", label: "Random Noise" },
-  { value: "perlin-noise", label: "Perlin Noise" },
-  { value: "value-fractal-noise", label: "Value Noise / Fractal Noise" },
-  { value: "worley-noise", label: "Worley / Cellular Noise" },
-  { value: "thresholded-gradient-noise", label: "Thresholded Gradient Noise" },
-  { value: "domain-warped-noise", label: "Domain-Warped Noise" },
-  { value: "radial-symmetry", label: "Radial Symmetry" },
-  { value: "kaleidoscope", label: "Kaleidoscope" },
-  { value: "l-system-turtle", label: "L-System / Turtle Patterns" },
-  { value: "rose-curves", label: "Rose Curves / Polar Patterns" },
-  { value: "tileable-motif-repeater", label: "Tileable Motif Repeater" },
-  { value: "bsp-room-partitioner", label: "BSP Room Partitioner" },
-  { value: "corridor-grid", label: "Corridor Grid" },
-  { value: "room-scatter", label: "Room Scatter" },
-  { value: "courtyard-generator", label: "Courtyard Generator" },
-  { value: "blueprint-generator", label: "Blueprint Generator" },
-  { value: "stripe-plaid-generator", label: "Stripe / Plaid Generator" },
-  { value: "checker-diamond-lattice", label: "Checker / Diamond / Lattice" },
-  { value: "concentric-boxes", label: "Concentric Boxes" },
-  { value: "line-interference", label: "Line Interference" },
-  { value: "circle-packing", label: "Circle Packing" },
-  { value: "drunk-walk-painter", label: "Drunk Walk Painter" },
-  { value: "particle-flow-field", label: "Particle Flow Field" },
-  { value: "stamp-brush-generator", label: "Stamp Brush Generator" },
-  { value: "cutout-collage", label: "Cutout Collage" },
-  { value: "glitch-blocks", label: "Glitch Blocks" },
-  { value: "game-of-life-variants", label: "Game of Life Variants" },
-  { value: "diffusion-limited-aggregation", label: "Diffusion-Limited Aggregation" },
-  {
-    value: "reaction-diffusion-approximation",
-    label: "Reaction-Diffusion Approximation",
-  },
-  { value: "voronoi-region-carver", label: "Voronoi Region Carver" },
-  { value: "erosion-dilation-pipeline", label: "Erosion / Dilation Pipeline" },
-  { value: "backtracking-generator", label: "Backtracking Generator" },
-  { value: "growing-tree", label: "Growing Tree" },
-  { value: "prims", label: "Prim's" },
-  { value: "recursive-division", label: "Recursive Division" },
-  { value: "kruskals", label: "Kruskal's" },
-  { value: "sidewinder", label: "Sidewinder" },
-  { value: "binary-tree", label: "Binary Tree" },
-  { value: "hunt-and-kill", label: "Hunt-and-Kill" },
-  { value: "wilsons", label: "Wilson's" },
-  { value: "aldous-broder", label: "Aldous-Broder" },
-  { value: "ellers", label: "Eller's" },
-  { value: "cellular-automaton", label: "Cellular Automaton" },
-  { value: "dungeon-rooms", label: "Dungeon Rooms" },
-  { value: "trivial-maze", label: "Trivial Maze" },
-];
-
 const RANDOM_NOISE_LABEL = "Random Noise";
 const PERLIN_NOISE_LABEL = "Perlin Noise";
 const VALUE_FRACTAL_NOISE_LABEL = "Value Noise / Fractal Noise";
@@ -1433,52 +1432,260 @@ const GROWING_TREE_LABEL = "Growing Tree";
 const RECURSIVE_DIVISION_LABEL = "Recursive Division";
 const GENERATED_LAYOUT_MIN_WALL_COUNT = 24;
 const GENERATED_LAYOUT_MAX_WALL_COUNT = 1000;
-const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
-  "random-noise",
-  "perlin-noise",
-  "value-fractal-noise",
-  "worley-noise",
-  "thresholded-gradient-noise",
-  "domain-warped-noise",
-  "radial-symmetry",
-  "kaleidoscope",
-  "l-system-turtle",
-  "rose-curves",
-  "tileable-motif-repeater",
-  "bsp-room-partitioner",
-  "corridor-grid",
-  "room-scatter",
-  "courtyard-generator",
-  "blueprint-generator",
-  "stripe-plaid-generator",
-  "checker-diamond-lattice",
-  "concentric-boxes",
-  "line-interference",
-  "circle-packing",
-  "drunk-walk-painter",
-  "particle-flow-field",
-  "stamp-brush-generator",
-  "cutout-collage",
-  "glitch-blocks",
-  "game-of-life-variants",
-  "diffusion-limited-aggregation",
-  "reaction-diffusion-approximation",
-  "voronoi-region-carver",
-  "erosion-dilation-pipeline",
-  "backtracking-generator",
-  "growing-tree",
-  "prims",
-  "recursive-division",
-  "kruskals",
-  "sidewinder",
-  "binary-tree",
-  "hunt-and-kill",
-  "wilsons",
-  "aldous-broder",
-  "ellers",
-  "cellular-automaton",
-  "dungeon-rooms",
-  "trivial-maze",
+
+type GenerateAlgorithmRegistryEntry = Readonly<{
+  id: GenerateAlgorithmId;
+  label: string;
+  generate: (
+    rng: () => number,
+    contentSize: GeneratedContentSize,
+    controls: GenerateAlgorithmControlSelections,
+  ) => GeneratedLayoutRecord;
+}>;
+
+function defineGenerateAlgorithm(
+  id: GenerateAlgorithmId,
+  label: string,
+  generate: GenerateAlgorithmRegistryEntry["generate"],
+): GenerateAlgorithmRegistryEntry {
+  return { id, label, generate };
+}
+
+const GENERATE_ALGORITHM_REGISTRY: ReadonlyArray<GenerateAlgorithmRegistryEntry> = [
+  defineGenerateAlgorithm("random-noise", RANDOM_NOISE_LABEL, (rng, contentSize, controls) =>
+    buildRandomNoiseRecord(rng, contentSize, controls.randomNoiseControls),
+  ),
+  defineGenerateAlgorithm("perlin-noise", PERLIN_NOISE_LABEL, (rng, contentSize, controls) =>
+    buildPerlinNoiseRecord(rng, contentSize, controls.perlinNoiseControls),
+  ),
+  defineGenerateAlgorithm(
+    "value-fractal-noise",
+    VALUE_FRACTAL_NOISE_LABEL,
+    (rng, contentSize, controls) =>
+      buildValueFractalNoiseRecord(rng, contentSize, controls.valueFractalNoiseControls),
+  ),
+  defineGenerateAlgorithm("worley-noise", WORLEY_NOISE_LABEL, (rng, contentSize, controls) =>
+    buildWorleyNoiseRecord(rng, contentSize, controls.worleyNoiseControls),
+  ),
+  defineGenerateAlgorithm(
+    "thresholded-gradient-noise",
+    THRESHOLDED_GRADIENT_NOISE_LABEL,
+    (rng, contentSize, controls) =>
+      buildThresholdedGradientNoiseRecord(
+        rng,
+        contentSize,
+        controls.thresholdedGradientNoiseControls,
+      ),
+  ),
+  defineGenerateAlgorithm(
+    "domain-warped-noise",
+    DOMAIN_WARPED_NOISE_LABEL,
+    (rng, contentSize, controls) =>
+      buildDomainWarpedNoiseRecord(rng, contentSize, controls.domainWarpedNoiseControls),
+  ),
+  defineGenerateAlgorithm("radial-symmetry", RADIAL_SYMMETRY_LABEL, (rng, contentSize, controls) =>
+    buildRadialSymmetryRecord(rng, contentSize, controls.radialSymmetryControls),
+  ),
+  defineGenerateAlgorithm("kaleidoscope", KALEIDOSCOPE_LABEL, (rng, contentSize, controls) =>
+    buildKaleidoscopeRecord(rng, contentSize, controls.kaleidoscopeControls),
+  ),
+  defineGenerateAlgorithm("l-system-turtle", LSYSTEM_TURTLE_LABEL, (rng, contentSize, controls) =>
+    buildLSystemTurtleRecord(rng, contentSize, controls.lSystemTurtleControls),
+  ),
+  defineGenerateAlgorithm("rose-curves", ROSE_CURVES_LABEL, (rng, contentSize, controls) =>
+    buildRoseCurvesRecord(rng, contentSize, controls.roseCurvesControls),
+  ),
+  defineGenerateAlgorithm(
+    "tileable-motif-repeater",
+    TILEABLE_MOTIF_REPEATER_LABEL,
+    (rng, contentSize, controls) =>
+      buildTileableMotifRepeaterRecord(rng, contentSize, controls.tileableMotifRepeaterControls),
+  ),
+  defineGenerateAlgorithm(
+    "bsp-room-partitioner",
+    BSP_ROOM_PARTITIONER_LABEL,
+    (rng, contentSize, controls) =>
+      buildBspRoomPartitionerRecord(rng, contentSize, controls.bspRoomPartitionerControls),
+  ),
+  defineGenerateAlgorithm("corridor-grid", CORRIDOR_GRID_LABEL, (rng, contentSize, controls) =>
+    buildCorridorGridRecord(rng, contentSize, controls.corridorGridControls),
+  ),
+  defineGenerateAlgorithm("room-scatter", ROOM_SCATTER_LABEL, (rng, contentSize, controls) =>
+    buildRoomScatterRecord(rng, contentSize, controls.roomScatterControls),
+  ),
+  defineGenerateAlgorithm(
+    "courtyard-generator",
+    COURTYARD_GENERATOR_LABEL,
+    (rng, contentSize, controls) =>
+      buildCourtyardGeneratorRecord(rng, contentSize, controls.courtyardGeneratorControls),
+  ),
+  defineGenerateAlgorithm(
+    "blueprint-generator",
+    BLUEPRINT_GENERATOR_LABEL,
+    (rng, contentSize, controls) =>
+      buildBlueprintGeneratorRecord(rng, contentSize, controls.blueprintGeneratorControls),
+  ),
+  defineGenerateAlgorithm(
+    "stripe-plaid-generator",
+    STRIPE_PLAID_GENERATOR_LABEL,
+    (rng, contentSize, controls) =>
+      buildStripePlaidGeneratorRecord(rng, contentSize, controls.stripePlaidGeneratorControls),
+  ),
+  defineGenerateAlgorithm(
+    "checker-diamond-lattice",
+    CHECKER_DIAMOND_LATTICE_LABEL,
+    (rng, contentSize, controls) =>
+      buildCheckerDiamondLatticeRecord(rng, contentSize, controls.checkerDiamondLatticeControls),
+  ),
+  defineGenerateAlgorithm(
+    "concentric-boxes",
+    CONCENTRIC_BOXES_LABEL,
+    (rng, contentSize, controls) =>
+      buildConcentricBoxesRecord(rng, contentSize, controls.concentricBoxesControls),
+  ),
+  defineGenerateAlgorithm(
+    "line-interference",
+    LINE_INTERFERENCE_LABEL,
+    (rng, contentSize, controls) =>
+      buildLineInterferenceRecord(rng, contentSize, controls.lineInterferenceControls),
+  ),
+  defineGenerateAlgorithm("circle-packing", CIRCLE_PACKING_LABEL, (rng, contentSize, controls) =>
+    buildCirclePackingRecord(rng, contentSize, controls.circlePackingControls),
+  ),
+  defineGenerateAlgorithm(
+    "drunk-walk-painter",
+    DRUNK_WALK_PAINTER_LABEL,
+    (rng, contentSize, controls) =>
+      buildDrunkWalkPainterRecord(rng, contentSize, controls.drunkWalkPainterControls),
+  ),
+  defineGenerateAlgorithm(
+    "particle-flow-field",
+    PARTICLE_FLOW_FIELD_LABEL,
+    (rng, contentSize, controls) =>
+      buildParticleFlowFieldRecord(rng, contentSize, controls.particleFlowFieldControls),
+  ),
+  defineGenerateAlgorithm(
+    "stamp-brush-generator",
+    STAMP_BRUSH_GENERATOR_LABEL,
+    (rng, contentSize, controls) =>
+      buildStampBrushGeneratorRecord(rng, contentSize, controls.stampBrushGeneratorControls),
+  ),
+  defineGenerateAlgorithm("cutout-collage", CUTOUT_COLLAGE_LABEL, (rng, contentSize, controls) =>
+    buildCutoutCollageRecord(rng, contentSize, controls.cutoutCollageControls),
+  ),
+  defineGenerateAlgorithm("glitch-blocks", GLITCH_BLOCKS_LABEL, (rng, contentSize, controls) =>
+    buildGlitchBlocksRecord(rng, contentSize, controls.glitchBlocksControls),
+  ),
+  defineGenerateAlgorithm(
+    "game-of-life-variants",
+    GAME_OF_LIFE_VARIANTS_LABEL,
+    (rng, contentSize, controls) =>
+      buildGameOfLifeVariantsRecord(rng, contentSize, controls.gameOfLifeVariantsControls),
+  ),
+  defineGenerateAlgorithm(
+    "diffusion-limited-aggregation",
+    DIFFUSION_LIMITED_AGGREGATION_LABEL,
+    (rng, contentSize, controls) =>
+      buildDiffusionLimitedAggregationRecord(
+        rng,
+        contentSize,
+        controls.diffusionLimitedAggregationControls,
+      ),
+  ),
+  defineGenerateAlgorithm(
+    "reaction-diffusion-approximation",
+    REACTION_DIFFUSION_APPROXIMATION_LABEL,
+    (rng, contentSize, controls) =>
+      buildReactionDiffusionApproximationRecord(
+        rng,
+        contentSize,
+        controls.reactionDiffusionApproximationControls,
+      ),
+  ),
+  defineGenerateAlgorithm(
+    "voronoi-region-carver",
+    VORONOI_REGION_CARVER_LABEL,
+    (rng, contentSize, controls) =>
+      buildVoronoiRegionCarverRecord(rng, contentSize, controls.voronoiRegionCarverControls),
+  ),
+  defineGenerateAlgorithm(
+    "erosion-dilation-pipeline",
+    EROSION_DILATION_PIPELINE_LABEL,
+    (rng, contentSize, controls) =>
+      buildErosionDilationPipelineRecord(
+        rng,
+        contentSize,
+        controls.erosionDilationPipelineControls,
+      ),
+  ),
+  defineGenerateAlgorithm(
+    "backtracking-generator",
+    BACKTRACKING_LABEL,
+    (rng, contentSize, controls) =>
+      buildBacktrackingRecord(rng, contentSize, controls.backtrackingControls),
+  ),
+  defineGenerateAlgorithm("growing-tree", GROWING_TREE_LABEL, (rng, contentSize, controls) =>
+    buildGrowingTreeRecord(rng, contentSize, controls.growingTreeControls),
+  ),
+  defineGenerateAlgorithm("prims", PRIMS_LABEL, (rng, contentSize, controls) =>
+    buildPrimsRecord(rng, contentSize, controls.primsControls),
+  ),
+  defineGenerateAlgorithm(
+    "recursive-division",
+    RECURSIVE_DIVISION_LABEL,
+    (rng, contentSize, controls) =>
+      buildRecursiveDivisionRecord(rng, contentSize, controls.recursiveDivisionControls),
+  ),
+  defineGenerateAlgorithm("kruskals", KRUSKALS_LABEL, (rng, contentSize, controls) =>
+    buildKruskalsRecord(rng, contentSize, controls.kruskalsControls),
+  ),
+  defineGenerateAlgorithm("sidewinder", SIDEWINDER_LABEL, (rng, contentSize, controls) =>
+    buildSidewinderRecord(rng, contentSize, controls.sidewinderControls),
+  ),
+  defineGenerateAlgorithm("binary-tree", BINARY_TREE_LABEL, (rng, contentSize, controls) =>
+    buildBinaryTreeRecord(rng, contentSize, controls.binaryTreeControls),
+  ),
+  defineGenerateAlgorithm("hunt-and-kill", HUNT_AND_KILL_LABEL, (rng, contentSize, controls) =>
+    buildHuntAndKillRecord(rng, contentSize, controls.huntAndKillControls),
+  ),
+  defineGenerateAlgorithm("wilsons", WILSONS_LABEL, (rng, contentSize, controls) =>
+    buildWilsonsRecord(rng, contentSize, controls.wilsonsControls),
+  ),
+  defineGenerateAlgorithm("aldous-broder", ALDOUS_BRODER_LABEL, (rng, contentSize, controls) =>
+    buildAldousBroderRecord(rng, contentSize, controls.aldousBroderControls),
+  ),
+  defineGenerateAlgorithm("ellers", ELLERS_LABEL, (rng, contentSize, controls) =>
+    buildEllersRecord(rng, contentSize, controls.ellersControls),
+  ),
+  defineGenerateAlgorithm(
+    "cellular-automaton",
+    CELLULAR_AUTOMATON_LABEL,
+    (rng, contentSize, controls) =>
+      buildCellularAutomatonRecord(rng, contentSize, controls.cellularAutomatonControls),
+  ),
+  defineGenerateAlgorithm("dungeon-rooms", DUNGEON_ROOMS_LABEL, (rng, contentSize, controls) =>
+    buildDungeonRoomsRecord(rng, contentSize, controls.dungeonRoomsControls),
+  ),
+  defineGenerateAlgorithm("trivial-maze", TRIVIAL_MAZE_LABEL, (rng, contentSize, controls) =>
+    buildTrivialMazeRecord(rng, contentSize, controls.trivialMazeControls),
+  ),
+];
+
+const GENERATE_ALGORITHM_REGISTRY_BY_ID = new Map(
+  GENERATE_ALGORITHM_REGISTRY.map((entry) => [entry.id, entry] as const),
+);
+
+export const GENERATE_ALGORITHM_IDS: ReadonlyArray<GenerateAlgorithmId> =
+  GENERATE_ALGORITHM_REGISTRY.map((entry) => entry.id);
+
+export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
+  Readonly<{ value: GenerateAlgorithmChoice; label: string }>
+> = [
+  { value: "any", label: "Any" },
+  ...GENERATE_ALGORITHM_REGISTRY.map((entry) => ({
+    value: entry.id,
+    label: entry.label,
+  })),
 ];
 const MAZE_RANDOM_BLOCK_SIZE_VALUES: ReadonlyArray<MazeBlockSize> = ["1x1", "2x2"];
 const GROWING_TREE_BACKTRACK_CHANCE_VALUES = [0, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
@@ -1614,11 +1821,6 @@ export const GAME_OF_LIFE_VARIANT_OPTIONS: ReadonlyArray<GameOfLifeVariant> = [
   "maze",
 ];
 export const DLA_SEED_MODE_OPTIONS: ReadonlyArray<DlaSeedMode> = ["point", "line", "cross"];
-
-type GeneratedContentSize = Readonly<{
-  width: number;
-  height: number;
-}>;
 
 export function randomSeedFromClock(): number {
   return Date.now() & 0x7fffffff;
@@ -2268,181 +2470,20 @@ function pickAlgorithm(
   rng: () => number,
 ): GenerateAlgorithmId {
   if (selectedAlgorithm !== "any") return selectedAlgorithm;
-  return sampleOne(rng, AVAILABLE_GENERATE_ALGORITHMS);
+  return sampleOne(rng, GENERATE_ALGORITHM_IDS);
 }
 
 function generateRecordForAlgorithm(
   algorithm: GenerateAlgorithmId,
   rng: () => number,
   contentSize: GeneratedContentSize,
-  controls: Readonly<{
-    randomNoiseControls: RandomNoiseControlState | null;
-    perlinNoiseControls: PerlinNoiseControlState | null;
-    valueFractalNoiseControls: ValueFractalNoiseControlState | null;
-    worleyNoiseControls: WorleyNoiseControlState | null;
-    thresholdedGradientNoiseControls: ThresholdedGradientNoiseControlState | null;
-    domainWarpedNoiseControls: DomainWarpedNoiseControlState | null;
-    radialSymmetryControls: RadialSymmetryControlState | null;
-    kaleidoscopeControls: KaleidoscopeControlState | null;
-    lSystemTurtleControls: LSystemTurtleControlState | null;
-    roseCurvesControls: RoseCurvesControlState | null;
-    tileableMotifRepeaterControls: TileableMotifRepeaterControlState | null;
-    bspRoomPartitionerControls: BspRoomPartitionerControlState | null;
-    corridorGridControls: CorridorGridControlState | null;
-    roomScatterControls: RoomScatterControlState | null;
-    courtyardGeneratorControls: CourtyardGeneratorControlState | null;
-    blueprintGeneratorControls: BlueprintGeneratorControlState | null;
-    stripePlaidGeneratorControls: StripePlaidGeneratorControlState | null;
-    checkerDiamondLatticeControls: CheckerDiamondLatticeControlState | null;
-    concentricBoxesControls: ConcentricBoxesControlState | null;
-    lineInterferenceControls: LineInterferenceControlState | null;
-    circlePackingControls: CirclePackingControlState | null;
-    drunkWalkPainterControls: DrunkWalkPainterControlState | null;
-    particleFlowFieldControls: ParticleFlowFieldControlState | null;
-    stampBrushGeneratorControls: StampBrushGeneratorControlState | null;
-    cutoutCollageControls: CutoutCollageControlState | null;
-    glitchBlocksControls: GlitchBlocksControlState | null;
-    gameOfLifeVariantsControls: GameOfLifeVariantsControlState | null;
-    diffusionLimitedAggregationControls: DiffusionLimitedAggregationControlState | null;
-    reactionDiffusionApproximationControls: ReactionDiffusionApproximationControlState | null;
-    voronoiRegionCarverControls: VoronoiRegionCarverControlState | null;
-    erosionDilationPipelineControls: ErosionDilationPipelineControlState | null;
-    backtrackingControls: BacktrackingControlState | null;
-    primsControls: PrimsControlState | null;
-    kruskalsControls: KruskalsControlState | null;
-    sidewinderControls: SidewinderControlState | null;
-    binaryTreeControls: BinaryTreeControlState | null;
-    huntAndKillControls: HuntAndKillControlState | null;
-    wilsonsControls: WilsonsControlState | null;
-    aldousBroderControls: AldousBroderControlState | null;
-    ellersControls: EllersControlState | null;
-    cellularAutomatonControls: CellularAutomatonControlState | null;
-    dungeonRoomsControls: DungeonRoomsControlState | null;
-    trivialMazeControls: TrivialMazeControlState | null;
-    growingTreeControls: GrowingTreeControlState | null;
-    recursiveDivisionControls: RecursiveDivisionControlState | null;
-  }>,
+  controls: GenerateAlgorithmControlSelections,
 ): GeneratedLayoutRecord {
-  switch (algorithm) {
-    case "random-noise":
-      return buildRandomNoiseRecord(rng, contentSize, controls.randomNoiseControls);
-    case "perlin-noise":
-      return buildPerlinNoiseRecord(rng, contentSize, controls.perlinNoiseControls);
-    case "value-fractal-noise":
-      return buildValueFractalNoiseRecord(rng, contentSize, controls.valueFractalNoiseControls);
-    case "worley-noise":
-      return buildWorleyNoiseRecord(rng, contentSize, controls.worleyNoiseControls);
-    case "thresholded-gradient-noise":
-      return buildThresholdedGradientNoiseRecord(
-        rng,
-        contentSize,
-        controls.thresholdedGradientNoiseControls,
-      );
-    case "domain-warped-noise":
-      return buildDomainWarpedNoiseRecord(rng, contentSize, controls.domainWarpedNoiseControls);
-    case "radial-symmetry":
-      return buildRadialSymmetryRecord(rng, contentSize, controls.radialSymmetryControls);
-    case "kaleidoscope":
-      return buildKaleidoscopeRecord(rng, contentSize, controls.kaleidoscopeControls);
-    case "l-system-turtle":
-      return buildLSystemTurtleRecord(rng, contentSize, controls.lSystemTurtleControls);
-    case "rose-curves":
-      return buildRoseCurvesRecord(rng, contentSize, controls.roseCurvesControls);
-    case "tileable-motif-repeater":
-      return buildTileableMotifRepeaterRecord(
-        rng,
-        contentSize,
-        controls.tileableMotifRepeaterControls,
-      );
-    case "bsp-room-partitioner":
-      return buildBspRoomPartitionerRecord(rng, contentSize, controls.bspRoomPartitionerControls);
-    case "corridor-grid":
-      return buildCorridorGridRecord(rng, contentSize, controls.corridorGridControls);
-    case "room-scatter":
-      return buildRoomScatterRecord(rng, contentSize, controls.roomScatterControls);
-    case "courtyard-generator":
-      return buildCourtyardGeneratorRecord(rng, contentSize, controls.courtyardGeneratorControls);
-    case "blueprint-generator":
-      return buildBlueprintGeneratorRecord(rng, contentSize, controls.blueprintGeneratorControls);
-    case "stripe-plaid-generator":
-      return buildStripePlaidGeneratorRecord(
-        rng,
-        contentSize,
-        controls.stripePlaidGeneratorControls,
-      );
-    case "checker-diamond-lattice":
-      return buildCheckerDiamondLatticeRecord(
-        rng,
-        contentSize,
-        controls.checkerDiamondLatticeControls,
-      );
-    case "concentric-boxes":
-      return buildConcentricBoxesRecord(rng, contentSize, controls.concentricBoxesControls);
-    case "line-interference":
-      return buildLineInterferenceRecord(rng, contentSize, controls.lineInterferenceControls);
-    case "circle-packing":
-      return buildCirclePackingRecord(rng, contentSize, controls.circlePackingControls);
-    case "drunk-walk-painter":
-      return buildDrunkWalkPainterRecord(rng, contentSize, controls.drunkWalkPainterControls);
-    case "particle-flow-field":
-      return buildParticleFlowFieldRecord(rng, contentSize, controls.particleFlowFieldControls);
-    case "stamp-brush-generator":
-      return buildStampBrushGeneratorRecord(rng, contentSize, controls.stampBrushGeneratorControls);
-    case "cutout-collage":
-      return buildCutoutCollageRecord(rng, contentSize, controls.cutoutCollageControls);
-    case "glitch-blocks":
-      return buildGlitchBlocksRecord(rng, contentSize, controls.glitchBlocksControls);
-    case "game-of-life-variants":
-      return buildGameOfLifeVariantsRecord(rng, contentSize, controls.gameOfLifeVariantsControls);
-    case "diffusion-limited-aggregation":
-      return buildDiffusionLimitedAggregationRecord(
-        rng,
-        contentSize,
-        controls.diffusionLimitedAggregationControls,
-      );
-    case "reaction-diffusion-approximation":
-      return buildReactionDiffusionApproximationRecord(
-        rng,
-        contentSize,
-        controls.reactionDiffusionApproximationControls,
-      );
-    case "voronoi-region-carver":
-      return buildVoronoiRegionCarverRecord(rng, contentSize, controls.voronoiRegionCarverControls);
-    case "erosion-dilation-pipeline":
-      return buildErosionDilationPipelineRecord(
-        rng,
-        contentSize,
-        controls.erosionDilationPipelineControls,
-      );
-    case "backtracking-generator":
-      return buildBacktrackingRecord(rng, contentSize, controls.backtrackingControls);
-    case "prims":
-      return buildPrimsRecord(rng, contentSize, controls.primsControls);
-    case "kruskals":
-      return buildKruskalsRecord(rng, contentSize, controls.kruskalsControls);
-    case "sidewinder":
-      return buildSidewinderRecord(rng, contentSize, controls.sidewinderControls);
-    case "binary-tree":
-      return buildBinaryTreeRecord(rng, contentSize, controls.binaryTreeControls);
-    case "hunt-and-kill":
-      return buildHuntAndKillRecord(rng, contentSize, controls.huntAndKillControls);
-    case "wilsons":
-      return buildWilsonsRecord(rng, contentSize, controls.wilsonsControls);
-    case "aldous-broder":
-      return buildAldousBroderRecord(rng, contentSize, controls.aldousBroderControls);
-    case "ellers":
-      return buildEllersRecord(rng, contentSize, controls.ellersControls);
-    case "cellular-automaton":
-      return buildCellularAutomatonRecord(rng, contentSize, controls.cellularAutomatonControls);
-    case "dungeon-rooms":
-      return buildDungeonRoomsRecord(rng, contentSize, controls.dungeonRoomsControls);
-    case "trivial-maze":
-      return buildTrivialMazeRecord(rng, contentSize, controls.trivialMazeControls);
-    case "growing-tree":
-      return buildGrowingTreeRecord(rng, contentSize, controls.growingTreeControls);
-    case "recursive-division":
-      return buildRecursiveDivisionRecord(rng, contentSize, controls.recursiveDivisionControls);
+  const entry = GENERATE_ALGORITHM_REGISTRY_BY_ID.get(algorithm);
+  if (!entry) {
+    throw new Error(`Unsupported generate algorithm: ${algorithm}`);
   }
+  return entry.generate(rng, contentSize, controls);
 }
 
 function buildRandomNoiseRecord(

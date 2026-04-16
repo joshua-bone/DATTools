@@ -47,6 +47,8 @@ import {
   createDefaultVoronoiRegionCarverControlState,
   createDefaultWilsonsControlState,
   createDefaultWorleyNoiseControlState,
+  GENERATE_ALGORITHM_IDS,
+  GENERATE_ALGORITHM_OPTIONS,
   generateLayoutRecords,
   mazeGridDimensionsForBlockSize,
   recordsFromStarredKeys,
@@ -133,6 +135,13 @@ describe("generated layouts", () => {
     expect(records[0]?.algorithm).toBe("starred");
     expect(records[0]?.grid?.width).toBe(32);
     expect(records[0]?.grid?.height).toBe(32);
+  });
+
+  it("derives algorithm picker options from the ordered generate registry", () => {
+    expect(GENERATE_ALGORITHM_OPTIONS[0]).toEqual({ value: "any", label: "Any" });
+    expect(GENERATE_ALGORITHM_OPTIONS.slice(1).map((option) => option.value)).toEqual(
+      GENERATE_ALGORITHM_IDS,
+    );
   });
 
   it("defaults non-maze block sizes to fixed 1x1 and keeps mazelib maze sizes randomizable", () => {

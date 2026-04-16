@@ -296,7 +296,7 @@ Acceptance criteria:
 
 Status:
 
-- next
+- done
 
 Goal:
 
@@ -315,6 +315,10 @@ Acceptance criteria:
 - adding an algorithm requires adding a definition, not editing multiple switchboards
 
 ### PR 4: Separate Reusable React Dialogs From DAT App Wiring
+
+Status:
+
+- next
 
 Goal:
 
@@ -424,8 +428,8 @@ These should be answered before the C2M integration PR:
 
 ## Immediate Next Step
 
-Start with PR 3:
+Start with PR 4:
 
-- define an algorithm registry interface
-- move the algorithm picker list and generation dispatch behind registered definitions
-- keep current UI behavior while removing the central switchboard pattern
+- split DATTools app integration from dialog presentation
+- move storage keys and bank URL out of dialog components
+- keep the existing Generate and Browse behavior while replacing app-specific wiring with callbacks
