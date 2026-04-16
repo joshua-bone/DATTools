@@ -37,6 +37,11 @@ Currently implemented in the modal:
 - `Room Scatter`
 - `Courtyard Generator`
 - `Blueprint Generator`
+- `Game of Life Variants`
+- `Diffusion-Limited Aggregation`
+- `Reaction-Diffusion Approximation`
+- `Voronoi Region Carver`
+- `Erosion / Dilation Pipeline`
 - `Backtracking Generator`
 - `Growing Tree`
 - `Prim's`
@@ -108,11 +113,11 @@ These are good follow-up generators that are not primarily maze algorithms, but 
 
 ### Cellular And Growth Systems
 
-- `Game of Life Variants`: evolve binary seeds for unusual chamber and tunnel fields.
-- `Diffusion-Limited Aggregation`: coral, lightning, tendrils, and crystal-growth silhouettes.
-- `Reaction-Diffusion Approximation`: stripe, spot, and biological-looking wall distributions.
-- `Voronoi Region Carver`: region boundaries and cell walls from seeded points.
-- `Erosion / Dilation Pipeline`: start from a simple seed and repeatedly grow, shrink, smooth, and puncture it.
+- Done: `Game of Life Variants`, with density, steps, variant, invert, and block-size controls.
+- Done: `Diffusion-Limited Aggregation`, with walkers, stickiness, seed-mode, invert, and block-size controls.
+- Done: `Reaction-Diffusion Approximation`, with spot-count, iterations, feed, kill, invert, and block-size controls.
+- Done: `Voronoi Region Carver`, with site-count, ridge-width, jitter, invert, and block-size controls.
+- Done: `Erosion / Dilation Pipeline`, with density, grow-steps, shrink-steps, puncture-chance, invert, and block-size controls.
 
 ### Patterned And Geometric
 

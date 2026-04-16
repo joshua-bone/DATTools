@@ -9,9 +9,12 @@ import {
   createDefaultCellularAutomatonControlState,
   createDefaultCorridorGridControlState,
   createDefaultCourtyardGeneratorControlState,
+  createDefaultDiffusionLimitedAggregationControlState,
   createDefaultDomainWarpedNoiseControlState,
   createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
+  createDefaultErosionDilationPipelineControlState,
+  createDefaultGameOfLifeVariantsControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
   createDefaultKaleidoscopeControlState,
@@ -21,6 +24,7 @@ import {
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
   createDefaultRadialSymmetryControlState,
+  createDefaultReactionDiffusionApproximationControlState,
   createDefaultRecursiveDivisionControlState,
   createDefaultRoomScatterControlState,
   createDefaultRoseCurvesControlState,
@@ -29,6 +33,7 @@ import {
   createDefaultTileableMotifRepeaterControlState,
   createDefaultTrivialMazeControlState,
   createDefaultValueFractalNoiseControlState,
+  createDefaultVoronoiRegionCarverControlState,
   createDefaultWilsonsControlState,
   createDefaultWorleyNoiseControlState,
   generateLayoutRecords,
@@ -70,6 +75,11 @@ describe("generated layouts", () => {
           record.algorithm === "room-scatter" ||
           record.algorithm === "courtyard-generator" ||
           record.algorithm === "blueprint-generator" ||
+          record.algorithm === "game-of-life-variants" ||
+          record.algorithm === "diffusion-limited-aggregation" ||
+          record.algorithm === "reaction-diffusion-approximation" ||
+          record.algorithm === "voronoi-region-carver" ||
+          record.algorithm === "erosion-dilation-pipeline" ||
           record.algorithm === "backtracking-generator" ||
           record.algorithm === "growing-tree" ||
           record.algorithm === "prims" ||
@@ -852,6 +862,249 @@ describe("generated layouts", () => {
           record.params.hallWidth === 6 &&
           record.params.pillarSpacing === 4 &&
           record.params.chamberDepth === 7,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic game-of-life-variants layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "game-of-life-variants",
+      count: 6,
+      seed: 60606,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "game-of-life-variants",
+      count: 6,
+      seed: 60606,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "game-of-life-variants")).toBe(true);
+  });
+
+  it("keeps locked game-of-life-variants parameters fixed across generated cards", () => {
+    const controls = createDefaultGameOfLifeVariantsControlState();
+    const records = generateLayoutRecords({
+      algorithm: "game-of-life-variants",
+      count: 6,
+      seed: 61606,
+      gameOfLifeVariantsControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: true },
+        density: { randomize: false, value: 0.42 },
+        steps: { randomize: false, value: 6 },
+        variant: { randomize: false, value: "maze" },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "game-of-life-variants" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === true &&
+          record.params.density === 0.42 &&
+          record.params.steps === 6 &&
+          record.params.variant === "maze",
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic diffusion-limited-aggregation layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "diffusion-limited-aggregation",
+      count: 6,
+      seed: 62606,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "diffusion-limited-aggregation",
+      count: 6,
+      seed: 62606,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "diffusion-limited-aggregation")).toBe(
+      true,
+    );
+  });
+
+  it("keeps locked diffusion-limited-aggregation parameters fixed across generated cards", () => {
+    const controls = createDefaultDiffusionLimitedAggregationControlState();
+    const records = generateLayoutRecords({
+      algorithm: "diffusion-limited-aggregation",
+      count: 6,
+      seed: 63606,
+      diffusionLimitedAggregationControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 1 },
+        invert: { randomize: false, value: false },
+        walkers: { randomize: false, value: 480 },
+        stickiness: { randomize: false, value: 0.55 },
+        seedMode: { randomize: false, value: "cross" },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "diffusion-limited-aggregation" &&
+          record.params.blockSize === 1 &&
+          record.params.invert === false &&
+          record.params.walkers === 480 &&
+          record.params.stickiness === 0.55 &&
+          record.params.seedMode === "cross",
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic reaction-diffusion-approximation layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "reaction-diffusion-approximation",
+      count: 6,
+      seed: 64606,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "reaction-diffusion-approximation",
+      count: 6,
+      seed: 64606,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "reaction-diffusion-approximation")).toBe(
+      true,
+    );
+  });
+
+  it("keeps locked reaction-diffusion-approximation parameters fixed across generated cards", () => {
+    const controls = createDefaultReactionDiffusionApproximationControlState();
+    const records = generateLayoutRecords({
+      algorithm: "reaction-diffusion-approximation",
+      count: 6,
+      seed: 65606,
+      reactionDiffusionApproximationControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 3 },
+        invert: { randomize: false, value: true },
+        spotCount: { randomize: false, value: 6 },
+        iterations: { randomize: false, value: 18 },
+        feed: { randomize: false, value: 0.05 },
+        kill: { randomize: false, value: 0.067 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "reaction-diffusion-approximation" &&
+          record.params.blockSize === 3 &&
+          record.params.invert === true &&
+          record.params.spotCount === 6 &&
+          record.params.iterations === 18 &&
+          record.params.feed === 0.05 &&
+          record.params.kill === 0.067,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic voronoi-region-carver layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "voronoi-region-carver",
+      count: 6,
+      seed: 66606,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "voronoi-region-carver",
+      count: 6,
+      seed: 66606,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "voronoi-region-carver")).toBe(true);
+  });
+
+  it("keeps locked voronoi-region-carver parameters fixed across generated cards", () => {
+    const controls = createDefaultVoronoiRegionCarverControlState();
+    const records = generateLayoutRecords({
+      algorithm: "voronoi-region-carver",
+      count: 6,
+      seed: 67606,
+      voronoiRegionCarverControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 2 },
+        invert: { randomize: false, value: false },
+        siteCount: { randomize: false, value: 10 },
+        ridgeWidth: { randomize: false, value: 1.5 },
+        jitter: { randomize: false, value: 0.2 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "voronoi-region-carver" &&
+          record.params.blockSize === 2 &&
+          record.params.invert === false &&
+          record.params.siteCount === 10 &&
+          record.params.ridgeWidth === 1.5 &&
+          record.params.jitter === 0.2,
+      ),
+    ).toBe(true);
+  });
+
+  it("produces deterministic erosion-dilation-pipeline layout sets for a seed", () => {
+    const first = generateLayoutRecords({
+      algorithm: "erosion-dilation-pipeline",
+      count: 6,
+      seed: 68606,
+    });
+    const second = generateLayoutRecords({
+      algorithm: "erosion-dilation-pipeline",
+      count: 6,
+      seed: 68606,
+    });
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+    expect(first.every((record) => record.algorithm === "erosion-dilation-pipeline")).toBe(true);
+  });
+
+  it("keeps locked erosion-dilation-pipeline parameters fixed across generated cards", () => {
+    const controls = createDefaultErosionDilationPipelineControlState();
+    const records = generateLayoutRecords({
+      algorithm: "erosion-dilation-pipeline",
+      count: 6,
+      seed: 69606,
+      erosionDilationPipelineControls: {
+        ...controls,
+        blockSize: { randomize: false, value: 4 },
+        invert: { randomize: false, value: true },
+        density: { randomize: false, value: 0.46 },
+        growSteps: { randomize: false, value: 3 },
+        shrinkSteps: { randomize: false, value: 1 },
+        punctureChance: { randomize: false, value: 0.3 },
+      },
+    });
+
+    expect(records).toHaveLength(6);
+    expect(
+      records.every(
+        (record) =>
+          record.algorithm === "erosion-dilation-pipeline" &&
+          record.params.blockSize === 4 &&
+          record.params.invert === true &&
+          record.params.density === 0.46 &&
+          record.params.growSteps === 3 &&
+          record.params.shrinkSteps === 1 &&
+          record.params.punctureChance === 0.3,
       ),
     ).toBe(true);
   });

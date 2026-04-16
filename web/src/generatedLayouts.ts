@@ -147,6 +147,44 @@ export const DUNGEON_ROOM_COUNT_MIN = 1;
 export const DUNGEON_ROOM_COUNT_MAX = 6;
 export const DUNGEON_ROOM_SIZE_MIN = 1;
 export const DUNGEON_ROOM_SIZE_MAX = 5;
+export const GAME_OF_LIFE_DENSITY_MIN = 0.12;
+export const GAME_OF_LIFE_DENSITY_MAX = 0.68;
+export const GAME_OF_LIFE_DENSITY_STEP = 0.02;
+export const GAME_OF_LIFE_STEPS_MIN = 2;
+export const GAME_OF_LIFE_STEPS_MAX = 8;
+export const DLA_WALKERS_MIN = 120;
+export const DLA_WALKERS_MAX = 960;
+export const DLA_STICKINESS_MIN = 0.2;
+export const DLA_STICKINESS_MAX = 1;
+export const DLA_STICKINESS_STEP = 0.05;
+export const REACTION_DIFFUSION_SPOT_COUNT_MIN = 2;
+export const REACTION_DIFFUSION_SPOT_COUNT_MAX = 8;
+export const REACTION_DIFFUSION_ITERATIONS_MIN = 6;
+export const REACTION_DIFFUSION_ITERATIONS_MAX = 24;
+export const REACTION_DIFFUSION_FEED_MIN = 0.018;
+export const REACTION_DIFFUSION_FEED_MAX = 0.07;
+export const REACTION_DIFFUSION_FEED_STEP = 0.002;
+export const REACTION_DIFFUSION_KILL_MIN = 0.045;
+export const REACTION_DIFFUSION_KILL_MAX = 0.075;
+export const REACTION_DIFFUSION_KILL_STEP = 0.002;
+export const VORONOI_SITE_COUNT_MIN = 4;
+export const VORONOI_SITE_COUNT_MAX = 14;
+export const VORONOI_RIDGE_WIDTH_MIN = 0.5;
+export const VORONOI_RIDGE_WIDTH_MAX = 2.5;
+export const VORONOI_RIDGE_WIDTH_STEP = 0.1;
+export const VORONOI_JITTER_MIN = 0;
+export const VORONOI_JITTER_MAX = 0.35;
+export const VORONOI_JITTER_STEP = 0.05;
+export const EROSION_DILATION_DENSITY_MIN = 0.12;
+export const EROSION_DILATION_DENSITY_MAX = 0.68;
+export const EROSION_DILATION_DENSITY_STEP = 0.02;
+export const EROSION_DILATION_GROW_STEPS_MIN = 0;
+export const EROSION_DILATION_GROW_STEPS_MAX = 4;
+export const EROSION_DILATION_SHRINK_STEPS_MIN = 0;
+export const EROSION_DILATION_SHRINK_STEPS_MAX = 4;
+export const EROSION_DILATION_PUNCTURE_MIN = 0;
+export const EROSION_DILATION_PUNCTURE_MAX = 0.5;
+export const EROSION_DILATION_PUNCTURE_STEP = 0.05;
 
 export type GenerateAlgorithmId =
   | "random-noise"
@@ -165,6 +203,11 @@ export type GenerateAlgorithmId =
   | "room-scatter"
   | "courtyard-generator"
   | "blueprint-generator"
+  | "game-of-life-variants"
+  | "diffusion-limited-aggregation"
+  | "reaction-diffusion-approximation"
+  | "voronoi-region-carver"
+  | "erosion-dilation-pipeline"
   | "backtracking-generator"
   | "growing-tree"
   | "prims"
@@ -188,6 +231,8 @@ export type HuntOrder = "random" | "serpentine";
 export type TrivialMazeType = "spiral" | "serpentine";
 export type LSystemPreset = "plant" | "dragon" | "bush";
 export type TileableMotifType = "cross" | "diamond" | "box" | "chevron" | "petal";
+export type GameOfLifeVariant = "life" | "highlife" | "maze";
+export type DlaSeedMode = "point" | "line" | "cross";
 
 export type RandomizableValue<T> = Readonly<{
   randomize: boolean;
@@ -250,6 +295,12 @@ type OrnamentBaseParameters = Readonly<{
 }>;
 
 type ArchitectureBaseParameters = Readonly<{
+  seed: number;
+  blockSize: number;
+  invert: boolean;
+}>;
+
+type GrowthBaseParameters = Readonly<{
   seed: number;
   blockSize: number;
   invert: boolean;
@@ -332,6 +383,43 @@ export type BlueprintGeneratorParameters = ArchitectureBaseParameters &
     hallWidth: number;
     pillarSpacing: number;
     chamberDepth: number;
+  }>;
+
+export type GameOfLifeVariantsParameters = GrowthBaseParameters &
+  Readonly<{
+    density: number;
+    steps: number;
+    variant: GameOfLifeVariant;
+  }>;
+
+export type DiffusionLimitedAggregationParameters = GrowthBaseParameters &
+  Readonly<{
+    walkers: number;
+    stickiness: number;
+    seedMode: DlaSeedMode;
+  }>;
+
+export type ReactionDiffusionApproximationParameters = GrowthBaseParameters &
+  Readonly<{
+    spotCount: number;
+    iterations: number;
+    feed: number;
+    kill: number;
+  }>;
+
+export type VoronoiRegionCarverParameters = GrowthBaseParameters &
+  Readonly<{
+    siteCount: number;
+    ridgeWidth: number;
+    jitter: number;
+  }>;
+
+export type ErosionDilationPipelineParameters = GrowthBaseParameters &
+  Readonly<{
+    density: number;
+    growSteps: number;
+    shrinkSteps: number;
+    punctureChance: number;
   }>;
 
 export type MazeAlgorithmParameters = Readonly<{
@@ -467,6 +555,12 @@ type ArchitectureBaseControlState = Readonly<{
   invert: RandomizableValue<boolean>;
 }>;
 
+type GrowthBaseControlState = Readonly<{
+  seed: RandomizableValue<number>;
+  blockSize: RandomizableValue<number>;
+  invert: RandomizableValue<boolean>;
+}>;
+
 export type RadialSymmetryControlState = OrnamentBaseControlState &
   Readonly<{
     folds: RandomizableValue<number>;
@@ -544,6 +638,43 @@ export type BlueprintGeneratorControlState = ArchitectureBaseControlState &
     hallWidth: RandomizableValue<number>;
     pillarSpacing: RandomizableValue<number>;
     chamberDepth: RandomizableValue<number>;
+  }>;
+
+export type GameOfLifeVariantsControlState = GrowthBaseControlState &
+  Readonly<{
+    density: RandomizableValue<number>;
+    steps: RandomizableValue<number>;
+    variant: RandomizableValue<GameOfLifeVariant>;
+  }>;
+
+export type DiffusionLimitedAggregationControlState = GrowthBaseControlState &
+  Readonly<{
+    walkers: RandomizableValue<number>;
+    stickiness: RandomizableValue<number>;
+    seedMode: RandomizableValue<DlaSeedMode>;
+  }>;
+
+export type ReactionDiffusionApproximationControlState = GrowthBaseControlState &
+  Readonly<{
+    spotCount: RandomizableValue<number>;
+    iterations: RandomizableValue<number>;
+    feed: RandomizableValue<number>;
+    kill: RandomizableValue<number>;
+  }>;
+
+export type VoronoiRegionCarverControlState = GrowthBaseControlState &
+  Readonly<{
+    siteCount: RandomizableValue<number>;
+    ridgeWidth: RandomizableValue<number>;
+    jitter: RandomizableValue<number>;
+  }>;
+
+export type ErosionDilationPipelineControlState = GrowthBaseControlState &
+  Readonly<{
+    density: RandomizableValue<number>;
+    growSteps: RandomizableValue<number>;
+    shrinkSteps: RandomizableValue<number>;
+    punctureChance: RandomizableValue<number>;
   }>;
 
 type MazeBaseControlState = Readonly<{
@@ -625,6 +756,11 @@ type BaseGeneratedLayoutRecord<
     | RoomScatterParameters
     | CourtyardGeneratorParameters
     | BlueprintGeneratorParameters
+    | GameOfLifeVariantsParameters
+    | DiffusionLimitedAggregationParameters
+    | ReactionDiffusionApproximationParameters
+    | VoronoiRegionCarverParameters
+    | ErosionDilationPipelineParameters
     | BacktrackingParameters
     | PrimsParameters
     | KruskalsParameters
@@ -729,6 +865,31 @@ export type BlueprintGeneratorGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   BlueprintGeneratorParameters
 >;
 
+export type GameOfLifeVariantsGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "game-of-life-variants",
+  GameOfLifeVariantsParameters
+>;
+
+export type DiffusionLimitedAggregationGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "diffusion-limited-aggregation",
+  DiffusionLimitedAggregationParameters
+>;
+
+export type ReactionDiffusionApproximationGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "reaction-diffusion-approximation",
+  ReactionDiffusionApproximationParameters
+>;
+
+export type VoronoiRegionCarverGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "voronoi-region-carver",
+  VoronoiRegionCarverParameters
+>;
+
+export type ErosionDilationPipelineGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
+  "erosion-dilation-pipeline",
+  ErosionDilationPipelineParameters
+>;
+
 export type BacktrackingGeneratedLayoutRecord = BaseGeneratedLayoutRecord<
   "backtracking-generator",
   BacktrackingParameters
@@ -802,6 +963,11 @@ export type GeneratedLayoutRecord =
   | RoomScatterGeneratedLayoutRecord
   | CourtyardGeneratorGeneratedLayoutRecord
   | BlueprintGeneratorGeneratedLayoutRecord
+  | GameOfLifeVariantsGeneratedLayoutRecord
+  | DiffusionLimitedAggregationGeneratedLayoutRecord
+  | ReactionDiffusionApproximationGeneratedLayoutRecord
+  | VoronoiRegionCarverGeneratedLayoutRecord
+  | ErosionDilationPipelineGeneratedLayoutRecord
   | BacktrackingGeneratedLayoutRecord
   | PrimsGeneratedLayoutRecord
   | KruskalsGeneratedLayoutRecord
@@ -838,6 +1004,14 @@ export const GENERATE_ALGORITHM_OPTIONS: ReadonlyArray<
   { value: "room-scatter", label: "Room Scatter" },
   { value: "courtyard-generator", label: "Courtyard Generator" },
   { value: "blueprint-generator", label: "Blueprint Generator" },
+  { value: "game-of-life-variants", label: "Game of Life Variants" },
+  { value: "diffusion-limited-aggregation", label: "Diffusion-Limited Aggregation" },
+  {
+    value: "reaction-diffusion-approximation",
+    label: "Reaction-Diffusion Approximation",
+  },
+  { value: "voronoi-region-carver", label: "Voronoi Region Carver" },
+  { value: "erosion-dilation-pipeline", label: "Erosion / Dilation Pipeline" },
   { value: "backtracking-generator", label: "Backtracking Generator" },
   { value: "growing-tree", label: "Growing Tree" },
   { value: "prims", label: "Prim's" },
@@ -870,6 +1044,11 @@ const CORRIDOR_GRID_LABEL = "Corridor Grid";
 const ROOM_SCATTER_LABEL = "Room Scatter";
 const COURTYARD_GENERATOR_LABEL = "Courtyard Generator";
 const BLUEPRINT_GENERATOR_LABEL = "Blueprint Generator";
+const GAME_OF_LIFE_VARIANTS_LABEL = "Game of Life Variants";
+const DIFFUSION_LIMITED_AGGREGATION_LABEL = "Diffusion-Limited Aggregation";
+const REACTION_DIFFUSION_APPROXIMATION_LABEL = "Reaction-Diffusion Approximation";
+const VORONOI_REGION_CARVER_LABEL = "Voronoi Region Carver";
+const EROSION_DILATION_PIPELINE_LABEL = "Erosion / Dilation Pipeline";
 const BACKTRACKING_LABEL = "Backtracking Generator";
 const PRIMS_LABEL = "Prim's";
 const KRUSKALS_LABEL = "Kruskal's";
@@ -903,6 +1082,11 @@ const AVAILABLE_GENERATE_ALGORITHMS: ReadonlyArray<GenerateAlgorithmId> = [
   "room-scatter",
   "courtyard-generator",
   "blueprint-generator",
+  "game-of-life-variants",
+  "diffusion-limited-aggregation",
+  "reaction-diffusion-approximation",
+  "voronoi-region-carver",
+  "erosion-dilation-pipeline",
   "backtracking-generator",
   "growing-tree",
   "prims",
@@ -976,6 +1160,20 @@ const BLUEPRINT_WING_COUNT_VALUES = [1, 2, 3, 4];
 const BLUEPRINT_HALL_WIDTH_VALUES = [3, 4, 5, 6, 7, 8];
 const BLUEPRINT_PILLAR_SPACING_VALUES = [0, 3, 4, 5, 6];
 const BLUEPRINT_CHAMBER_DEPTH_VALUES = [4, 5, 6, 7, 8, 9, 10];
+const GAME_OF_LIFE_DENSITY_VALUES = [0.18, 0.24, 0.3, 0.36, 0.42, 0.48, 0.54, 0.6];
+const GAME_OF_LIFE_STEPS_VALUES = [2, 3, 4, 5, 6, 7, 8];
+const DLA_WALKER_VALUES = [120, 180, 240, 360, 480, 720, 960];
+const DLA_STICKINESS_VALUES = [0.25, 0.4, 0.55, 0.7, 0.85, 1];
+const REACTION_DIFFUSION_SPOT_COUNT_VALUES = [2, 3, 4, 5, 6, 7, 8];
+const REACTION_DIFFUSION_ITERATION_VALUES = [6, 8, 10, 12, 15, 18, 24];
+const REACTION_DIFFUSION_FEED_VALUES = [0.022, 0.028, 0.034, 0.042, 0.05, 0.058, 0.066];
+const REACTION_DIFFUSION_KILL_VALUES = [0.048, 0.053, 0.058, 0.062, 0.067, 0.072];
+const VORONOI_SITE_COUNT_VALUES = [4, 5, 6, 7, 8, 10, 12, 14];
+const VORONOI_RIDGE_WIDTH_VALUES = [0.6, 0.8, 1, 1.2, 1.5, 1.8, 2.2];
+const VORONOI_JITTER_VALUES = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3];
+const EROSION_DILATION_DENSITY_VALUES = [0.18, 0.24, 0.3, 0.38, 0.46, 0.54, 0.62];
+const EROSION_DILATION_STEP_VALUES = [0, 1, 2, 3, 4];
+const EROSION_DILATION_PUNCTURE_VALUES = [0, 0.1, 0.2, 0.3, 0.4, 0.5];
 export const LSYSTEM_PRESET_OPTIONS: ReadonlyArray<LSystemPreset> = ["plant", "dragon", "bush"];
 export const TILEABLE_MOTIF_TYPE_OPTIONS: ReadonlyArray<TileableMotifType> = [
   "cross",
@@ -988,6 +1186,12 @@ export const RIGHT_ANGLE_ROTATION_OPTIONS: ReadonlyArray<number> = [0, 90, 180, 
 export const BINARY_TREE_SKEW_OPTIONS: ReadonlyArray<BinaryTreeSkew> = ["NW", "NE", "SW", "SE"];
 export const HUNT_ORDER_OPTIONS: ReadonlyArray<HuntOrder> = ["random", "serpentine"];
 export const TRIVIAL_MAZE_TYPE_OPTIONS: ReadonlyArray<TrivialMazeType> = ["spiral", "serpentine"];
+export const GAME_OF_LIFE_VARIANT_OPTIONS: ReadonlyArray<GameOfLifeVariant> = [
+  "life",
+  "highlife",
+  "maze",
+];
+export const DLA_SEED_MODE_OPTIONS: ReadonlyArray<DlaSeedMode> = ["point", "line", "cross"];
 
 export function randomSeedFromClock(): number {
   return Date.now() & 0x7fffffff;
@@ -1028,6 +1232,11 @@ export function generateLayoutRecords(
     roomScatterControls?: RoomScatterControlState | null;
     courtyardGeneratorControls?: CourtyardGeneratorControlState | null;
     blueprintGeneratorControls?: BlueprintGeneratorControlState | null;
+    gameOfLifeVariantsControls?: GameOfLifeVariantsControlState | null;
+    diffusionLimitedAggregationControls?: DiffusionLimitedAggregationControlState | null;
+    reactionDiffusionApproximationControls?: ReactionDiffusionApproximationControlState | null;
+    voronoiRegionCarverControls?: VoronoiRegionCarverControlState | null;
+    erosionDilationPipelineControls?: ErosionDilationPipelineControlState | null;
     backtrackingControls?: BacktrackingControlState | null;
     primsControls?: PrimsControlState | null;
     kruskalsControls?: KruskalsControlState | null;
@@ -1069,6 +1278,12 @@ export function generateLayoutRecords(
       roomScatterControls: options.roomScatterControls ?? null,
       courtyardGeneratorControls: options.courtyardGeneratorControls ?? null,
       blueprintGeneratorControls: options.blueprintGeneratorControls ?? null,
+      gameOfLifeVariantsControls: options.gameOfLifeVariantsControls ?? null,
+      diffusionLimitedAggregationControls: options.diffusionLimitedAggregationControls ?? null,
+      reactionDiffusionApproximationControls:
+        options.reactionDiffusionApproximationControls ?? null,
+      voronoiRegionCarverControls: options.voronoiRegionCarverControls ?? null,
+      erosionDilationPipelineControls: options.erosionDilationPipelineControls ?? null,
       backtrackingControls: options.backtrackingControls ?? null,
       primsControls: options.primsControls ?? null,
       kruskalsControls: options.kruskalsControls ?? null,
@@ -1285,6 +1500,63 @@ export function createDefaultBlueprintGeneratorControlState(): BlueprintGenerato
   };
 }
 
+export function createDefaultGameOfLifeVariantsControlState(): GameOfLifeVariantsControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    density: { randomize: true, value: 0.36 },
+    steps: { randomize: true, value: 4 },
+    variant: { randomize: true, value: "life" },
+  };
+}
+
+export function createDefaultDiffusionLimitedAggregationControlState(): DiffusionLimitedAggregationControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    walkers: { randomize: true, value: 360 },
+    stickiness: { randomize: true, value: 0.7 },
+    seedMode: { randomize: true, value: "point" },
+  };
+}
+
+export function createDefaultReactionDiffusionApproximationControlState(): ReactionDiffusionApproximationControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    spotCount: { randomize: true, value: 4 },
+    iterations: { randomize: true, value: 12 },
+    feed: { randomize: true, value: 0.042 },
+    kill: { randomize: true, value: 0.062 },
+  };
+}
+
+export function createDefaultVoronoiRegionCarverControlState(): VoronoiRegionCarverControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    siteCount: { randomize: true, value: 8 },
+    ridgeWidth: { randomize: true, value: 1.2 },
+    jitter: { randomize: true, value: 0.1 },
+  };
+}
+
+export function createDefaultErosionDilationPipelineControlState(): ErosionDilationPipelineControlState {
+  return {
+    seed: { randomize: true, value: 1 },
+    blockSize: { randomize: true, value: 1 },
+    invert: { randomize: true, value: false },
+    density: { randomize: true, value: 0.36 },
+    growSteps: { randomize: true, value: 2 },
+    shrinkSteps: { randomize: true, value: 1 },
+    punctureChance: { randomize: true, value: 0.2 },
+  };
+}
+
 export function createDefaultBacktrackingControlState(): BacktrackingControlState {
   return {
     seed: { randomize: true, value: 1 },
@@ -1430,6 +1702,11 @@ function generateRecordForAlgorithm(
     roomScatterControls: RoomScatterControlState | null;
     courtyardGeneratorControls: CourtyardGeneratorControlState | null;
     blueprintGeneratorControls: BlueprintGeneratorControlState | null;
+    gameOfLifeVariantsControls: GameOfLifeVariantsControlState | null;
+    diffusionLimitedAggregationControls: DiffusionLimitedAggregationControlState | null;
+    reactionDiffusionApproximationControls: ReactionDiffusionApproximationControlState | null;
+    voronoiRegionCarverControls: VoronoiRegionCarverControlState | null;
+    erosionDilationPipelineControls: ErosionDilationPipelineControlState | null;
     backtrackingControls: BacktrackingControlState | null;
     primsControls: PrimsControlState | null;
     kruskalsControls: KruskalsControlState | null;
@@ -1479,6 +1756,22 @@ function generateRecordForAlgorithm(
       return buildCourtyardGeneratorRecord(rng, controls.courtyardGeneratorControls);
     case "blueprint-generator":
       return buildBlueprintGeneratorRecord(rng, controls.blueprintGeneratorControls);
+    case "game-of-life-variants":
+      return buildGameOfLifeVariantsRecord(rng, controls.gameOfLifeVariantsControls);
+    case "diffusion-limited-aggregation":
+      return buildDiffusionLimitedAggregationRecord(
+        rng,
+        controls.diffusionLimitedAggregationControls,
+      );
+    case "reaction-diffusion-approximation":
+      return buildReactionDiffusionApproximationRecord(
+        rng,
+        controls.reactionDiffusionApproximationControls,
+      );
+    case "voronoi-region-carver":
+      return buildVoronoiRegionCarverRecord(rng, controls.voronoiRegionCarverControls);
+    case "erosion-dilation-pipeline":
+      return buildErosionDilationPipelineRecord(rng, controls.erosionDilationPipelineControls);
     case "backtracking-generator":
       return buildBacktrackingRecord(rng, controls.backtrackingControls);
     case "prims":
@@ -2071,6 +2364,185 @@ function buildBlueprintGeneratorRecord(
     randomize: () => randomizeBlueprintGeneratorParameters(rng, defaults),
     buildBytes: buildBlueprintGeneratorMaskBytes,
     buildSummary: buildBlueprintGeneratorSummary,
+    fallback,
+  });
+}
+
+function buildGrowthSystemRecord<
+  Algorithm extends
+    | "game-of-life-variants"
+    | "diffusion-limited-aggregation"
+    | "reaction-diffusion-approximation"
+    | "voronoi-region-carver"
+    | "erosion-dilation-pipeline",
+  Params extends
+    | GameOfLifeVariantsParameters
+    | DiffusionLimitedAggregationParameters
+    | ReactionDiffusionApproximationParameters
+    | VoronoiRegionCarverParameters
+    | ErosionDilationPipelineParameters,
+>(
+  rng: () => number,
+  options: Readonly<{
+    algorithm: Algorithm;
+    title: string;
+    randomize: () => Params;
+    buildBytes: (params: Params) => Uint8Array;
+    buildSummary: (params: Params) => string;
+    fallback: Params;
+  }>,
+): BaseGeneratedLayoutRecord<Algorithm, Params> {
+  let lastAttempt: Readonly<{ params: Params; bytes: Uint8Array }> | null = null;
+
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const params = options.randomize();
+    const bytes = options.buildBytes(params);
+    lastAttempt = { params, bytes };
+    const wallCount = countSetBits(bytes);
+    if (wallCount < GENERATED_LAYOUT_MIN_WALL_COUNT || wallCount > GENERATED_LAYOUT_MAX_WALL_COUNT)
+      continue;
+
+    return {
+      wallKey: wallMaskKeyFromBytes(bytes),
+      algorithm: options.algorithm,
+      title: options.title,
+      summary: options.buildSummary(params),
+      seedLabel: `Seed ${params.seed}`,
+      params,
+    };
+  }
+
+  const fallbackParams = lastAttempt?.params ?? options.fallback;
+  const fallbackBytes = lastAttempt?.bytes ?? options.buildBytes(options.fallback);
+
+  return {
+    wallKey: wallMaskKeyFromBytes(fallbackBytes),
+    algorithm: options.algorithm,
+    title: options.title,
+    summary: options.buildSummary(fallbackParams),
+    seedLabel: `Seed ${fallbackParams.seed}`,
+    params: fallbackParams,
+  };
+}
+
+function buildGameOfLifeVariantsRecord(
+  rng: () => number,
+  controls: GameOfLifeVariantsControlState | null,
+): GameOfLifeVariantsGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultGameOfLifeVariantsControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    density: 0.36,
+    steps: 4,
+    variant: "life",
+  } satisfies GameOfLifeVariantsParameters;
+
+  return buildGrowthSystemRecord(rng, {
+    algorithm: "game-of-life-variants",
+    title: GAME_OF_LIFE_VARIANTS_LABEL,
+    randomize: () => randomizeGameOfLifeVariantsParameters(rng, defaults),
+    buildBytes: buildGameOfLifeVariantsMaskBytes,
+    buildSummary: buildGameOfLifeVariantsSummary,
+    fallback,
+  });
+}
+
+function buildDiffusionLimitedAggregationRecord(
+  rng: () => number,
+  controls: DiffusionLimitedAggregationControlState | null,
+): DiffusionLimitedAggregationGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultDiffusionLimitedAggregationControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    walkers: 360,
+    stickiness: 0.7,
+    seedMode: "point",
+  } satisfies DiffusionLimitedAggregationParameters;
+
+  return buildGrowthSystemRecord(rng, {
+    algorithm: "diffusion-limited-aggregation",
+    title: DIFFUSION_LIMITED_AGGREGATION_LABEL,
+    randomize: () => randomizeDiffusionLimitedAggregationParameters(rng, defaults),
+    buildBytes: buildDiffusionLimitedAggregationMaskBytes,
+    buildSummary: buildDiffusionLimitedAggregationSummary,
+    fallback,
+  });
+}
+
+function buildReactionDiffusionApproximationRecord(
+  rng: () => number,
+  controls: ReactionDiffusionApproximationControlState | null,
+): ReactionDiffusionApproximationGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultReactionDiffusionApproximationControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    spotCount: 4,
+    iterations: 12,
+    feed: 0.042,
+    kill: 0.062,
+  } satisfies ReactionDiffusionApproximationParameters;
+
+  return buildGrowthSystemRecord(rng, {
+    algorithm: "reaction-diffusion-approximation",
+    title: REACTION_DIFFUSION_APPROXIMATION_LABEL,
+    randomize: () => randomizeReactionDiffusionApproximationParameters(rng, defaults),
+    buildBytes: buildReactionDiffusionApproximationMaskBytes,
+    buildSummary: buildReactionDiffusionApproximationSummary,
+    fallback,
+  });
+}
+
+function buildVoronoiRegionCarverRecord(
+  rng: () => number,
+  controls: VoronoiRegionCarverControlState | null,
+): VoronoiRegionCarverGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultVoronoiRegionCarverControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    siteCount: 8,
+    ridgeWidth: 1.2,
+    jitter: 0.1,
+  } satisfies VoronoiRegionCarverParameters;
+
+  return buildGrowthSystemRecord(rng, {
+    algorithm: "voronoi-region-carver",
+    title: VORONOI_REGION_CARVER_LABEL,
+    randomize: () => randomizeVoronoiRegionCarverParameters(rng, defaults),
+    buildBytes: buildVoronoiRegionCarverMaskBytes,
+    buildSummary: buildVoronoiRegionCarverSummary,
+    fallback,
+  });
+}
+
+function buildErosionDilationPipelineRecord(
+  rng: () => number,
+  controls: ErosionDilationPipelineControlState | null,
+): ErosionDilationPipelineGeneratedLayoutRecord {
+  const defaults = controls ?? createDefaultErosionDilationPipelineControlState();
+  const fallback = {
+    seed: 1,
+    blockSize: 1,
+    invert: false,
+    density: 0.36,
+    growSteps: 2,
+    shrinkSteps: 1,
+    punctureChance: 0.2,
+  } satisfies ErosionDilationPipelineParameters;
+
+  return buildGrowthSystemRecord(rng, {
+    algorithm: "erosion-dilation-pipeline",
+    title: EROSION_DILATION_PIPELINE_LABEL,
+    randomize: () => randomizeErosionDilationPipelineParameters(rng, defaults),
+    buildBytes: buildErosionDilationPipelineMaskBytes,
+    buildSummary: buildErosionDilationPipelineSummary,
     fallback,
   });
 }
@@ -2884,6 +3356,164 @@ function randomizeBlueprintGeneratorParameters(
       defaults.chamberDepth,
       () => sampleOne(rng, BLUEPRINT_CHAMBER_DEPTH_VALUES),
       sanitizeBlueprintChamberDepth,
+    ),
+  };
+}
+
+function randomizeGrowthBaseParameters(
+  rng: () => number,
+  defaults: GrowthBaseControlState,
+): GrowthBaseParameters {
+  return {
+    seed: resolveRandomizableValue(
+      defaults.seed,
+      () => randomInt(rng, RANDOM_NOISE_SEED_MIN, RANDOM_NOISE_SEED_MAX),
+      sanitizeSeed,
+    ),
+    blockSize: resolveRandomizableValue(
+      defaults.blockSize,
+      () => sampleOne(rng, [1, 1, 1, 2, 2, 2, 3, 4]),
+      sampleClosestNoiseBlockSize,
+    ),
+    invert: resolveRandomizableValue(
+      defaults.invert,
+      () => rng() < 0.12,
+      (value) => !!value,
+    ),
+  };
+}
+
+function randomizeGameOfLifeVariantsParameters(
+  rng: () => number,
+  defaults: GameOfLifeVariantsControlState,
+): GameOfLifeVariantsParameters {
+  const base = randomizeGrowthBaseParameters(rng, defaults);
+  return {
+    ...base,
+    density: resolveRandomizableValue(
+      defaults.density,
+      () => sampleOne(rng, GAME_OF_LIFE_DENSITY_VALUES),
+      sanitizeGameOfLifeDensity,
+    ),
+    steps: resolveRandomizableValue(
+      defaults.steps,
+      () => sampleOne(rng, GAME_OF_LIFE_STEPS_VALUES),
+      sanitizeGameOfLifeSteps,
+    ),
+    variant: resolveRandomizableValue(
+      defaults.variant,
+      () => sampleOne(rng, GAME_OF_LIFE_VARIANT_OPTIONS),
+      sanitizeGameOfLifeVariant,
+    ),
+  };
+}
+
+function randomizeDiffusionLimitedAggregationParameters(
+  rng: () => number,
+  defaults: DiffusionLimitedAggregationControlState,
+): DiffusionLimitedAggregationParameters {
+  const base = randomizeGrowthBaseParameters(rng, defaults);
+  return {
+    ...base,
+    walkers: resolveRandomizableValue(
+      defaults.walkers,
+      () => sampleOne(rng, DLA_WALKER_VALUES),
+      sanitizeDlaWalkers,
+    ),
+    stickiness: resolveRandomizableValue(
+      defaults.stickiness,
+      () => sampleOne(rng, DLA_STICKINESS_VALUES),
+      sanitizeDlaStickiness,
+    ),
+    seedMode: resolveRandomizableValue(
+      defaults.seedMode,
+      () => sampleOne(rng, DLA_SEED_MODE_OPTIONS),
+      sanitizeDlaSeedMode,
+    ),
+  };
+}
+
+function randomizeReactionDiffusionApproximationParameters(
+  rng: () => number,
+  defaults: ReactionDiffusionApproximationControlState,
+): ReactionDiffusionApproximationParameters {
+  const base = randomizeGrowthBaseParameters(rng, defaults);
+  return {
+    ...base,
+    spotCount: resolveRandomizableValue(
+      defaults.spotCount,
+      () => sampleOne(rng, REACTION_DIFFUSION_SPOT_COUNT_VALUES),
+      sanitizeReactionDiffusionSpotCount,
+    ),
+    iterations: resolveRandomizableValue(
+      defaults.iterations,
+      () => sampleOne(rng, REACTION_DIFFUSION_ITERATION_VALUES),
+      sanitizeReactionDiffusionIterations,
+    ),
+    feed: resolveRandomizableValue(
+      defaults.feed,
+      () => sampleOne(rng, REACTION_DIFFUSION_FEED_VALUES),
+      sanitizeReactionDiffusionFeed,
+    ),
+    kill: resolveRandomizableValue(
+      defaults.kill,
+      () => sampleOne(rng, REACTION_DIFFUSION_KILL_VALUES),
+      sanitizeReactionDiffusionKill,
+    ),
+  };
+}
+
+function randomizeVoronoiRegionCarverParameters(
+  rng: () => number,
+  defaults: VoronoiRegionCarverControlState,
+): VoronoiRegionCarverParameters {
+  const base = randomizeGrowthBaseParameters(rng, defaults);
+  return {
+    ...base,
+    siteCount: resolveRandomizableValue(
+      defaults.siteCount,
+      () => sampleOne(rng, VORONOI_SITE_COUNT_VALUES),
+      sanitizeVoronoiSiteCount,
+    ),
+    ridgeWidth: resolveRandomizableValue(
+      defaults.ridgeWidth,
+      () => sampleOne(rng, VORONOI_RIDGE_WIDTH_VALUES),
+      sanitizeVoronoiRidgeWidth,
+    ),
+    jitter: resolveRandomizableValue(
+      defaults.jitter,
+      () => sampleOne(rng, VORONOI_JITTER_VALUES),
+      sanitizeVoronoiJitter,
+    ),
+  };
+}
+
+function randomizeErosionDilationPipelineParameters(
+  rng: () => number,
+  defaults: ErosionDilationPipelineControlState,
+): ErosionDilationPipelineParameters {
+  const base = randomizeGrowthBaseParameters(rng, defaults);
+  return {
+    ...base,
+    density: resolveRandomizableValue(
+      defaults.density,
+      () => sampleOne(rng, EROSION_DILATION_DENSITY_VALUES),
+      sanitizeErosionDilationDensity,
+    ),
+    growSteps: resolveRandomizableValue(
+      defaults.growSteps,
+      () => sampleOne(rng, EROSION_DILATION_STEP_VALUES),
+      sanitizeErosionDilationGrowSteps,
+    ),
+    shrinkSteps: resolveRandomizableValue(
+      defaults.shrinkSteps,
+      () => sampleOne(rng, EROSION_DILATION_STEP_VALUES),
+      sanitizeErosionDilationShrinkSteps,
+    ),
+    punctureChance: resolveRandomizableValue(
+      defaults.punctureChance,
+      () => sampleOne(rng, EROSION_DILATION_PUNCTURE_VALUES),
+      sanitizeErosionDilationPunctureChance,
     ),
   };
 }
@@ -3919,6 +4549,236 @@ function buildBlueprintGeneratorMaskBytes(params: BlueprintGeneratorParameters):
   return params.invert ? invertMaskBytes(bytes) : bytes;
 }
 
+function buildGameOfLifeVariantsMaskBytes(params: GameOfLifeVariantsParameters): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  let current = new Uint8Array(grid.width * grid.height);
+  for (let index = 0; index < current.length; index++) {
+    current[index] = rng() < params.density ? 1 : 0;
+  }
+
+  for (let step = 0; step < params.steps; step++) {
+    const next = new Uint8Array(current.length);
+    for (let y = 0; y < grid.height; y++) {
+      for (let x = 0; x < grid.width; x++) {
+        const neighbors = countPatternNeighbors(current, grid.width, grid.height, x, y);
+        const alive = current[y * grid.width + x] === 1;
+        let survives = false;
+        let born = false;
+        if (params.variant === "life") {
+          survives = neighbors === 2 || neighbors === 3;
+          born = neighbors === 3;
+        } else if (params.variant === "highlife") {
+          survives = neighbors === 2 || neighbors === 3;
+          born = neighbors === 3 || neighbors === 6;
+        } else {
+          survives = neighbors >= 1 && neighbors <= 5;
+          born = neighbors === 3;
+        }
+        next[y * grid.width + x] = alive ? (survives ? 1 : 0) : born ? 1 : 0;
+      }
+    }
+    current = next;
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(current, grid.width, grid.height, params.blockSize);
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildDiffusionLimitedAggregationMaskBytes(
+  params: DiffusionLimitedAggregationParameters,
+): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  const centerX = Math.floor(grid.width / 2);
+  const centerY = Math.floor(grid.height / 2);
+  if (params.seedMode === "point") {
+    setPatternCell(grid.cells, grid.width, grid.height, centerX, centerY, 1);
+  } else if (params.seedMode === "line") {
+    for (
+      let y = Math.max(0, centerY - Math.floor(grid.height / 4));
+      y <= Math.min(grid.height - 1, centerY + Math.floor(grid.height / 4));
+      y++
+    ) {
+      setPatternCell(grid.cells, grid.width, grid.height, centerX, y, 1);
+    }
+  } else {
+    for (
+      let y = Math.max(0, centerY - Math.floor(grid.height / 5));
+      y <= Math.min(grid.height - 1, centerY + Math.floor(grid.height / 5));
+      y++
+    ) {
+      setPatternCell(grid.cells, grid.width, grid.height, centerX, y, 1);
+    }
+    for (
+      let x = Math.max(0, centerX - Math.floor(grid.width / 5));
+      x <= Math.min(grid.width - 1, centerX + Math.floor(grid.width / 5));
+      x++
+    ) {
+      setPatternCell(grid.cells, grid.width, grid.height, x, centerY, 1);
+    }
+  }
+
+  const stepLimit = Math.max(32, grid.width * grid.height * 4);
+  for (let walkerIndex = 0; walkerIndex < params.walkers; walkerIndex++) {
+    let { x, y } = randomPatternEdgePoint(grid.width, grid.height, rng);
+    for (let step = 0; step < stepLimit; step++) {
+      if (
+        grid.cells[y * grid.width + x] !== 1 &&
+        hasAdjacentPatternValue(grid.cells, grid.width, grid.height, x, y, 1) &&
+        rng() <= params.stickiness
+      ) {
+        setPatternCell(grid.cells, grid.width, grid.height, x, y, 1);
+        break;
+      }
+      const direction = randomInt(rng, 0, 3);
+      if (direction === 0) x = clamp(x + 1, 0, grid.width - 1);
+      else if (direction === 1) x = clamp(x - 1, 0, grid.width - 1);
+      else if (direction === 2) y = clamp(y + 1, 0, grid.height - 1);
+      else y = clamp(y - 1, 0, grid.height - 1);
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildReactionDiffusionApproximationMaskBytes(
+  params: ReactionDiffusionApproximationParameters,
+): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  const size = grid.width * grid.height;
+  let a = new Float32Array(size);
+  let b = new Float32Array(size);
+  a.fill(1);
+
+  for (let index = 0; index < params.spotCount; index++) {
+    const radius = randomInt(
+      rng,
+      1,
+      Math.max(1, Math.floor(Math.min(grid.width, grid.height) / 8)),
+    );
+    const centerX = randomInt(rng, radius, Math.max(radius, grid.width - radius - 1));
+    const centerY = randomInt(rng, radius, Math.max(radius, grid.height - radius - 1));
+    stampFloatCircle(a, b, grid.width, grid.height, centerX, centerY, radius);
+  }
+
+  const steps = params.iterations * 4;
+  const nextA = new Float32Array(size);
+  const nextB = new Float32Array(size);
+  for (let step = 0; step < steps; step++) {
+    for (let y = 0; y < grid.height; y++) {
+      for (let x = 0; x < grid.width; x++) {
+        const index = y * grid.width + x;
+        const lapA = laplacianAt(a, grid.width, grid.height, x, y);
+        const lapB = laplacianAt(b, grid.width, grid.height, x, y);
+        const cellA = a[index]!;
+        const cellB = b[index]!;
+        const reaction = cellA * cellB * cellB;
+        nextA[index] = clamp01(cellA + (0.95 * lapA - reaction + params.feed * (1 - cellA)));
+        nextB[index] = clamp01(
+          cellB + (0.45 * lapB + reaction - (params.kill + params.feed) * cellB),
+        );
+      }
+    }
+    [a, b] = [nextA.slice(), nextB.slice()];
+  }
+
+  const cells = new Uint8Array(size);
+  for (let index = 0; index < size; index++) {
+    cells[index] = b[index]! > 0.22 ? 1 : 0;
+  }
+  const bytes = expandPatternCellsToMaskBytes(cells, grid.width, grid.height, params.blockSize);
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildVoronoiRegionCarverMaskBytes(params: VoronoiRegionCarverParameters): Uint8Array {
+  const grid = createPatternSourceGrid(params.blockSize);
+  const sites: Array<Readonly<{ x: number; y: number }>> = [];
+  for (let index = 0; index < params.siteCount; index++) {
+    sites.push({
+      x: Math.floor(hashFloat(params.seed + 17, index, params.siteCount) * grid.width),
+      y: Math.floor(hashFloat(params.seed + 31, params.siteCount, index) * grid.height),
+    });
+  }
+
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      let nearest = Number.POSITIVE_INFINITY;
+      let second = Number.POSITIVE_INFINITY;
+      for (let index = 0; index < sites.length; index++) {
+        const site = sites[index]!;
+        const dx = x + (hashFloat(params.seed + 53, x, index) * 2 - 1) * params.jitter - site.x;
+        const dy = y + (hashFloat(params.seed + 71, y, index) * 2 - 1) * params.jitter - site.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < nearest) {
+          second = nearest;
+          nearest = distance;
+        } else if (distance < second) {
+          second = distance;
+        }
+      }
+      if (second - nearest <= params.ridgeWidth) {
+        setPatternCell(grid.cells, grid.width, grid.height, x, y, 1);
+      }
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(
+    grid.cells,
+    grid.width,
+    grid.height,
+    params.blockSize,
+  );
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
+function buildErosionDilationPipelineMaskBytes(
+  params: ErosionDilationPipelineParameters,
+): Uint8Array {
+  const rng = createSeededRandom(params.seed);
+  const grid = createPatternSourceGrid(params.blockSize);
+  let current: Uint8Array = new Uint8Array(grid.width * grid.height);
+  for (let index = 0; index < current.length; index++) {
+    current[index] = rng() < params.density ? 1 : 0;
+  }
+
+  for (let step = 0; step < params.growSteps; step++) {
+    current = dilatePatternCells(current, grid.width, grid.height);
+  }
+  for (let step = 0; step < params.shrinkSteps; step++) {
+    current = erodePatternCells(current, grid.width, grid.height);
+  }
+
+  const smoothed = new Uint8Array(current.length);
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      const neighbors = countPatternNeighbors(current, grid.width, grid.height, x, y);
+      const index = y * grid.width + x;
+      smoothed[index] = neighbors >= 4 || (current[index] === 1 && neighbors >= 2) ? 1 : 0;
+    }
+  }
+  current = smoothed;
+
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      const index = y * grid.width + x;
+      if (current[index] !== 1) continue;
+      const neighbors = countPatternNeighbors(current, grid.width, grid.height, x, y);
+      if (neighbors >= 5 && rng() < params.punctureChance) current[index] = 0;
+    }
+  }
+
+  const bytes = expandPatternCellsToMaskBytes(current, grid.width, grid.height, params.blockSize);
+  return params.invert ? invertMaskBytes(bytes) : bytes;
+}
+
 function buildMazeMaskBytes(
   params: MazeAlgorithmParameters | GrowingTreeParameters,
   algorithm: "backtracking" | "growing-tree" | "prims",
@@ -4773,6 +5633,69 @@ function buildArchitectureSummary(parts: string[], params: ArchitectureBaseParam
     .join(" • ");
 }
 
+function buildGrowthSummary(parts: string[], params: GrowthBaseParameters): string {
+  return [
+    `${params.blockSize}x${params.blockSize} blocks`,
+    ...parts,
+    params.invert ? "inverted" : null,
+  ]
+    .filter((value): value is string => value !== null)
+    .join(" • ");
+}
+
+function buildGameOfLifeVariantsSummary(params: GameOfLifeVariantsParameters): string {
+  return buildGrowthSummary(
+    [params.variant, `${Math.round(params.density * 100)}% seed`, `${params.steps} steps`],
+    params,
+  );
+}
+
+function buildDiffusionLimitedAggregationSummary(
+  params: DiffusionLimitedAggregationParameters,
+): string {
+  return buildGrowthSummary(
+    [params.seedMode, `${params.walkers} walkers`, `${Math.round(params.stickiness * 100)}% stick`],
+    params,
+  );
+}
+
+function buildReactionDiffusionApproximationSummary(
+  params: ReactionDiffusionApproximationParameters,
+): string {
+  return buildGrowthSummary(
+    [
+      `${params.spotCount} spots`,
+      `${params.iterations} iter`,
+      `${params.feed.toFixed(3)} feed`,
+      `${params.kill.toFixed(3)} kill`,
+    ],
+    params,
+  );
+}
+
+function buildVoronoiRegionCarverSummary(params: VoronoiRegionCarverParameters): string {
+  return buildGrowthSummary(
+    [
+      `${params.siteCount} sites`,
+      `${formatCompactDecimal(params.ridgeWidth)} ridge`,
+      `${Math.round(params.jitter * 100)}% jitter`,
+    ],
+    params,
+  );
+}
+
+function buildErosionDilationPipelineSummary(params: ErosionDilationPipelineParameters): string {
+  return buildGrowthSummary(
+    [
+      `${Math.round(params.density * 100)}% seed`,
+      `${params.growSteps} grow`,
+      `${params.shrinkSteps} shrink`,
+      `${Math.round(params.punctureChance * 100)}% puncture`,
+    ],
+    params,
+  );
+}
+
 function buildBacktrackingSummary(params: BacktrackingParameters): string {
   return `${params.blockSize} blocks • start ${params.startColumn}, ${params.startRow}`;
 }
@@ -5036,6 +5959,126 @@ function rectCenterDistance(first: PatternRect, second: PatternRect): number {
   const firstCenter = patternRectCenter(first);
   const secondCenter = patternRectCenter(second);
   return Math.abs(firstCenter.x - secondCenter.x) + Math.abs(firstCenter.y - secondCenter.y);
+}
+
+function countPatternNeighbors(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+): number {
+  let count = 0;
+  for (let offsetY = -1; offsetY <= 1; offsetY++) {
+    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+      if (offsetX === 0 && offsetY === 0) continue;
+      const sampleX = x + offsetX;
+      const sampleY = y + offsetY;
+      if (sampleX < 0 || sampleX >= width || sampleY < 0 || sampleY >= height) continue;
+      if (cells[sampleY * width + sampleX] === 1) count++;
+    }
+  }
+  return count;
+}
+
+function hasAdjacentPatternValue(
+  cells: Uint8Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  value: 0 | 1,
+): boolean {
+  for (let offsetY = -1; offsetY <= 1; offsetY++) {
+    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+      if (offsetX === 0 && offsetY === 0) continue;
+      const sampleX = x + offsetX;
+      const sampleY = y + offsetY;
+      if (sampleX < 0 || sampleX >= width || sampleY < 0 || sampleY >= height) continue;
+      if (cells[sampleY * width + sampleX] === value) return true;
+    }
+  }
+  return false;
+}
+
+function randomPatternEdgePoint(
+  width: number,
+  height: number,
+  rng: () => number,
+): Readonly<{ x: number; y: number }> {
+  const edge = randomInt(rng, 0, 3);
+  if (edge === 0) return { x: randomInt(rng, 0, width - 1), y: 0 };
+  if (edge === 1) return { x: randomInt(rng, 0, width - 1), y: height - 1 };
+  if (edge === 2) return { x: 0, y: randomInt(rng, 0, height - 1) };
+  return { x: width - 1, y: randomInt(rng, 0, height - 1) };
+}
+
+function stampFloatCircle(
+  a: Float32Array,
+  b: Float32Array,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  radius: number,
+): void {
+  const radiusSq = radius * radius;
+  for (let y = centerY - radius; y <= centerY + radius; y++) {
+    for (let x = centerX - radius; x <= centerX + radius; x++) {
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      const dx = x - centerX;
+      const dy = y - centerY;
+      if (dx * dx + dy * dy > radiusSq) continue;
+      const index = y * width + x;
+      a[index] = 0;
+      b[index] = 1;
+    }
+  }
+}
+
+function laplacianAt(
+  values: Float32Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+): number {
+  const center = values[y * width + x] ?? 0;
+  let sum = -center;
+  for (let offsetY = -1; offsetY <= 1; offsetY++) {
+    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+      if (offsetX === 0 && offsetY === 0) continue;
+      const sampleX = clamp(x + offsetX, 0, width - 1);
+      const sampleY = clamp(y + offsetY, 0, height - 1);
+      const weight = offsetX === 0 || offsetY === 0 ? 0.2 : 0.05;
+      sum += (values[sampleY * width + sampleX] ?? 0) * weight;
+    }
+  }
+  return sum;
+}
+
+function dilatePatternCells(cells: Uint8Array, width: number, height: number): Uint8Array {
+  const next = new Uint8Array(cells.length);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = y * width + x;
+      next[index] =
+        cells[index] === 1 || hasAdjacentPatternValue(cells, width, height, x, y, 1) ? 1 : 0;
+    }
+  }
+  return next;
+}
+
+function erodePatternCells(cells: Uint8Array, width: number, height: number): Uint8Array {
+  const next = new Uint8Array(cells.length);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = y * width + x;
+      next[index] =
+        cells[index] === 1 && countPatternNeighbors(cells, width, height, x, y) >= 4 ? 1 : 0;
+    }
+  }
+  return next;
 }
 
 function setPatternCell(
@@ -6395,6 +7438,116 @@ function sanitizeBlueprintChamberDepth(value: number): number {
   return clamp(Math.round(value), BLUEPRINT_CHAMBER_DEPTH_MIN, BLUEPRINT_CHAMBER_DEPTH_MAX);
 }
 
+function sanitizeGameOfLifeDensity(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    GAME_OF_LIFE_DENSITY_STEP,
+    GAME_OF_LIFE_DENSITY_MIN,
+    GAME_OF_LIFE_DENSITY_MAX,
+  );
+}
+
+function sanitizeGameOfLifeSteps(value: number): number {
+  return clamp(Math.round(value), GAME_OF_LIFE_STEPS_MIN, GAME_OF_LIFE_STEPS_MAX);
+}
+
+function sanitizeGameOfLifeVariant(value: GameOfLifeVariant): GameOfLifeVariant {
+  return GAME_OF_LIFE_VARIANT_OPTIONS.includes(value) ? value : "life";
+}
+
+function sanitizeDlaWalkers(value: number): number {
+  return clamp(Math.round(value), DLA_WALKERS_MIN, DLA_WALKERS_MAX);
+}
+
+function sanitizeDlaStickiness(value: number): number {
+  return normalizeSteppedValue(value, DLA_STICKINESS_STEP, DLA_STICKINESS_MIN, DLA_STICKINESS_MAX);
+}
+
+function sanitizeDlaSeedMode(value: DlaSeedMode): DlaSeedMode {
+  return DLA_SEED_MODE_OPTIONS.includes(value) ? value : "point";
+}
+
+function sanitizeReactionDiffusionSpotCount(value: number): number {
+  return clamp(
+    Math.round(value),
+    REACTION_DIFFUSION_SPOT_COUNT_MIN,
+    REACTION_DIFFUSION_SPOT_COUNT_MAX,
+  );
+}
+
+function sanitizeReactionDiffusionIterations(value: number): number {
+  return clamp(
+    Math.round(value),
+    REACTION_DIFFUSION_ITERATIONS_MIN,
+    REACTION_DIFFUSION_ITERATIONS_MAX,
+  );
+}
+
+function sanitizeReactionDiffusionFeed(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    REACTION_DIFFUSION_FEED_STEP,
+    REACTION_DIFFUSION_FEED_MIN,
+    REACTION_DIFFUSION_FEED_MAX,
+  );
+}
+
+function sanitizeReactionDiffusionKill(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    REACTION_DIFFUSION_KILL_STEP,
+    REACTION_DIFFUSION_KILL_MIN,
+    REACTION_DIFFUSION_KILL_MAX,
+  );
+}
+
+function sanitizeVoronoiSiteCount(value: number): number {
+  return clamp(Math.round(value), VORONOI_SITE_COUNT_MIN, VORONOI_SITE_COUNT_MAX);
+}
+
+function sanitizeVoronoiRidgeWidth(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    VORONOI_RIDGE_WIDTH_STEP,
+    VORONOI_RIDGE_WIDTH_MIN,
+    VORONOI_RIDGE_WIDTH_MAX,
+  );
+}
+
+function sanitizeVoronoiJitter(value: number): number {
+  return normalizeSteppedValue(value, VORONOI_JITTER_STEP, VORONOI_JITTER_MIN, VORONOI_JITTER_MAX);
+}
+
+function sanitizeErosionDilationDensity(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    EROSION_DILATION_DENSITY_STEP,
+    EROSION_DILATION_DENSITY_MIN,
+    EROSION_DILATION_DENSITY_MAX,
+  );
+}
+
+function sanitizeErosionDilationGrowSteps(value: number): number {
+  return clamp(Math.round(value), EROSION_DILATION_GROW_STEPS_MIN, EROSION_DILATION_GROW_STEPS_MAX);
+}
+
+function sanitizeErosionDilationShrinkSteps(value: number): number {
+  return clamp(
+    Math.round(value),
+    EROSION_DILATION_SHRINK_STEPS_MIN,
+    EROSION_DILATION_SHRINK_STEPS_MAX,
+  );
+}
+
+function sanitizeErosionDilationPunctureChance(value: number): number {
+  return normalizeSteppedValue(
+    value,
+    EROSION_DILATION_PUNCTURE_STEP,
+    EROSION_DILATION_PUNCTURE_MIN,
+    EROSION_DILATION_PUNCTURE_MAX,
+  );
+}
+
 function resolveRandomizableValue<T>(
   control: RandomizableValue<T>,
   randomize: () => T,
@@ -6413,7 +7566,19 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function normalizeSteppedValue(value: number, step: number, min: number, max: number): number {
-  return Number(clamp(Math.round(value / step) * step, min, max).toFixed(2));
+  return Number(
+    clamp(min + Math.round((value - min) / step) * step, min, max).toFixed(
+      resolveStepPrecision(step),
+    ),
+  );
+}
+
+function resolveStepPrecision(step: number): number {
+  const serialized = step.toString();
+  const exponentMatch = serialized.match(/e-(\d+)$/i);
+  if (exponentMatch) return Number(exponentMatch[1]);
+  const decimalIndex = serialized.indexOf(".");
+  return decimalIndex === -1 ? 0 : serialized.length - decimalIndex - 1;
 }
 
 function clamp01(value: number): number {
@@ -6581,6 +7746,10 @@ function hashFloat(seed: number, x: number, y: number): number {
 }
 
 function formatNoiseScale(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function formatCompactDecimal(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
 }
 

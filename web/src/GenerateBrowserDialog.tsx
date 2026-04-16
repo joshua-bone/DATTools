@@ -40,6 +40,12 @@ import {
   COURTYARD_RING_COUNT_MIN,
   COURTYARD_RING_GAP_MAX,
   COURTYARD_RING_GAP_MIN,
+  DLA_SEED_MODE_OPTIONS,
+  DLA_STICKINESS_MAX,
+  DLA_STICKINESS_MIN,
+  DLA_STICKINESS_STEP,
+  DLA_WALKERS_MAX,
+  DLA_WALKERS_MIN,
   DUNGEON_ROOM_COUNT_MAX,
   DUNGEON_ROOM_COUNT_MIN,
   DUNGEON_ROOM_SIZE_MAX,
@@ -50,6 +56,22 @@ import {
   DOMAIN_WARP_STRENGTH_MAX,
   DOMAIN_WARP_STRENGTH_MIN,
   DOMAIN_WARP_STRENGTH_STEP,
+  EROSION_DILATION_DENSITY_MAX,
+  EROSION_DILATION_DENSITY_MIN,
+  EROSION_DILATION_DENSITY_STEP,
+  EROSION_DILATION_GROW_STEPS_MAX,
+  EROSION_DILATION_GROW_STEPS_MIN,
+  EROSION_DILATION_PUNCTURE_MAX,
+  EROSION_DILATION_PUNCTURE_MIN,
+  EROSION_DILATION_PUNCTURE_STEP,
+  EROSION_DILATION_SHRINK_STEPS_MAX,
+  EROSION_DILATION_SHRINK_STEPS_MIN,
+  GAME_OF_LIFE_DENSITY_MAX,
+  GAME_OF_LIFE_DENSITY_MIN,
+  GAME_OF_LIFE_DENSITY_STEP,
+  GAME_OF_LIFE_STEPS_MAX,
+  GAME_OF_LIFE_STEPS_MIN,
+  GAME_OF_LIFE_VARIANT_OPTIONS,
   GENERATE_ALGORITHM_OPTIONS,
   GENERATED_LAYOUT_CARD_COUNT,
   GENERATED_LAYOUT_GRID_SIZE,
@@ -133,9 +155,12 @@ import {
   createDefaultCellularAutomatonControlState,
   createDefaultCorridorGridControlState,
   createDefaultCourtyardGeneratorControlState,
+  createDefaultDiffusionLimitedAggregationControlState,
   createDefaultDomainWarpedNoiseControlState,
   createDefaultDungeonRoomsControlState,
   createDefaultEllersControlState,
+  createDefaultErosionDilationPipelineControlState,
+  createDefaultGameOfLifeVariantsControlState,
   createDefaultGrowingTreeControlState,
   createDefaultHuntAndKillControlState,
   createDefaultKaleidoscopeControlState,
@@ -145,6 +170,7 @@ import {
   createDefaultPrimsControlState,
   createDefaultRandomNoiseControlState,
   createDefaultRadialSymmetryControlState,
+  createDefaultReactionDiffusionApproximationControlState,
   createDefaultRecursiveDivisionControlState,
   createDefaultRoomScatterControlState,
   createDefaultRoseCurvesControlState,
@@ -153,6 +179,7 @@ import {
   createDefaultTileableMotifRepeaterControlState,
   createDefaultTrivialMazeControlState,
   createDefaultValueFractalNoiseControlState,
+  createDefaultVoronoiRegionCarverControlState,
   createDefaultWilsonsControlState,
   createDefaultWorleyNoiseControlState,
   dungeonRoomParameterLimits,
@@ -170,9 +197,14 @@ import {
   type CellularAutomatonControlState,
   type CorridorGridControlState,
   type CourtyardGeneratorControlState,
+  type DiffusionLimitedAggregationControlState,
+  type DlaSeedMode,
   type DomainWarpedNoiseControlState,
   type DungeonRoomsControlState,
   type EllersControlState,
+  type ErosionDilationPipelineControlState,
+  type GameOfLifeVariant,
+  type GameOfLifeVariantsControlState,
   type GeneratedLayoutRecord,
   type GenerateAlgorithmChoice,
   type GrowingTreeControlState,
@@ -188,6 +220,17 @@ import {
   type RadialSymmetryControlState,
   type RandomNoiseControlState,
   type RandomNoiseMirrorMode,
+  REACTION_DIFFUSION_FEED_MAX,
+  REACTION_DIFFUSION_FEED_MIN,
+  REACTION_DIFFUSION_FEED_STEP,
+  REACTION_DIFFUSION_ITERATIONS_MAX,
+  REACTION_DIFFUSION_ITERATIONS_MIN,
+  REACTION_DIFFUSION_KILL_MAX,
+  REACTION_DIFFUSION_KILL_MIN,
+  REACTION_DIFFUSION_KILL_STEP,
+  REACTION_DIFFUSION_SPOT_COUNT_MAX,
+  REACTION_DIFFUSION_SPOT_COUNT_MIN,
+  type ReactionDiffusionApproximationControlState,
   type RecursiveDivisionControlState,
   ROOM_SCATTER_CONNECTOR_CHANCE_MAX,
   ROOM_SCATTER_CONNECTOR_CHANCE_MIN,
@@ -215,6 +258,15 @@ import {
   TILEABLE_MOTIF_TYPE_OPTIONS,
   TRIVIAL_MAZE_TYPE_OPTIONS,
   type ValueFractalNoiseControlState,
+  VORONOI_JITTER_MAX,
+  VORONOI_JITTER_MIN,
+  VORONOI_JITTER_STEP,
+  VORONOI_RIDGE_WIDTH_MAX,
+  VORONOI_RIDGE_WIDTH_MIN,
+  VORONOI_RIDGE_WIDTH_STEP,
+  VORONOI_SITE_COUNT_MAX,
+  VORONOI_SITE_COUNT_MIN,
+  type VoronoiRegionCarverControlState,
   type WilsonsControlState,
   type WorleyNoiseControlState,
 } from "@/web/src/generatedLayouts";
@@ -365,6 +417,46 @@ type BlueprintGeneratorSettingsPanelProps = Readonly<{
   onUpdate: <K extends keyof BlueprintGeneratorControlState>(
     key: K,
     nextValue: Partial<BlueprintGeneratorControlState[K]>,
+  ) => void;
+}>;
+
+type GameOfLifeVariantsSettingsPanelProps = Readonly<{
+  controls: GameOfLifeVariantsControlState;
+  onUpdate: <K extends keyof GameOfLifeVariantsControlState>(
+    key: K,
+    nextValue: Partial<GameOfLifeVariantsControlState[K]>,
+  ) => void;
+}>;
+
+type DiffusionLimitedAggregationSettingsPanelProps = Readonly<{
+  controls: DiffusionLimitedAggregationControlState;
+  onUpdate: <K extends keyof DiffusionLimitedAggregationControlState>(
+    key: K,
+    nextValue: Partial<DiffusionLimitedAggregationControlState[K]>,
+  ) => void;
+}>;
+
+type ReactionDiffusionApproximationSettingsPanelProps = Readonly<{
+  controls: ReactionDiffusionApproximationControlState;
+  onUpdate: <K extends keyof ReactionDiffusionApproximationControlState>(
+    key: K,
+    nextValue: Partial<ReactionDiffusionApproximationControlState[K]>,
+  ) => void;
+}>;
+
+type VoronoiRegionCarverSettingsPanelProps = Readonly<{
+  controls: VoronoiRegionCarverControlState;
+  onUpdate: <K extends keyof VoronoiRegionCarverControlState>(
+    key: K,
+    nextValue: Partial<VoronoiRegionCarverControlState[K]>,
+  ) => void;
+}>;
+
+type ErosionDilationPipelineSettingsPanelProps = Readonly<{
+  controls: ErosionDilationPipelineControlState;
+  onUpdate: <K extends keyof ErosionDilationPipelineControlState>(
+    key: K,
+    nextValue: Partial<ErosionDilationPipelineControlState[K]>,
   ) => void;
 }>;
 
@@ -528,6 +620,28 @@ function formatTileableMotifLabel(motif: TileableMotifType): string {
       return "Chevron";
     case "petal":
       return "Petal";
+  }
+}
+
+function formatGameOfLifeVariantLabel(variant: GameOfLifeVariant): string {
+  switch (variant) {
+    case "life":
+      return "Life";
+    case "highlife":
+      return "HighLife";
+    case "maze":
+      return "Maze";
+  }
+}
+
+function formatDlaSeedModeLabel(seedMode: DlaSeedMode): string {
+  switch (seedMode) {
+    case "point":
+      return "Point";
+    case "line":
+      return "Line";
+    case "cross":
+      return "Cross";
   }
 }
 
@@ -2735,6 +2849,563 @@ function BlueprintGeneratorSettingsPanel({
               onChange={(event) => onUpdate("chamberDepth", { value: Number(event.target.value) })}
             />
             <div className="statusBadge generateValueBadge">{controls.chamberDepth.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function GameOfLifeVariantsSettingsPanel({
+  controls,
+  onUpdate,
+}: GameOfLifeVariantsSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Game of Life Variants</h3>
+      <div className="fieldHint">
+        Evolves a seeded binary field through a Life-family rule set to form chambers and tunnel
+        clusters.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Variant</span>
+          <ParameterToggle
+            checked={controls.variant.randomize}
+            onChange={(checked) => onUpdate("variant", { randomize: checked })}
+          />
+        </div>
+        {controls.variant.randomize ? (
+          <div className="fieldHint">Switches between Life, HighLife, and Maze-like rules.</div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.variant.value}
+            onChange={(event) =>
+              onUpdate("variant", { value: event.target.value as GameOfLifeVariant })
+            }
+          >
+            {GAME_OF_LIFE_VARIANT_OPTIONS.map((variant) => (
+              <option key={variant} value={variant}>
+                {formatGameOfLifeVariantLabel(variant)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed Density</span>
+          <ParameterToggle
+            checked={controls.density.randomize}
+            onChange={(checked) => onUpdate("density", { randomize: checked })}
+          />
+        </div>
+        {controls.density.randomize ? (
+          <div className="fieldHint">Controls how full the starting binary field is.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={GAME_OF_LIFE_DENSITY_MIN}
+              max={GAME_OF_LIFE_DENSITY_MAX}
+              step={GAME_OF_LIFE_DENSITY_STEP}
+              value={controls.density.value}
+              onChange={(event) => onUpdate("density", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.density.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Steps</span>
+          <ParameterToggle
+            checked={controls.steps.randomize}
+            onChange={(checked) => onUpdate("steps", { randomize: checked })}
+          />
+        </div>
+        {controls.steps.randomize ? (
+          <div className="fieldHint">
+            Higher values let the automaton settle into larger shapes.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={GAME_OF_LIFE_STEPS_MIN}
+              max={GAME_OF_LIFE_STEPS_MAX}
+              step={1}
+              value={controls.steps.value}
+              onChange={(event) => onUpdate("steps", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.steps.value}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function DiffusionLimitedAggregationSettingsPanel({
+  controls,
+  onUpdate,
+}: DiffusionLimitedAggregationSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Diffusion-Limited Aggregation</h3>
+      <div className="fieldHint">
+        Random walkers stick to an existing cluster to grow coral-, lightning-, and crystal-like
+        silhouettes.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed Shape</span>
+          <ParameterToggle
+            checked={controls.seedMode.randomize}
+            onChange={(checked) => onUpdate("seedMode", { randomize: checked })}
+          />
+        </div>
+        {controls.seedMode.randomize ? (
+          <div className="fieldHint">
+            Randomizes the starting aggregate between point, line, and cross.
+          </div>
+        ) : (
+          <select
+            className="generateSelect"
+            value={controls.seedMode.value}
+            onChange={(event) => onUpdate("seedMode", { value: event.target.value as DlaSeedMode })}
+          >
+            {DLA_SEED_MODE_OPTIONS.map((seedMode) => (
+              <option key={seedMode} value={seedMode}>
+                {formatDlaSeedModeLabel(seedMode)}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Walkers</span>
+          <ParameterToggle
+            checked={controls.walkers.randomize}
+            onChange={(checked) => onUpdate("walkers", { randomize: checked })}
+          />
+        </div>
+        {controls.walkers.randomize ? (
+          <div className="fieldHint">More walkers usually means denser, branchier accretions.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DLA_WALKERS_MIN}
+              max={DLA_WALKERS_MAX}
+              step={1}
+              value={controls.walkers.value}
+              onChange={(event) => onUpdate("walkers", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.walkers.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Stickiness</span>
+          <ParameterToggle
+            checked={controls.stickiness.randomize}
+            onChange={(checked) => onUpdate("stickiness", { randomize: checked })}
+          />
+        </div>
+        {controls.stickiness.randomize ? (
+          <div className="fieldHint">
+            Higher values make walkers attach faster to the aggregate.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={DLA_STICKINESS_MIN}
+              max={DLA_STICKINESS_MAX}
+              step={DLA_STICKINESS_STEP}
+              value={controls.stickiness.value}
+              onChange={(event) => onUpdate("stickiness", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.stickiness.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function ReactionDiffusionApproximationSettingsPanel({
+  controls,
+  onUpdate,
+}: ReactionDiffusionApproximationSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Reaction-Diffusion Approximation</h3>
+      <div className="fieldHint">
+        A lightweight Gray-Scott-style field that grows stripe and spot structures from seeded
+        activator patches.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Spot Count</span>
+          <ParameterToggle
+            checked={controls.spotCount.randomize}
+            onChange={(checked) => onUpdate("spotCount", { randomize: checked })}
+          />
+        </div>
+        {controls.spotCount.randomize ? (
+          <div className="fieldHint">
+            Controls how many seeded activator patches the field starts with.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={REACTION_DIFFUSION_SPOT_COUNT_MIN}
+              max={REACTION_DIFFUSION_SPOT_COUNT_MAX}
+              step={1}
+              value={controls.spotCount.value}
+              onChange={(event) => onUpdate("spotCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.spotCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Iterations</span>
+          <ParameterToggle
+            checked={controls.iterations.randomize}
+            onChange={(checked) => onUpdate("iterations", { randomize: checked })}
+          />
+        </div>
+        {controls.iterations.randomize ? (
+          <div className="fieldHint">
+            Higher values let the spots diffuse and self-organize longer.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={REACTION_DIFFUSION_ITERATIONS_MIN}
+              max={REACTION_DIFFUSION_ITERATIONS_MAX}
+              step={1}
+              value={controls.iterations.value}
+              onChange={(event) => onUpdate("iterations", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.iterations.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Feed</span>
+          <ParameterToggle
+            checked={controls.feed.randomize}
+            onChange={(checked) => onUpdate("feed", { randomize: checked })}
+          />
+        </div>
+        {controls.feed.randomize ? (
+          <div className="fieldHint">Controls how quickly fresh material re-enters the field.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={REACTION_DIFFUSION_FEED_MIN}
+              max={REACTION_DIFFUSION_FEED_MAX}
+              step={REACTION_DIFFUSION_FEED_STEP}
+              value={controls.feed.value}
+              onChange={(event) => onUpdate("feed", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.feed.value.toFixed(3)}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Kill</span>
+          <ParameterToggle
+            checked={controls.kill.randomize}
+            onChange={(checked) => onUpdate("kill", { randomize: checked })}
+          />
+        </div>
+        {controls.kill.randomize ? (
+          <div className="fieldHint">Controls how quickly the reacting material decays away.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={REACTION_DIFFUSION_KILL_MIN}
+              max={REACTION_DIFFUSION_KILL_MAX}
+              step={REACTION_DIFFUSION_KILL_STEP}
+              value={controls.kill.value}
+              onChange={(event) => onUpdate("kill", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.kill.value.toFixed(3)}</div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function VoronoiRegionCarverSettingsPanel({
+  controls,
+  onUpdate,
+}: VoronoiRegionCarverSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Voronoi Region Carver</h3>
+      <div className="fieldHint">
+        Builds walls on Voronoi region boundaries so the result feels like cracked cells or tiled
+        partitions.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Site Count</span>
+          <ParameterToggle
+            checked={controls.siteCount.randomize}
+            onChange={(checked) => onUpdate("siteCount", { randomize: checked })}
+          />
+        </div>
+        {controls.siteCount.randomize ? (
+          <div className="fieldHint">More sites create smaller cells and denser boundaries.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={VORONOI_SITE_COUNT_MIN}
+              max={VORONOI_SITE_COUNT_MAX}
+              step={1}
+              value={controls.siteCount.value}
+              onChange={(event) => onUpdate("siteCount", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.siteCount.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Ridge Width</span>
+          <ParameterToggle
+            checked={controls.ridgeWidth.randomize}
+            onChange={(checked) => onUpdate("ridgeWidth", { randomize: checked })}
+          />
+        </div>
+        {controls.ridgeWidth.randomize ? (
+          <div className="fieldHint">Thickens or thins the extracted Voronoi boundaries.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={VORONOI_RIDGE_WIDTH_MIN}
+              max={VORONOI_RIDGE_WIDTH_MAX}
+              step={VORONOI_RIDGE_WIDTH_STEP}
+              value={controls.ridgeWidth.value}
+              onChange={(event) => onUpdate("ridgeWidth", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {controls.ridgeWidth.value.toFixed(1)}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Jitter</span>
+          <ParameterToggle
+            checked={controls.jitter.randomize}
+            onChange={(checked) => onUpdate("jitter", { randomize: checked })}
+          />
+        </div>
+        {controls.jitter.randomize ? (
+          <div className="fieldHint">Adds a small noisy wobble to the boundary evaluation.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={VORONOI_JITTER_MIN}
+              max={VORONOI_JITTER_MAX}
+              step={VORONOI_JITTER_STEP}
+              value={controls.jitter.value}
+              onChange={(event) => onUpdate("jitter", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.jitter.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <OrnamentBaseSections controls={controls} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function ErosionDilationPipelineSettingsPanel({
+  controls,
+  onUpdate,
+}: ErosionDilationPipelineSettingsPanelProps): JSX.Element {
+  return (
+    <>
+      <div className="sectionEyebrow">Parameters</div>
+      <h3 className="sectionTitle">Erosion / Dilation Pipeline</h3>
+      <div className="fieldHint">
+        Starts from noise, grows it outward, erodes it back, and then punctures dense pockets.
+      </div>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Seed Density</span>
+          <ParameterToggle
+            checked={controls.density.randomize}
+            onChange={(checked) => onUpdate("density", { randomize: checked })}
+          />
+        </div>
+        {controls.density.randomize ? (
+          <div className="fieldHint">Sets how full the starting binary mask is.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={EROSION_DILATION_DENSITY_MIN}
+              max={EROSION_DILATION_DENSITY_MAX}
+              step={EROSION_DILATION_DENSITY_STEP}
+              value={controls.density.value}
+              onChange={(event) => onUpdate("density", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.density.value * 100)}%
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Grow Steps</span>
+          <ParameterToggle
+            checked={controls.growSteps.randomize}
+            onChange={(checked) => onUpdate("growSteps", { randomize: checked })}
+          />
+        </div>
+        {controls.growSteps.randomize ? (
+          <div className="fieldHint">Dilation passes that thicken and merge nearby blobs.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={EROSION_DILATION_GROW_STEPS_MIN}
+              max={EROSION_DILATION_GROW_STEPS_MAX}
+              step={1}
+              value={controls.growSteps.value}
+              onChange={(event) => onUpdate("growSteps", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.growSteps.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Shrink Steps</span>
+          <ParameterToggle
+            checked={controls.shrinkSteps.randomize}
+            onChange={(checked) => onUpdate("shrinkSteps", { randomize: checked })}
+          />
+        </div>
+        {controls.shrinkSteps.randomize ? (
+          <div className="fieldHint">Erosion passes that cut back the merged shapes.</div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={EROSION_DILATION_SHRINK_STEPS_MIN}
+              max={EROSION_DILATION_SHRINK_STEPS_MAX}
+              step={1}
+              value={controls.shrinkSteps.value}
+              onChange={(event) => onUpdate("shrinkSteps", { value: Number(event.target.value) })}
+            />
+            <div className="statusBadge generateValueBadge">{controls.shrinkSteps.value}</div>
+          </div>
+        )}
+      </section>
+
+      <section className="generateSettingCard">
+        <div className="fieldLabelRow">
+          <span className="fieldLabel">Puncture Chance</span>
+          <ParameterToggle
+            checked={controls.punctureChance.randomize}
+            onChange={(checked) => onUpdate("punctureChance", { randomize: checked })}
+          />
+        </div>
+        {controls.punctureChance.randomize ? (
+          <div className="fieldHint">
+            Removes some solid pockets to break up otherwise massive walls.
+          </div>
+        ) : (
+          <div className="generateSettingBody">
+            <input
+              type="range"
+              className="generateRangeInput"
+              min={EROSION_DILATION_PUNCTURE_MIN}
+              max={EROSION_DILATION_PUNCTURE_MAX}
+              step={EROSION_DILATION_PUNCTURE_STEP}
+              value={controls.punctureChance.value}
+              onChange={(event) =>
+                onUpdate("punctureChance", { value: Number(event.target.value) })
+              }
+            />
+            <div className="statusBadge generateValueBadge">
+              {Math.round(controls.punctureChance.value * 100)}%
+            </div>
           </div>
         )}
       </section>
@@ -5051,6 +5722,22 @@ export function GenerateBrowserDialog({
     useState<CourtyardGeneratorControlState>(() => createDefaultCourtyardGeneratorControlState());
   const [blueprintGeneratorControls, setBlueprintGeneratorControls] =
     useState<BlueprintGeneratorControlState>(() => createDefaultBlueprintGeneratorControlState());
+  const [gameOfLifeVariantsControls, setGameOfLifeVariantsControls] =
+    useState<GameOfLifeVariantsControlState>(() => createDefaultGameOfLifeVariantsControlState());
+  const [diffusionLimitedAggregationControls, setDiffusionLimitedAggregationControls] =
+    useState<DiffusionLimitedAggregationControlState>(() =>
+      createDefaultDiffusionLimitedAggregationControlState(),
+    );
+  const [reactionDiffusionApproximationControls, setReactionDiffusionApproximationControls] =
+    useState<ReactionDiffusionApproximationControlState>(() =>
+      createDefaultReactionDiffusionApproximationControlState(),
+    );
+  const [voronoiRegionCarverControls, setVoronoiRegionCarverControls] =
+    useState<VoronoiRegionCarverControlState>(() => createDefaultVoronoiRegionCarverControlState());
+  const [erosionDilationPipelineControls, setErosionDilationPipelineControls] =
+    useState<ErosionDilationPipelineControlState>(() =>
+      createDefaultErosionDilationPipelineControlState(),
+    );
   const [backtrackingControls, setBacktrackingControls] = useState<BacktrackingControlState>(() =>
     createDefaultBacktrackingControlState(),
   );
@@ -5132,6 +5819,22 @@ export function GenerateBrowserDialog({
               selectedAlgorithm === "courtyard-generator" ? courtyardGeneratorControls : null,
             blueprintGeneratorControls:
               selectedAlgorithm === "blueprint-generator" ? blueprintGeneratorControls : null,
+            gameOfLifeVariantsControls:
+              selectedAlgorithm === "game-of-life-variants" ? gameOfLifeVariantsControls : null,
+            diffusionLimitedAggregationControls:
+              selectedAlgorithm === "diffusion-limited-aggregation"
+                ? diffusionLimitedAggregationControls
+                : null,
+            reactionDiffusionApproximationControls:
+              selectedAlgorithm === "reaction-diffusion-approximation"
+                ? reactionDiffusionApproximationControls
+                : null,
+            voronoiRegionCarverControls:
+              selectedAlgorithm === "voronoi-region-carver" ? voronoiRegionCarverControls : null,
+            erosionDilationPipelineControls:
+              selectedAlgorithm === "erosion-dilation-pipeline"
+                ? erosionDilationPipelineControls
+                : null,
             backtrackingControls:
               selectedAlgorithm === "backtracking-generator" ? backtrackingControls : null,
             primsControls: selectedAlgorithm === "prims" ? primsControls : null,
@@ -5161,9 +5864,12 @@ export function GenerateBrowserDialog({
       cellularAutomatonControls,
       corridorGridControls,
       courtyardGeneratorControls,
+      diffusionLimitedAggregationControls,
       domainWarpedNoiseControls,
       dungeonRoomsControls,
+      erosionDilationPipelineControls,
       ellersControls,
+      gameOfLifeVariantsControls,
       growingTreeControls,
       huntAndKillControls,
       kaleidoscopeControls,
@@ -5174,6 +5880,7 @@ export function GenerateBrowserDialog({
       randomNoiseControls,
       randomSeed,
       radialSymmetryControls,
+      reactionDiffusionApproximationControls,
       recursiveDivisionControls,
       roomScatterControls,
       roseCurvesControls,
@@ -5185,6 +5892,7 @@ export function GenerateBrowserDialog({
       tileableMotifRepeaterControls,
       trivialMazeControls,
       valueFractalNoiseControls,
+      voronoiRegionCarverControls,
       wilsonsControls,
       worleyNoiseControls,
     ],
@@ -5404,6 +6112,68 @@ export function GenerateBrowserDialog({
     nextValue: Partial<BlueprintGeneratorControlState[K]>,
   ): void {
     setBlueprintGeneratorControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateGameOfLifeVariantsControl<K extends keyof GameOfLifeVariantsControlState>(
+    key: K,
+    nextValue: Partial<GameOfLifeVariantsControlState[K]>,
+  ): void {
+    setGameOfLifeVariantsControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateDiffusionLimitedAggregationControl<
+    K extends keyof DiffusionLimitedAggregationControlState,
+  >(key: K, nextValue: Partial<DiffusionLimitedAggregationControlState[K]>): void {
+    setDiffusionLimitedAggregationControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateReactionDiffusionApproximationControl<
+    K extends keyof ReactionDiffusionApproximationControlState,
+  >(key: K, nextValue: Partial<ReactionDiffusionApproximationControlState[K]>): void {
+    setReactionDiffusionApproximationControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateVoronoiRegionCarverControl<K extends keyof VoronoiRegionCarverControlState>(
+    key: K,
+    nextValue: Partial<VoronoiRegionCarverControlState[K]>,
+  ): void {
+    setVoronoiRegionCarverControls((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...nextValue,
+      },
+    }));
+  }
+
+  function updateErosionDilationPipelineControl<
+    K extends keyof ErosionDilationPipelineControlState,
+  >(key: K, nextValue: Partial<ErosionDilationPipelineControlState[K]>): void {
+    setErosionDilationPipelineControls((current) => ({
       ...current,
       [key]: {
         ...current[key],
@@ -5772,6 +6542,58 @@ export function GenerateBrowserDialog({
         pillarSpacing: { randomize: false, value: record.params.pillarSpacing },
         chamberDepth: { randomize: false, value: record.params.chamberDepth },
       });
+    } else if (record.algorithm === "game-of-life-variants") {
+      setSelectedAlgorithm("game-of-life-variants");
+      setGameOfLifeVariantsControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        density: { randomize: false, value: record.params.density },
+        steps: { randomize: false, value: record.params.steps },
+        variant: { randomize: false, value: record.params.variant },
+      });
+    } else if (record.algorithm === "diffusion-limited-aggregation") {
+      setSelectedAlgorithm("diffusion-limited-aggregation");
+      setDiffusionLimitedAggregationControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        walkers: { randomize: false, value: record.params.walkers },
+        stickiness: { randomize: false, value: record.params.stickiness },
+        seedMode: { randomize: false, value: record.params.seedMode },
+      });
+    } else if (record.algorithm === "reaction-diffusion-approximation") {
+      setSelectedAlgorithm("reaction-diffusion-approximation");
+      setReactionDiffusionApproximationControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        spotCount: { randomize: false, value: record.params.spotCount },
+        iterations: { randomize: false, value: record.params.iterations },
+        feed: { randomize: false, value: record.params.feed },
+        kill: { randomize: false, value: record.params.kill },
+      });
+    } else if (record.algorithm === "voronoi-region-carver") {
+      setSelectedAlgorithm("voronoi-region-carver");
+      setVoronoiRegionCarverControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        siteCount: { randomize: false, value: record.params.siteCount },
+        ridgeWidth: { randomize: false, value: record.params.ridgeWidth },
+        jitter: { randomize: false, value: record.params.jitter },
+      });
+    } else if (record.algorithm === "erosion-dilation-pipeline") {
+      setSelectedAlgorithm("erosion-dilation-pipeline");
+      setErosionDilationPipelineControls({
+        seed: { randomize: true, value: record.params.seed },
+        blockSize: { randomize: false, value: record.params.blockSize },
+        invert: { randomize: false, value: record.params.invert },
+        density: { randomize: false, value: record.params.density },
+        growSteps: { randomize: false, value: record.params.growSteps },
+        shrinkSteps: { randomize: false, value: record.params.shrinkSteps },
+        punctureChance: { randomize: false, value: record.params.punctureChance },
+      });
     } else if (record.algorithm === "backtracking-generator") {
       setSelectedAlgorithm("backtracking-generator");
       setBacktrackingControls({
@@ -6026,6 +6848,31 @@ export function GenerateBrowserDialog({
                   <BlueprintGeneratorSettingsPanel
                     controls={blueprintGeneratorControls}
                     onUpdate={updateBlueprintGeneratorControl}
+                  />
+                ) : selectedAlgorithm === "game-of-life-variants" ? (
+                  <GameOfLifeVariantsSettingsPanel
+                    controls={gameOfLifeVariantsControls}
+                    onUpdate={updateGameOfLifeVariantsControl}
+                  />
+                ) : selectedAlgorithm === "diffusion-limited-aggregation" ? (
+                  <DiffusionLimitedAggregationSettingsPanel
+                    controls={diffusionLimitedAggregationControls}
+                    onUpdate={updateDiffusionLimitedAggregationControl}
+                  />
+                ) : selectedAlgorithm === "reaction-diffusion-approximation" ? (
+                  <ReactionDiffusionApproximationSettingsPanel
+                    controls={reactionDiffusionApproximationControls}
+                    onUpdate={updateReactionDiffusionApproximationControl}
+                  />
+                ) : selectedAlgorithm === "voronoi-region-carver" ? (
+                  <VoronoiRegionCarverSettingsPanel
+                    controls={voronoiRegionCarverControls}
+                    onUpdate={updateVoronoiRegionCarverControl}
+                  />
+                ) : selectedAlgorithm === "erosion-dilation-pipeline" ? (
+                  <ErosionDilationPipelineSettingsPanel
+                    controls={erosionDilationPipelineControls}
+                    onUpdate={updateErosionDilationPipelineControl}
                   />
                 ) : selectedAlgorithm === "backtracking-generator" ? (
                   <BacktrackingSettingsPanel
