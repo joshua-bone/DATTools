@@ -361,7 +361,7 @@ Acceptance criteria:
 
 Status:
 
-- next
+- done
 
 Goal:
 
@@ -380,6 +380,10 @@ Acceptance criteria:
 - git/tag-based consumption works
 
 ### PR 7: Add c2mTools Host Adapter And First Integration
+
+Status:
+
+- next
 
 Goal:
 

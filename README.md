@@ -106,3 +106,47 @@ URL shows the repository README instead of the editor, check:
 CLI includes a `merge-voting-packs` command for combining a directory of
 `*.dat` voting packs plus matching `Solutions/*-Lynx.tws` / `*-MS.tws` files
 into one merged DAT and two merged TWS files.
+
+## Reusable walls library
+
+This repo now also publishes a stable walls library surface for sibling tools.
+
+Supported import paths:
+
+- `dattools/walls-core`
+- `dattools/walls-dat`
+- `dattools/walls-react`
+
+Local cross-repo development:
+
+```json
+{
+  "dependencies": {
+    "dattools": "file:../DATTools"
+  }
+}
+```
+
+Pinned git dependency:
+
+```json
+{
+  "dependencies": {
+    "dattools": "git+https://github.com/joshua-bone/DATTools.git#<tag-or-commit>"
+  }
+}
+```
+
+Example imports:
+
+```ts
+import { wallMask32FromKey } from "dattools/walls-core";
+import { datWallsHostAdapter } from "dattools/walls-dat";
+import { BrowseWallsDialog, GenerateWallsDialog } from "dattools/walls-react";
+```
+
+Build the package artifacts with:
+
+```bash
+npm run build
+```
