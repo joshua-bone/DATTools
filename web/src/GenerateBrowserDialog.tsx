@@ -2,6 +2,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type Dispatch,
   type JSX,
   type SetStateAction,
@@ -121,7 +122,6 @@ import {
   GAME_OF_LIFE_VARIANT_OPTIONS,
   GENERATE_ALGORITHM_OPTIONS,
   GENERATED_LAYOUT_CARD_COUNT,
-  GENERATED_LAYOUT_GRID_SIZE,
   GENERATED_LAYOUT_MAX_SIZE,
   GENERATED_LAYOUT_MIN_SIZE,
   GLITCH_BLOCK_BAND_COUNT_MAX,
@@ -1029,22 +1029,14 @@ function formatTrivialMazeTypeLabel(mazeType: TrivialMazeType): string {
 
 function GeneratedMaskPreview({
   record,
-}: Readonly<{ record: GeneratedLayoutRecord }>): JSX.Element {
+  maxPreviewPixels = 128,
+}: Readonly<{ record: GeneratedLayoutRecord; maxPreviewPixels?: number }>): JSX.Element {
   const grid = record.grid;
-  if (!grid) {
-    return (
-      <div className="generatePreviewGrid" aria-hidden="true">
-        {Array.from(
-          { length: GENERATED_LAYOUT_GRID_SIZE * GENERATED_LAYOUT_GRID_SIZE },
-          (_, index) => (
-            <span key={index} className="generatePreviewCell floor" />
-          ),
-        )}
-      </div>
-    );
-  }
-
   const wallRects = useMemo(() => {
+    if (!grid) {
+      return [];
+    }
+
     const rects: JSX.Element[] = [];
     for (let y = 0; y < grid.height; y += 1) {
       for (let x = 0; x < grid.width; x += 1) {
@@ -1055,6 +1047,31 @@ function GeneratedMaskPreview({
     return rects;
   }, [grid]);
 
+  const previewStyle = useMemo(() => {
+    if (!grid) {
+      return undefined;
+    }
+
+    const maxDimension = Math.max(grid.width, grid.height);
+    const cellPixels =
+      maxDimension * 4 <= maxPreviewPixels
+        ? 4
+        : maxDimension * 2 <= maxPreviewPixels
+          ? 2
+          : maxDimension <= maxPreviewPixels
+            ? 1
+            : maxPreviewPixels / maxDimension;
+
+    return {
+      width: `${Math.max(1, Math.round(grid.width * cellPixels))}px`,
+      height: `${Math.max(1, Math.round(grid.height * cellPixels))}px`,
+    } satisfies CSSProperties;
+  }, [grid, maxPreviewPixels]);
+
+  if (!grid) {
+    return <div className="generatePreviewGrid generatePreviewPlaceholder" aria-hidden="true" />;
+  }
+
   return (
     <svg
       className="generatePreviewGrid"
@@ -1062,6 +1079,7 @@ function GeneratedMaskPreview({
       viewBox={`0 0 ${grid.width} ${grid.height}`}
       preserveAspectRatio="xMidYMid meet"
       shapeRendering="crispEdges"
+      style={previewStyle}
     >
       <rect className="generatePreviewFloor" x={0} y={0} width={grid.width} height={grid.height} />
       <g className="generatePreviewWall">{wallRects}</g>
@@ -6452,7 +6470,7 @@ function GeneratedRecordDetails({
       <h3 className="sectionTitle">{record.title}</h3>
       <div className="fieldHint">{record.summary}</div>
       <div className="generateSidebarPreview">
-        <GeneratedMaskPreview record={record} />
+        <GeneratedMaskPreview record={record} maxPreviewPixels={224} />
       </div>
       <div className="generateDetailActions">
         {starUiEnabled ? (
