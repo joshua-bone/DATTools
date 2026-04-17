@@ -55,6 +55,10 @@
   },
   "homepage": "https://joshua-bone.github.io/DATTools/",
   "dependencies": {
+    "@fontsource/micro-5": "^5.2.7",
+    "@fontsource/press-start-2p": "^5.2.7",
+    "@fontsource/silkscreen": "^5.2.8",
+    "@fontsource/tiny5": "^5.2.7",
     "@tauri-apps/api": "2.10.1",
     "@tauri-apps/plugin-dialog": "2.6.0",
     "@tauri-apps/plugin-fs": "2.4.5",
@@ -72,8 +76,8 @@
     "@vitejs/plugin-react": "^5.1.2",
     "husky": "^9.1.7",
     "prettier": "^3.7.4",
-    "tsx": "^4.20.6",
     "tsup": "^8.5.1",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vite": "^7.3.0",
     "vitest": "^4.0.16"

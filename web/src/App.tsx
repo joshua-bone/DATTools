@@ -173,9 +173,13 @@ import {
   DEFAULT_TEXT_BRUSH_FONT_FAMILY,
   DEFAULT_TEXT_BRUSH_FONT_SIZE,
   DEFAULT_TEXT_BRUSH_TEXT,
+  formatTextBrushFontSizeLabel,
+  getTextBrushPreviewFontSize,
+  getTextBrushSizeChoices,
+  loadTextBrushFont,
+  normalizeTextBrushFontSize,
   TEXT_BRUSH_ALIGN_CHOICES,
   TEXT_BRUSH_FONT_CHOICES,
-  TEXT_BRUSH_SIZE_CHOICES,
   rasterizeTextBrush,
   type RasterizedTextBrush,
   type TextBrushAlign,
@@ -2327,6 +2331,24 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     const shouldDrawMonsterOrder = showMonsterOrder && !lowDetailRendering;
     const shouldDrawValidityWarnings =
       showValidityWarnings && !isBrushDragging && !lowDetailRendering;
+    const [textBrushFontLoadTick, setTextBrushFontLoadTick] = useState(0);
+    useEffect(() => {
+      let cancelled = false;
+      void loadTextBrushFont(
+        textBrushConfig.fontFamily,
+        textBrushConfig.fontSize,
+        textBrushConfig.text,
+      )
+        .then(() => {
+          if (!cancelled) {
+            setTextBrushFontLoadTick((tick) => tick + 1);
+          }
+        })
+        .catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }, [textBrushConfig.fontFamily, textBrushConfig.fontSize, textBrushConfig.text]);
     const textBrushRaster = useMemo(
       () =>
         rasterizeTextBrush(
@@ -2340,7 +2362,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         textBrushConfig.fontFamily,
         textBrushConfig.fontSize,
         textBrushConfig.text,
+        textBrushFontLoadTick,
       ],
+    );
+    const textBrushSizeChoices = getTextBrushSizeChoices(textBrushConfig.fontFamily);
+    const textBrushPreviewFontSize = getTextBrushPreviewFontSize(
+      textBrushConfig.fontFamily,
+      textBrushConfig.fontSize,
     );
     const textPreviewBaseIndices = useMemo(
       () =>
@@ -4045,7 +4073,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                   value={textBrushConfig.text}
                   style={{
                     fontFamily: textBrushConfig.fontFamily,
-                    fontSize: `${Math.min(Math.max(textBrushConfig.fontSize * 2.25, 14), 40)}px`,
+                    fontSize: `${textBrushPreviewFontSize}px`,
                     lineHeight: 1.1,
                     textAlign: textBrushConfig.align,
                   }}
@@ -4059,7 +4087,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                 <select
                   id="dat-text-brush-font"
                   value={textBrushConfig.fontFamily}
-                  onChange={(event) => onSetTextBrushFontFamily(event.target.value)}
+                  onChange={(event) => {
+                    const nextFamily = event.target.value;
+                    onSetTextBrushFontFamily(nextFamily);
+                    onSetTextBrushFontSize(
+                      normalizeTextBrushFontSize(nextFamily, textBrushConfig.fontSize),
+                    );
+                  }}
                 >
                   {TEXT_BRUSH_FONT_CHOICES.map((option) => (
                     <option key={option.family} value={option.family}>
@@ -4077,9 +4111,9 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                   value={String(textBrushConfig.fontSize)}
                   onChange={(event) => onSetTextBrushFontSize(Number(event.target.value))}
                 >
-                  {TEXT_BRUSH_SIZE_CHOICES.map((size) => (
+                  {textBrushSizeChoices.map((size) => (
                     <option key={size} value={String(size)}>
-                      {size}px
+                      {formatTextBrushFontSizeLabel(textBrushConfig.fontFamily, size)}
                     </option>
                   ))}
                 </select>
@@ -4208,6 +4242,12 @@ export default function App() {
   const [textBrushFontFamily, setTextBrushFontFamily] = useState(DEFAULT_TEXT_BRUSH_FONT_FAMILY);
   const [textBrushFontSize, setTextBrushFontSize] = useState(DEFAULT_TEXT_BRUSH_FONT_SIZE);
   const [textBrushAlign, setTextBrushAlign] = useState<TextBrushAlign>(DEFAULT_TEXT_BRUSH_ALIGN);
+  useEffect(() => {
+    const normalizedFontSize = normalizeTextBrushFontSize(textBrushFontFamily, textBrushFontSize);
+    if (normalizedFontSize !== textBrushFontSize) {
+      setTextBrushFontSize(normalizedFontSize);
+    }
+  }, [textBrushFontFamily, textBrushFontSize]);
   const [lastPaletteAssignmentTarget, setLastPaletteAssignmentTarget] =
     useState<PaletteAssignmentTarget>("primary");
   const [paletteQuery, setPaletteQuery] = useState("");
