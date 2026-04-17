@@ -1,6 +1,6 @@
 {
   "name": "dattools",
-  "version": "1.0.0",
+  "version": "1.31.7",
   "description": "Toolkit for Chip's Challenge DAT levelsets (multiple 32x32 levels per file).",
   "main": "./dist/walls-core.js",
   "types": "./types/walls-core.d.ts",
