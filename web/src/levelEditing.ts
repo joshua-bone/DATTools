@@ -38,6 +38,7 @@ export type LevelClipboard = Readonly<{
   height: number;
   top: ReadonlyArray<string>;
   bottom: ReadonlyArray<string>;
+  mask?: ReadonlyArray<boolean>;
   movement: ReadonlyArray<number>;
   trapControls: ReadonlyArray<TrapControl>;
   cloneControls: ReadonlyArray<CloneControl>;
@@ -969,9 +970,15 @@ export function resolveFillLevelIndices(
   return filled;
 }
 
-export function copyLevelRegion(level: DatLevel, rect: GridRect): LevelClipboard {
+export function copyLevelRegion(
+  level: DatLevel,
+  rect: GridRect,
+  selectedIndices?: ReadonlyArray<number>,
+): LevelClipboard {
   const top: string[] = [];
   const bottom: string[] = [];
+  const selectedSet = selectedIndices ? new Set(selectedIndices) : null;
+  const mask: boolean[] | null = selectedSet ? [] : null;
   const normalizedRect = {
     x: clamp(rect.x, 0, BOARD_SIZE - 1),
     y: clamp(rect.y, 0, BOARD_SIZE - 1),
@@ -982,6 +989,7 @@ export function copyLevelRegion(level: DatLevel, rect: GridRect): LevelClipboard
   for (let y = 0; y < normalizedRect.height; y++) {
     for (let x = 0; x < normalizedRect.width; x++) {
       const index = pointToIndex({ x: normalizedRect.x + x, y: normalizedRect.y + y });
+      mask?.push(selectedSet?.has(index) ?? true);
       top.push(level.map.top[index] ?? FLOOR_TILE);
       bottom.push(level.map.bottom[index] ?? FLOOR_TILE);
     }
@@ -994,12 +1002,12 @@ export function copyLevelRegion(level: DatLevel, rect: GridRect): LevelClipboard
 
   const containsAbsoluteIndex = (absoluteIndex: number): boolean => {
     const point = indexToPoint(absoluteIndex);
-    return (
+    const withinBounds =
       point.x >= normalizedRect.x &&
       point.x < normalizedRect.x + normalizedRect.width &&
       point.y >= normalizedRect.y &&
-      point.y < normalizedRect.y + normalizedRect.height
-    );
+      point.y < normalizedRect.y + normalizedRect.height;
+    return withinBounds && (selectedSet?.has(absoluteIndex) ?? true);
   };
 
   return {
@@ -1007,6 +1015,7 @@ export function copyLevelRegion(level: DatLevel, rect: GridRect): LevelClipboard
     height: normalizedRect.height,
     top,
     bottom,
+    ...(mask ? { mask } : {}),
     movement: level.movement.filter(containsAbsoluteIndex).map(toRelativeIndex),
     trapControls: level.trapControls
       .filter((item) => containsAbsoluteIndex(item.button) && containsAbsoluteIndex(item.trap))
@@ -1061,6 +1070,7 @@ export function pasteLevelRegion(
 
       const absoluteIndex = pointToIndex(target);
       const relativeIndex = y * clipboard.width + x;
+      if (clipboard.mask && !clipboard.mask[relativeIndex]) continue;
       nextTop[absoluteIndex] = clipboard.top[relativeIndex] ?? FLOOR_TILE;
       nextBottom[absoluteIndex] = clipboard.bottom[relativeIndex] ?? FLOOR_TILE;
       overwritten.push(absoluteIndex);

@@ -145,6 +145,7 @@ import {
   paintLevelLine,
   pasteLevelRegion,
   previewPaintLevelCells,
+  rectToIndices,
   redoLevelsetEvent,
   resolveFillLevelIndices,
   selectLevelInHistory,
@@ -174,6 +175,8 @@ import {
 } from "@/web/src/wallsBankStorage";
 
 type ToolMode = "brush" | "line" | "fill" | "select" | "connect";
+type SelectionMode = "rect" | "contiguous" | "tile";
+type SelectionOperation = "replace" | "add" | "subtract";
 type LeftPanelTab = "levels" | "controls";
 type InspectorTab = "palette" | "metadata";
 type BoardMenuId = "file" | "view" | "options" | "ideas";
@@ -199,6 +202,12 @@ type MetadataDraft = Readonly<{
   extraFields: string;
 }>;
 
+type SelectionArea = GridRect &
+  Readonly<{
+    indices?: ReadonlyArray<number>;
+    mode: SelectionMode;
+  }>;
+
 type BrushDragState = Readonly<{
   tool: "brush";
   pointerId: number;
@@ -223,6 +232,8 @@ type SelectDragState = Readonly<{
   pointerId: number;
   start: GridPoint;
   current: GridPoint;
+  mode: SelectionMode;
+  operation: SelectionOperation;
 }>;
 
 type DragState = BrushDragState | LineDragState | SelectDragState;
@@ -301,7 +312,7 @@ type BoardControlsSectionProps = Readonly<{
   canUndo: boolean;
   canRedo: boolean;
   activeLevel: DatLevelJson | null;
-  selection: GridRect | null;
+  selection: SelectionArea | null;
   clipboard: LevelClipboard | null;
   onUndo: () => void;
   onRedo: () => void;
@@ -343,12 +354,15 @@ type BoardEditorSurfaceProps = Readonly<{
   lowDetailRendering: boolean;
   tool: ToolMode;
   setTool: (tool: ToolMode) => void;
+  selectionMode: SelectionMode;
+  onSelectToolButtonClick: () => void;
   primaryTile: string;
   secondaryTile: string;
-  selection: GridRect | null;
+  selection: SelectionArea | null;
   clipboard: LevelClipboard | null;
   pastePreviewActive: boolean;
-  onSelectionChange: (selection: GridRect | null) => void;
+  onSelectionChange: (selection: SelectionArea | null) => void;
+  onSetPastePreviewActive: (active: boolean) => void;
   onAssignPaletteTile: (tile: string, target: PaletteAssignmentTarget) => void;
   onClearMetadataError: () => void;
   onSetErrorMessage: (message: string | null) => void;
@@ -366,6 +380,8 @@ const TOOL_LABELS: Array<{ id: ToolMode; label: string; shortcut: string }> = [
   { id: "select", label: "Select", shortcut: "V" },
   { id: "connect", label: "Connect", shortcut: "C" },
 ];
+const SELECTION_MODE_ORDER: ReadonlyArray<SelectionMode> = ["rect", "contiguous", "tile"];
+const DEFAULT_SELECTION_MODE: SelectionMode = "rect";
 const MIN_LEFT_PANEL_WIDTH = 180;
 const MAX_LEFT_PANEL_WIDTH = 420;
 const MIN_RIGHT_PANEL_WIDTH = 220;
@@ -388,6 +404,254 @@ const DESKTOP_RELEASE_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 });
 const EYEDROPPER_CURSOR =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g transform='rotate(45 12 12)'><rect x='10' y='2.5' width='4' height='11' rx='1.4' fill='%23f6fbff' stroke='%23121a1f' stroke-width='1.6'/><path d='M10 5.5H8.4A1.4 1.4 0 0 0 7 6.9v3.7A1.4 1.4 0 0 0 8.4 12H10' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 13v6' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><path d='M10.3 19.3h7.4' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><circle cx='14' cy='21' r='1.5' fill='%23235f7a'/></g></svg>\") 4 20, crosshair";
+const DAT_SELECTION_FLOOR_TILE = "FLOOR";
+
+function cycleSelectionMode(current: SelectionMode): SelectionMode {
+  const currentIndex = SELECTION_MODE_ORDER.indexOf(current);
+  return SELECTION_MODE_ORDER[(currentIndex + 1) % SELECTION_MODE_ORDER.length]!;
+}
+
+function getSelectionModeBadge(mode: SelectionMode): "S" | "C" | "T" {
+  switch (mode) {
+    case "rect":
+      return "S";
+    case "contiguous":
+      return "C";
+    case "tile":
+      return "T";
+  }
+}
+
+function getSelectionModeLabel(mode: SelectionMode): string {
+  switch (mode) {
+    case "rect":
+      return "Select";
+    case "contiguous":
+      return "Select Contiguous";
+    case "tile":
+      return "Select Tile";
+  }
+}
+
+function resolveSelectionOperationFromModifierKeys(
+  shiftPressed: boolean,
+  altPressed: boolean,
+): SelectionOperation {
+  if (altPressed) return "subtract";
+  if (shiftPressed) return "add";
+  return "replace";
+}
+
+function getSelectionOperationBadge(operation: SelectionOperation): "" | "+" | "-" {
+  switch (operation) {
+    case "replace":
+      return "";
+    case "add":
+      return "+";
+    case "subtract":
+      return "-";
+  }
+}
+
+function buildSelectionCursor(mode: SelectionMode, operation: SelectionOperation): string {
+  const modeBadge = getSelectionModeBadge(mode);
+  const operationBadge = getSelectionOperationBadge(operation);
+  return `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path fill="rgba(248,252,255,0.98)" stroke="rgba(28,42,51,0.96)" stroke-width="1.3" d="M5.5 3.5v18.9l4.48-4.22 2.87 7.43 3.17-1.24-2.88-7.43 6.38-.1z"/><rect x="16.5" y="18.5" width="11" height="9" rx="3" fill="rgba(20,33,42,0.94)"/><text x="22" y="24.3" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="7.8" font-weight="700" fill="rgba(248,252,255,0.98)">${modeBadge}</text>${operationBadge ? `<text x="26.6" y="26.7" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="6.6" font-weight="700" fill="rgba(129, 215, 255, 0.98)">${operationBadge}</text>` : ""}</svg>`,
+  )}") 2 2, crosshair`;
+}
+
+function uniqueSortedIndices(indices: ReadonlyArray<number>): number[] {
+  return [...new Set(indices)].sort((a, b) => a - b);
+}
+
+function resolveSelectionIndices(selection: SelectionArea | null): number[] {
+  if (!selection) return [];
+  return selection.indices ? [...selection.indices] : rectToIndices(selection);
+}
+
+function buildSelectionFromIndices(
+  indices: ReadonlyArray<number>,
+  mode: SelectionMode,
+): SelectionArea | null {
+  const normalized = uniqueSortedIndices(indices);
+  if (normalized.length === 0) return null;
+
+  let minX = 31;
+  let maxX = 0;
+  let minY = 31;
+  let maxY = 0;
+
+  for (const index of normalized) {
+    const x = index % 32;
+    const y = Math.floor(index / 32);
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+
+  const bounds = {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+  };
+  const rectIndices = rectToIndices(bounds);
+  const isRectangular =
+    normalized.length === rectIndices.length &&
+    normalized.every((index, entryIndex) => rectIndices[entryIndex] === index);
+
+  return isRectangular ? { ...bounds, mode } : { ...bounds, indices: normalized, mode };
+}
+
+function createSelectionFromRect(rect: GridRect): SelectionArea {
+  return {
+    ...rect,
+    mode: "rect",
+  };
+}
+
+function applySelectionOperation(
+  current: SelectionArea | null,
+  nextIndices: ReadonlyArray<number>,
+  operation: SelectionOperation,
+  mode: SelectionMode,
+): SelectionArea | null {
+  if (operation === "replace") return buildSelectionFromIndices(nextIndices, mode);
+
+  const nextSet = new Set(uniqueSortedIndices(nextIndices));
+  const merged = resolveSelectionIndices(current).filter((index) =>
+    operation === "subtract" ? !nextSet.has(index) : true,
+  );
+
+  if (operation === "add") merged.push(...nextSet);
+  return buildSelectionFromIndices(merged, mode);
+}
+
+function drawSelectionOverlay(
+  ctx: CanvasRenderingContext2D,
+  tileSize: number,
+  selection: SelectionArea,
+  fillStyle: string,
+  strokeStyle: string,
+  dashed = false,
+): void {
+  if (!selection.indices) {
+    drawRectOverlay(ctx, tileSize, selection, fillStyle, strokeStyle, dashed);
+    return;
+  }
+
+  ctx.save();
+  ctx.fillStyle = fillStyle;
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = Math.max(1.5, Math.round(tileSize / 12));
+  if (dashed) ctx.setLineDash([tileSize * 0.4, tileSize * 0.2]);
+
+  for (const index of selection.indices) {
+    const x = (index % 32) * tileSize;
+    const y = Math.floor(index / 32) * tileSize;
+    ctx.fillRect(x, y, tileSize, tileSize);
+    ctx.strokeRect(x + 0.5, y + 0.5, tileSize - 1, tileSize - 1);
+  }
+
+  ctx.restore();
+}
+
+function getDatSelectionCellKey(
+  level: DatLevelJson,
+  index: number,
+  displayContext: BoardDisplayContext,
+): string {
+  const top = level.map.top[index] ?? DAT_SELECTION_FLOOR_TILE;
+  const bottom = level.map.bottom[index] ?? DAT_SELECTION_FLOOR_TILE;
+  const displayCell = createDat3dDisplayCell(top, bottom, displayContext);
+  return `${displayCell.top}\u0000${displayCell.bottom}`;
+}
+
+function resolveDatContiguousSelection(
+  level: DatLevelJson,
+  origin: GridPoint,
+  displayContext: BoardDisplayContext,
+): number[] {
+  const startIndex = origin.y * 32 + origin.x;
+  const startKey = getDatSelectionCellKey(level, startIndex, displayContext);
+  const visited = new Set<number>();
+  const queue = [startIndex];
+  const matches: number[] = [];
+
+  while (queue.length > 0) {
+    const index = queue.shift()!;
+    if (visited.has(index)) continue;
+    visited.add(index);
+    if (getDatSelectionCellKey(level, index, displayContext) !== startKey) continue;
+    matches.push(index);
+
+    const x = index % 32;
+    const y = Math.floor(index / 32);
+    if (x > 0) queue.push(index - 1);
+    if (x < 31) queue.push(index + 1);
+    if (y > 0) queue.push(index - 32);
+    if (y < 31) queue.push(index + 32);
+  }
+
+  return matches;
+}
+
+function resolveDatTileSelection(
+  level: DatLevelJson,
+  origin: GridPoint,
+  displayContext: BoardDisplayContext,
+): number[] {
+  const startIndex = origin.y * 32 + origin.x;
+  const startKey = getDatSelectionCellKey(level, startIndex, displayContext);
+  const matches: number[] = [];
+
+  for (let index = 0; index < 32 * 32; index += 1) {
+    if (getDatSelectionCellKey(level, index, displayContext) === startKey) matches.push(index);
+  }
+
+  return matches;
+}
+
+function rotateSelectionTiles(
+  level: DatLevelJson,
+  selection: SelectionArea,
+  kind: DatTransformKind,
+): DatLevelJson {
+  const indices = resolveSelectionIndices(selection);
+  if (indices.length === 0) return level;
+
+  const nextTop = [...level.map.top];
+  const nextBottom = [...level.map.bottom];
+  let changed = false;
+
+  for (const index of indices) {
+    const top = level.map.top[index] ?? DAT_SELECTION_FLOOR_TILE;
+    const bottom = level.map.bottom[index] ?? DAT_SELECTION_FLOOR_TILE;
+    const rotatedTop = transformDatTileName(top, kind);
+    const rotatedBottom = transformDatTileName(bottom, kind);
+    if (rotatedTop !== top) {
+      nextTop[index] = rotatedTop;
+      changed = true;
+    }
+    if (rotatedBottom !== bottom) {
+      nextBottom[index] = rotatedBottom;
+      changed = true;
+    }
+  }
+
+  return changed
+    ? {
+        ...level,
+        map: {
+          ...level.map,
+          top: nextTop,
+          bottom: nextBottom,
+        },
+      }
+    : level;
+}
 type BoardBaseRenderSnapshot = Readonly<{
   level: DatLevelJson | null;
   renderKey: string | null;
@@ -1669,12 +1933,15 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       lowDetailRendering,
       tool,
       setTool,
+      selectionMode,
+      onSelectToolButtonClick,
       primaryTile,
       secondaryTile,
       selection,
       clipboard,
       pastePreviewActive,
       onSelectionChange,
+      onSetPastePreviewActive,
       onAssignPaletteTile,
       onClearMetadataError,
       onSetErrorMessage,
@@ -1721,6 +1988,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     const [boardViewInitialized, setBoardViewInitialized] = useState(false);
     const [touchGestureState, setTouchGestureState] = useState<TouchGestureState>(null);
     const [isAltPressed, setIsAltPressed] = useState(false);
+    const [isShiftPressed, setIsShiftPressed] = useState(false);
 
     function setHoverPointIfChanged(nextPoint: GridPoint | null): void {
       setHoverPoint((current) => (gridPointsEqual(current, nextPoint) ? current : nextPoint));
@@ -1956,11 +2224,17 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     const boardPanActive = !!boardPanState || !!touchGestureState;
     const activeMirrors = getActiveMirrors(mirrorState);
     const hasActiveMirrors = activeMirrors.length > 0;
+    const selectionOperationPreview = resolveSelectionOperationFromModifierKeys(
+      isShiftPressed,
+      isAltPressed,
+    );
     const boardCanvasCursor = boardPanActive
       ? "grabbing"
-      : isAltPressed
-        ? EYEDROPPER_CURSOR
-        : undefined;
+      : tool === "select"
+        ? buildSelectionCursor(selectionMode, selectionOperationPreview)
+        : isAltPressed
+          ? EYEDROPPER_CURSOR
+          : undefined;
     const isBrushDragging = dragState?.tool === "brush";
     const shouldDrawConnections = showConnections && !isBrushDragging && !lowDetailRendering;
     const shouldDrawMonsterOrder = showMonsterOrder && !lowDetailRendering;
@@ -2038,7 +2312,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     const liveSelection = useMemo(() => {
       if (dragState?.tool !== "select") return selection;
-      return normalizeRect(dragState.start, dragState.current);
+      const nextRect = createSelectionFromRect(normalizeRect(dragState.start, dragState.current));
+      return applySelectionOperation(
+        selection,
+        resolveSelectionIndices(nextRect),
+        dragState.operation,
+        dragState.mode,
+      );
     }, [dragState, selection]);
 
     const pastePreview = useMemo(() => {
@@ -2102,7 +2382,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       );
 
       if (liveSelection) {
-        drawRectOverlay(
+        drawSelectionOverlay(
           ctx,
           spriteSet.tileSize,
           liveSelection,
@@ -2225,25 +2505,36 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     }, [activeLevel, boardSize, boardViewInitialized, spriteSet]);
 
     useEffect(() => {
-      const updateAltPressed = (event: KeyboardEvent) => {
-        if (event.key !== "Alt") return;
-        setIsAltPressed(event.type === "keydown");
+      const updateModifierPressed = (event: KeyboardEvent) => {
+        if (event.key === "Alt") {
+          setIsAltPressed(event.type === "keydown");
+        } else if (event.key === "Shift") {
+          setIsShiftPressed(event.type === "keydown");
+        }
       };
-      const clearAltPressed = () => setIsAltPressed(false);
+      const clearModifiers = () => {
+        setIsAltPressed(false);
+        setIsShiftPressed(false);
+      };
 
-      document.addEventListener("keydown", updateAltPressed);
-      document.addEventListener("keyup", updateAltPressed);
-      window.addEventListener("blur", clearAltPressed);
+      document.addEventListener("keydown", updateModifierPressed);
+      document.addEventListener("keyup", updateModifierPressed);
+      window.addEventListener("blur", clearModifiers);
       return () => {
-        document.removeEventListener("keydown", updateAltPressed);
-        document.removeEventListener("keyup", updateAltPressed);
-        window.removeEventListener("blur", clearAltPressed);
+        document.removeEventListener("keydown", updateModifierPressed);
+        document.removeEventListener("keyup", updateModifierPressed);
+        window.removeEventListener("blur", clearModifiers);
       };
     }, []);
 
     useEffect(() => {
       resetInteractionState();
     }, [interactionResetToken]);
+
+    useEffect(() => {
+      if (tool === "select" || dragState?.tool !== "select") return;
+      setDragState(null);
+    }, [dragState, tool]);
 
     useEffect(() => {
       resetInteractionState({ resetView: true });
@@ -2629,7 +2920,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       }
 
       if (liveSelection) {
-        drawRectOverlay(
+        drawSelectionOverlay(
           ctx,
           spriteSet.tileSize,
           liveSelection,
@@ -2981,7 +3272,12 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       setHoverPointIfChanged(point);
       onClearMetadataError();
 
-      if (event.altKey && isSupportedCanvasPointerButton(event.button) && point) {
+      if (
+        tool !== "select" &&
+        event.altKey &&
+        isSupportedCanvasPointerButton(event.button) &&
+        point
+      ) {
         const eyedropperTile = resolveEyedropperTile(previewLevel, point);
         if (eyedropperTile) {
           onAssignPaletteTile(eyedropperTile, event.button === 2 ? "secondary" : "primary");
@@ -3050,6 +3346,36 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         return;
       }
 
+      if (tool === "select") {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        const operation = resolveSelectionOperationFromModifierKeys(event.shiftKey, event.altKey);
+        if (selectionMode === "rect") {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          brushDragStateRef.current = null;
+          onSetPastePreviewActive(false);
+          setDragState({
+            tool: "select",
+            pointerId: event.pointerId,
+            start: point,
+            current: point,
+            mode: selectionMode,
+            operation,
+          });
+          return;
+        }
+
+        const nextIndices =
+          selectionMode === "contiguous"
+            ? resolveDatContiguousSelection(activeLevel, point, activeDisplayContext)
+            : resolveDatTileSelection(activeLevel, point, activeDisplayContext);
+        onSelectionChange(
+          applySelectionOperation(selection, nextIndices, operation, selectionMode),
+        );
+        onSetPastePreviewActive(false);
+        return;
+      }
+
       event.currentTarget.setPointerCapture(event.pointerId);
       const dragTile = getPaintTileForButton(
         event.button,
@@ -3099,14 +3425,6 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           current: point,
           tile: dragTile,
           buryOnBottom: event.shiftKey,
-        });
-      } else {
-        brushDragStateRef.current = null;
-        setDragState({
-          tool: "select",
-          pointerId: event.pointerId,
-          start: point,
-          current: point,
         });
       }
     }
@@ -3279,7 +3597,17 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
               ),
         );
       } else {
-        onSelectionChange(normalizeRect(activeDragState.start, point ?? activeDragState.current));
+        const nextSelectionRect = createSelectionFromRect(
+          normalizeRect(activeDragState.start, point ?? activeDragState.current),
+        );
+        onSelectionChange(
+          applySelectionOperation(
+            selection,
+            resolveSelectionIndices(nextSelectionRect),
+            activeDragState.operation,
+            activeDragState.mode,
+          ),
+        );
       }
 
       setDragState(null);
@@ -3454,19 +3782,33 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         <section className="panelSection boardPanelTopSection">
           <div className="sectionHeader boardPanelTopHeader">
             <div className="sectionEyebrow">Tools</div>
-            <div className="sectionActions boardToolRow">
-              {TOOL_LABELS.map((entry) => (
+            <div className="sectionActions boardToolGroups">
+              <div className="toolButtonGroup toolButtonGroupSeparated">
                 <button
-                  key={entry.id}
                   type="button"
-                  className={`toolButton ${tool === entry.id ? "active" : ""}`}
-                  onClick={() => setTool(entry.id)}
-                  title={`${entry.label} (${entry.shortcut})`}
+                  className={`toolButton ${tool === "select" ? "active" : ""}`}
+                  onClick={onSelectToolButtonClick}
+                  title={`${getSelectionModeLabel(selectionMode)} (V)`}
                 >
-                  <span>{entry.label}</span>
-                  <span className="toolShortcut">{entry.shortcut}</span>
+                  <span>Select</span>
+                  <span className="toolModeBadge">{getSelectionModeBadge(selectionMode)}</span>
+                  <span className="toolShortcut">V</span>
                 </button>
-              ))}
+              </div>
+              <div className="toolButtonGroup boardToolRow">
+                {TOOL_LABELS.filter((entry) => entry.id !== "select").map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    className={`toolButton ${tool === entry.id ? "active" : ""}`}
+                    onClick={() => setTool(entry.id)}
+                    title={`${entry.label} (${entry.shortcut})`}
+                  >
+                    <span>{entry.label}</span>
+                    <span className="toolShortcut">{entry.shortcut}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -3579,7 +3921,8 @@ export default function App() {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("palette");
   const [paletteTab, setPaletteTab] = useState<PaletteTab>("normal");
 
-  const [selection, setSelection] = useState<GridRect | null>(null);
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>(DEFAULT_SELECTION_MODE);
+  const [selection, setSelection] = useState<SelectionArea | null>(null);
   const [clipboard, setClipboard] = useState<LevelClipboard | null>(null);
   const [pastePreviewActive, setPastePreviewActive] = useState(false);
   const [layoutResizeState, setLayoutResizeState] = useState<LayoutResizeState | null>(null);
@@ -4528,8 +4871,32 @@ export default function App() {
 
   function copySelection(): void {
     if (!activeLevel || !selection) return;
-    setClipboard(copyLevelRegion(activeLevel, selection));
+    setClipboard(copyLevelRegion(activeLevel, selection, resolveSelectionIndices(selection)));
     setPastePreviewActive(true);
+  }
+
+  function clearSelectionState(): void {
+    setSelection(null);
+    setPastePreviewActive(false);
+  }
+
+  function handleSelectToolButtonClick(): void {
+    if (tool === "select") {
+      setSelectionMode((current) => cycleSelectionMode(current));
+      return;
+    }
+    setTool("select");
+  }
+
+  function rotateSelectedSelection(direction: "clockwise" | "counterclockwise"): void {
+    if (!selection || tool !== "select") return;
+    commitSelectedLevelUpdate((level) =>
+      rotateSelectionTiles(
+        level,
+        selection,
+        direction === "clockwise" ? "ROTATE_90" : "ROTATE_270",
+      ),
+    );
   }
 
   function pasteClipboard(): void {
@@ -4542,18 +4909,15 @@ export default function App() {
       y: anchor.y,
       width: Math.min(clipboard.width, 32 - anchor.x),
       height: Math.min(clipboard.height, 32 - anchor.y),
+      mode: selectionMode,
     });
   }
 
   function eraseSelection(): void {
     if (!activeLevel || !selection) return;
-    const indices: number[] = [];
-    for (let y = 0; y < selection.height; y++) {
-      for (let x = 0; x < selection.width; x++) {
-        indices.push((selection.y + y) * 32 + selection.x + x);
-      }
-    }
-    commitSelectedLevelUpdate((level) => paintLevelCells(level, indices, "FLOOR"));
+    commitSelectedLevelUpdate((level) =>
+      paintLevelCells(level, resolveSelectionIndices(selection), DAT_SELECTION_FLOOR_TILE),
+    );
   }
 
   useEffect(() => {
@@ -4618,7 +4982,7 @@ export default function App() {
 
   useEffect(() => {
     if (tool === "select") return;
-    setPastePreviewActive(false);
+    clearSelectionState();
   }, [tool]);
 
   useEffect(() => {
@@ -4771,13 +5135,15 @@ export default function App() {
 
       if (key === "<" || key === ",") {
         event.preventDefault();
-        rotateSelectedPaletteTile("counterclockwise");
+        if (tool === "select" && selection) rotateSelectedSelection("counterclockwise");
+        else rotateSelectedPaletteTile("counterclockwise");
         return;
       }
 
       if (key === ">" || key === ".") {
         event.preventDefault();
-        rotateSelectedPaletteTile("clockwise");
+        if (tool === "select" && selection) rotateSelectedSelection("clockwise");
+        else rotateSelectedPaletteTile("clockwise");
         return;
       }
 
@@ -4790,8 +5156,7 @@ export default function App() {
       if (key === "escape" && tool === "select") {
         event.preventDefault();
         setBoardInteractionResetToken((current) => current + 1);
-        setSelection(null);
-        setPastePreviewActive(false);
+        clearSelectionState();
         return;
       }
 
@@ -4805,7 +5170,7 @@ export default function App() {
       else if (key === "c") setTool("connect");
       else if (key === "l") setTool("line");
       else if (key === "f") setTool("fill");
-      else if (key === "v") setTool("select");
+      else if (key === "v") handleSelectToolButtonClick();
       else if ((key === "backspace" || key === "delete") && selection) {
         event.preventDefault();
         eraseSelection();
@@ -4827,6 +5192,8 @@ export default function App() {
     lastPaletteAssignmentTarget,
     paletteAssignmentTarget,
     primaryTile,
+    rotateSelectedSelection,
+    selectionMode,
     secondaryTile,
     selection,
     selectedLayerZ,
@@ -5881,12 +6248,15 @@ export default function App() {
           lowDetailRendering={lowDetailRendering}
           tool={tool}
           setTool={setTool}
+          selectionMode={selectionMode}
+          onSelectToolButtonClick={handleSelectToolButtonClick}
           primaryTile={primaryTile}
           secondaryTile={secondaryTile}
           selection={selection}
           clipboard={clipboard}
           pastePreviewActive={pastePreviewActive}
           onSelectionChange={setSelection}
+          onSetPastePreviewActive={setPastePreviewActive}
           onAssignPaletteTile={assignPaletteTile}
           onClearMetadataError={() => setMetadataError(null)}
           onSetErrorMessage={setErrorMessage}
