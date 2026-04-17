@@ -1,10 +1,5 @@
-import {
-  setWallMaskBit,
-  WALL_MASK_HEIGHT,
-  WALL_MASK_WIDTH,
-  wallMaskBitIsSet,
-} from "@/src/walls-core/mask32";
-import { base64ToBytes, bytesToBase64 } from "@/src/walls-core/base64";
+import { setWallMaskBit, WALL_MASK_HEIGHT, WALL_MASK_WIDTH, wallMaskBitIsSet } from "./mask32.js";
+import { base64ToBytes, bytesToBase64 } from "./base64.js";
 
 export type WallGrid = Readonly<{
   width: number;

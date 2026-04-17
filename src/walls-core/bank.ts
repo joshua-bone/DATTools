@@ -1,4 +1,4 @@
-import { wallMaskBytesFromKey } from "@/src/walls-core/mask32";
+import { wallMaskBytesFromKey } from "./mask32.js";
 
 export const WALL_BANK_SCHEMA = "datTools.walls.bank.v1";
 

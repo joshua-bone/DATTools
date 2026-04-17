@@ -1,4 +1,4 @@
-import { base64ToBytes, bytesToBase64 } from "@/src/walls-core/base64";
+import { base64ToBytes, bytesToBase64 } from "./base64.js";
 
 export const WALL_MASK_WIDTH = 32;
 export const WALL_MASK_HEIGHT = 32;
