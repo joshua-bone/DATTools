@@ -40,7 +40,7 @@
     "preview:web": "vite preview",
     "fmt:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "fmt:write": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
-    "prepare": "husky"
+    "prepare": "node scripts/prepare.mjs"
   },
   "repository": {
     "type": "git",
