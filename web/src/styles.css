@@ -823,6 +823,11 @@ button:disabled {
   gap: 4px;
 }
 
+.boardPanelTopHeader {
+  align-items: center;
+  margin-bottom: 0;
+}
+
 .boardMenuBar {
   display: flex;
   align-items: center;

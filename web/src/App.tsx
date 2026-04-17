@@ -303,8 +303,6 @@ type BoardControlsSectionProps = Readonly<{
   activeLevel: DatLevelJson | null;
   selection: GridRect | null;
   clipboard: LevelClipboard | null;
-  tool: ToolMode;
-  setTool: (tool: ToolMode) => void;
   onUndo: () => void;
   onRedo: () => void;
   onCopySelection: () => void;
@@ -344,6 +342,7 @@ type BoardEditorSurfaceProps = Readonly<{
   threeDParallaxView: boolean;
   lowDetailRendering: boolean;
   tool: ToolMode;
+  setTool: (tool: ToolMode) => void;
   primaryTile: string;
   secondaryTile: string;
   selection: GridRect | null;
@@ -1458,8 +1457,6 @@ const BoardControlsSection = memo(function BoardControlsSection({
   activeLevel,
   selection,
   clipboard,
-  tool,
-  setTool,
   onUndo,
   onRedo,
   onCopySelection,
@@ -1529,20 +1526,6 @@ const BoardControlsSection = memo(function BoardControlsSection({
         >
           Clear
         </button>
-      </div>
-
-      <div className="toggleGroup boardToolRow">
-        {TOOL_LABELS.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            className={`toolButton ${tool === entry.id ? "active" : ""}`}
-            onClick={() => setTool(entry.id)}
-          >
-            {entry.label}
-            <span className="toolShortcut">{entry.shortcut}</span>
-          </button>
-        ))}
       </div>
 
       <div className="boardMeta">
@@ -1685,6 +1668,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       threeDParallaxView,
       lowDetailRendering,
       tool,
+      setTool,
       primaryTile,
       secondaryTile,
       selection,
@@ -3467,6 +3451,26 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     return (
       <section className="panel boardPanel">
+        <section className="panelSection boardPanelTopSection">
+          <div className="sectionHeader boardPanelTopHeader">
+            <div className="sectionEyebrow">Tools</div>
+            <div className="sectionActions boardToolRow">
+              {TOOL_LABELS.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className={`toolButton ${tool === entry.id ? "active" : ""}`}
+                  onClick={() => setTool(entry.id)}
+                  title={`${entry.label} (${entry.shortcut})`}
+                >
+                  <span>{entry.label}</span>
+                  <span className="toolShortcut">{entry.shortcut}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <div
           className={`boardViewport ${boardPanActive ? "panning" : ""}`}
           ref={boardViewportRef}
@@ -5822,8 +5826,6 @@ export default function App() {
               activeLevel={activeLevel}
               selection={selection}
               clipboard={clipboard}
-              tool={tool}
-              setTool={setTool}
               onUndo={() =>
                 setEditor((current) => (current ? undoLevelsetEvent(current) : current))
               }
@@ -5878,6 +5880,7 @@ export default function App() {
           threeDParallaxView={threeDParallaxView}
           lowDetailRendering={lowDetailRendering}
           tool={tool}
+          setTool={setTool}
           primaryTile={primaryTile}
           secondaryTile={secondaryTile}
           selection={selection}
