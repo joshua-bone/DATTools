@@ -1133,7 +1133,7 @@ function applyMirroredLevelFill(
 function resolveMirrorButtonTransform(kind: MirrorKind, edge: "top" | "left" | "right"): string {
   switch (kind) {
     case "vertical":
-      return "translate(-50%, calc(-100% - 44px))";
+      return "translate(-50%, calc(-100% - 54px))";
     case "horizontal":
       return "translate(calc(-100% - 44px), -50%) rotate(-90deg)";
     case "diag-desc":
