@@ -3816,14 +3816,16 @@ export default function App() {
   }
 
   function importGeneratedWallLayout(record: GeneratedLayoutRecord): void {
-    commitSelectedLevelUpdate((level) =>
-      record.grid && record.layout
-        ? applyGeneratedWallGridToDatLevel(level, record.grid, {
-            layoutWidth: record.layout.width,
-            layoutHeight: record.layout.height,
-          })
-        : applyWallMask32ToDatLevel(level, record.wallKey),
-    );
+    commitSelectedLevelUpdate((level) => {
+      if (record.grid && record.layout) {
+        return applyGeneratedWallGridToDatLevel(level, record.grid, {
+          layoutWidth: record.layout.width,
+          layoutHeight: record.layout.height,
+        });
+      }
+      if (record.wallKey) return applyWallMask32ToDatLevel(level, record.wallKey);
+      return level;
+    });
     setOpenDialog(null);
   }
 

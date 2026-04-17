@@ -26,6 +26,7 @@ describe("package exports", () => {
         types: "./src/walls-react/index.ts",
         import: "./dist/walls-react.js",
       },
+      "./walls-bank.json": "./web/public/walls/walls-bank.json",
       "./package.json": "./package.json",
     });
   });

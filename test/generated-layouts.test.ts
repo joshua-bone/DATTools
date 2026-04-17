@@ -185,8 +185,9 @@ describe("generated layouts", () => {
     });
 
     expect(record?.algorithm).toBe("backtracking-generator");
+    expect(record?.wallKey).toBeDefined();
 
-    const bytes = wallMaskBytesFromKey(record!.wallKey);
+    const bytes = wallMaskBytesFromKey(record!.wallKey!);
     const offsetX = 11;
     const offsetY = 9;
     const outerWidth = 10;

@@ -4,12 +4,23 @@ import {
   WALL_MASK_WIDTH,
   wallMaskBitIsSet,
 } from "@/src/walls-core/mask32";
+import { base64ToBytes, bytesToBase64 } from "@/src/walls-core/base64";
 
 export type WallGrid = Readonly<{
   width: number;
   height: number;
   cells: Uint8Array;
 }>;
+
+function toBase64Url(base64: string): string {
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromBase64Url(base64Url: string): string {
+  const normalized = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+  const paddingLength = (4 - (normalized.length % 4)) % 4;
+  return normalized + "=".repeat(paddingLength);
+}
 
 function validateGridDimension(name: string, value: number): number {
   if (!Number.isInteger(value) || value < 1) {
@@ -83,4 +94,38 @@ export function invertWallGrid(grid: WallGrid): WallGrid {
     height: grid.height,
     cells,
   };
+}
+
+export function wallGridKeyFromGrid(grid: WallGrid): string {
+  if (grid.cells.length !== grid.width * grid.height) {
+    throw new Error("grid.cells length must match grid.width * grid.height");
+  }
+
+  const bytes = new Uint8Array(Math.ceil(grid.cells.length / 8));
+  for (let index = 0; index < grid.cells.length; index += 1) {
+    if (grid.cells[index] !== 1) continue;
+    setWallMaskBit(bytes, index);
+  }
+
+  return `${grid.width}x${grid.height}:${toBase64Url(bytesToBase64(bytes))}`;
+}
+
+export function wallGridFromKey(key: string): WallGrid {
+  const match = /^(\d+)x(\d+):(.+)$/.exec(key);
+  if (!match) throw new Error(`Invalid wall grid key '${key}'`);
+
+  const width = validateGridDimension("width", Number(match[1]));
+  const height = validateGridDimension("height", Number(match[2]));
+  const bytes = base64ToBytes(fromBase64Url(match[3] ?? ""));
+  const expectedByteLength = Math.ceil((width * height) / 8);
+  if (bytes.length !== expectedByteLength) {
+    throw new Error(`Invalid wall grid key '${key}': expected ${expectedByteLength} decoded bytes`);
+  }
+
+  const grid = createWallGrid(width, height);
+  for (let index = 0; index < grid.cells.length; index += 1) {
+    if (!wallMaskBitIsSet(bytes, index)) continue;
+    grid.cells[index] = 1;
+  }
+  return grid;
 }

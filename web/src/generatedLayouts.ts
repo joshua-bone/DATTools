@@ -4,6 +4,7 @@ import {
   invertWallGrid,
   type WallGrid,
   wallGridFromMaskBytes,
+  wallGridKeyFromGrid,
   wallGridToMaskBytes,
 } from "@/src/walls-core/grid";
 
@@ -12,6 +13,7 @@ export const GENERATED_LAYOUT_GRID_SIZE = 32;
 export const GENERATED_LAYOUT_PREVIEW_SIZE = 128;
 export const GENERATED_LAYOUT_MIN_SIZE = 10;
 export const GENERATED_LAYOUT_MAX_SIZE = 32;
+export const GENERATED_LAYOUT_ABSOLUTE_MAX_SIZE = 100;
 
 export const RANDOM_NOISE_SEED_MIN = 1;
 export const RANDOM_NOISE_SEED_MAX = 0x7ffffffe;
@@ -313,6 +315,16 @@ export type GenerateAlgorithmId =
   | "trivial-maze";
 export type GenerateAlgorithmChoice = GenerateAlgorithmId | "any";
 export type GenerateRecordAlgorithm = GenerateAlgorithmId | "starred";
+
+export type GeneratedLayoutSizeLimits = Readonly<{
+  min: number;
+  max: number;
+}>;
+
+export const DEFAULT_GENERATED_LAYOUT_SIZE_LIMITS: GeneratedLayoutSizeLimits = {
+  min: GENERATED_LAYOUT_MIN_SIZE,
+  max: GENERATED_LAYOUT_MAX_SIZE,
+};
 
 export type GeneratedLayoutFrame = Readonly<{
   width: number;
@@ -1121,7 +1133,8 @@ type BaseGeneratedLayoutRecord<
     | RecursiveDivisionParameters
     | null,
 > = Readonly<{
-  wallKey: string;
+  recordKey: string;
+  wallKey?: string;
   grid?: WallGrid;
   layout?: GeneratedLayoutFrame;
   algorithm: Algorithm;
@@ -1851,10 +1864,11 @@ export function mazeGridDimensionsForBlockSize(
 function generatedContentDimensionsForLayout(
   layoutWidth: number,
   layoutHeight: number,
+  sizeLimits: GeneratedLayoutSizeLimits = DEFAULT_GENERATED_LAYOUT_SIZE_LIMITS,
 ): GeneratedContentSize {
   return {
-    width: Math.max(1, sanitizeGeneratedLayoutSize(layoutWidth) - 2),
-    height: Math.max(1, sanitizeGeneratedLayoutSize(layoutHeight) - 2),
+    width: Math.max(1, sanitizeGeneratedLayoutSize(layoutWidth, sizeLimits) - 2),
+    height: Math.max(1, sanitizeGeneratedLayoutSize(layoutHeight, sizeLimits) - 2),
   };
 }
 
@@ -1865,6 +1879,8 @@ export function generateLayoutRecords(
     seed: number;
     layoutWidth?: number;
     layoutHeight?: number;
+    sizeLimits?: GeneratedLayoutSizeLimits;
+    frameToMask?: boolean;
     invert?: boolean;
     randomNoiseControls?: RandomNoiseControlState | null;
     perlinNoiseControls?: PerlinNoiseControlState | null;
@@ -1915,12 +1931,18 @@ export function generateLayoutRecords(
 ): GeneratedLayoutRecord[] {
   const count = Math.max(1, options.count ?? GENERATED_LAYOUT_CARD_COUNT);
   const rng = createSeededRandom(options.seed);
-  const layoutWidth = sanitizeGeneratedLayoutSize(options.layoutWidth ?? GENERATED_LAYOUT_MAX_SIZE);
-  const layoutHeight = sanitizeGeneratedLayoutSize(
-    options.layoutHeight ?? GENERATED_LAYOUT_MAX_SIZE,
+  const sizeLimits = options.sizeLimits ?? DEFAULT_GENERATED_LAYOUT_SIZE_LIMITS;
+  const layoutWidth = sanitizeGeneratedLayoutSize(
+    options.layoutWidth ?? sizeLimits.max,
+    sizeLimits,
   );
-  const contentSize = generatedContentDimensionsForLayout(layoutWidth, layoutHeight);
+  const layoutHeight = sanitizeGeneratedLayoutSize(
+    options.layoutHeight ?? sizeLimits.max,
+    sizeLimits,
+  );
+  const contentSize = generatedContentDimensionsForLayout(layoutWidth, layoutHeight, sizeLimits);
   const invert = !!options.invert;
+  const frameToMask = options.frameToMask ?? true;
   const records: GeneratedLayoutRecord[] = [];
   const seen = new Set<string>();
   const maxAttempts = count * 64;
@@ -1975,9 +1997,12 @@ export function generateLayoutRecords(
       growingTreeControls: options.growingTreeControls ?? null,
       recursiveDivisionControls: options.recursiveDivisionControls ?? null,
     });
-    const record = frameGeneratedLayoutRecord(rawRecord, layoutWidth, layoutHeight, invert);
-    if (seen.has(record.wallKey)) continue;
-    seen.add(record.wallKey);
+    const record = finalizeGeneratedLayoutRecord(rawRecord, layoutWidth, layoutHeight, invert, {
+      frameToMask,
+      sizeLimits,
+    });
+    if (seen.has(record.recordKey)) continue;
+    seen.add(record.recordKey);
     records.push(record);
   }
 
@@ -8049,8 +8074,13 @@ function buildGeneratedRecord<
       }
     }
   }
+  const wallKey =
+    grid.width <= GENERATED_LAYOUT_GRID_SIZE && grid.height <= GENERATED_LAYOUT_GRID_SIZE
+      ? wallMaskKeyFromBytes(wallGridToMaskBytes(grid))
+      : undefined;
   return {
-    wallKey: wallMaskKeyFromBytes(wallGridToMaskBytes(grid)),
+    recordKey: wallKey ?? wallGridKeyFromGrid(grid),
+    ...(wallKey ? { wallKey } : {}),
     grid,
     algorithm: options.algorithm,
     title: options.title,
@@ -8063,6 +8093,7 @@ function buildGeneratedRecord<
 
 function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
   return {
+    recordKey: wallKey,
     wallKey,
     grid: wallGridFromMaskBytes(wallMaskBytesFromKey(wallKey)),
     algorithm: "starred",
@@ -8074,26 +8105,55 @@ function buildStarredRecord(wallKey: string): StarredGeneratedLayoutRecord {
   };
 }
 
-function frameGeneratedLayoutRecord(
+function finalizeGeneratedLayoutRecord(
   record: GeneratedLayoutRecord,
   layoutWidth: number,
   layoutHeight: number,
   invert: boolean,
+  options: Readonly<{
+    frameToMask: boolean;
+    sizeLimits: GeneratedLayoutSizeLimits;
+  }>,
 ): GeneratedLayoutRecord {
-  if (record.algorithm === "starred" || !record.wallKey) return record;
+  if (record.algorithm === "starred") return record;
 
-  const sourceGrid = record.grid ?? wallGridFromMaskBytes(wallMaskBytesFromKey(record.wallKey));
+  const sourceGrid =
+    record.grid ??
+    (record.wallKey ? wallGridFromMaskBytes(wallMaskBytesFromKey(record.wallKey)) : null);
+  if (!sourceGrid) return record;
   const grid = invert ? invertWallGrid(sourceGrid) : sourceGrid;
-  const framedBytes = frameGeneratedGridToMaskBytes(grid, layoutWidth, layoutHeight);
+  const normalizedLayout = {
+    width: sanitizeGeneratedLayoutSize(layoutWidth, options.sizeLimits),
+    height: sanitizeGeneratedLayoutSize(layoutHeight, options.sizeLimits),
+  };
+  if (!options.frameToMask) {
+    const wallKey =
+      grid.width <= GENERATED_LAYOUT_GRID_SIZE && grid.height <= GENERATED_LAYOUT_GRID_SIZE
+        ? wallMaskKeyFromBytes(wallGridToMaskBytes(grid))
+        : undefined;
+    return {
+      ...record,
+      recordKey: wallKey ?? wallGridKeyFromGrid(grid),
+      ...(wallKey ? { wallKey } : {}),
+      grid,
+      layout: normalizedLayout,
+      inverted: invert,
+    };
+  }
+
+  const framedBytes = frameGeneratedGridToMaskBytes(
+    grid,
+    normalizedLayout.width,
+    normalizedLayout.height,
+  );
+  const wallKey = wallMaskKeyFromBytes(framedBytes);
   return {
     ...record,
+    recordKey: wallKey,
+    wallKey,
     grid,
-    layout: {
-      width: sanitizeGeneratedLayoutSize(layoutWidth),
-      height: sanitizeGeneratedLayoutSize(layoutHeight),
-    },
+    layout: normalizedLayout,
     inverted: invert,
-    wallKey: wallMaskKeyFromBytes(framedBytes),
   };
 }
 
@@ -9708,8 +9768,24 @@ function sampleClosestNoiseBlockSize(value: number): number {
   );
 }
 
-function sanitizeGeneratedLayoutSize(value: number): number {
-  return clamp(Math.round(value), GENERATED_LAYOUT_MIN_SIZE, GENERATED_LAYOUT_MAX_SIZE);
+export function normalizeGeneratedLayoutSizeLimits(
+  sizeLimits: GeneratedLayoutSizeLimits = DEFAULT_GENERATED_LAYOUT_SIZE_LIMITS,
+): GeneratedLayoutSizeLimits {
+  const min = clamp(
+    Math.round(sizeLimits.min),
+    GENERATED_LAYOUT_MIN_SIZE,
+    GENERATED_LAYOUT_ABSOLUTE_MAX_SIZE,
+  );
+  const max = clamp(Math.round(sizeLimits.max), min, GENERATED_LAYOUT_ABSOLUTE_MAX_SIZE);
+  return { min, max };
+}
+
+function sanitizeGeneratedLayoutSize(
+  value: number,
+  sizeLimits: GeneratedLayoutSizeLimits = DEFAULT_GENERATED_LAYOUT_SIZE_LIMITS,
+): number {
+  const normalized = normalizeGeneratedLayoutSizeLimits(sizeLimits);
+  return clamp(Math.round(value), normalized.min, normalized.max);
 }
 
 function sanitizeSeed(value: number): number {

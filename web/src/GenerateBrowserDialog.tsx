@@ -8,8 +8,8 @@ import {
   type SyntheticEvent,
 } from "react";
 
-import { wallMaskBytesFromKey } from "@/src/walls-core/mask32";
 import {
+  DEFAULT_GENERATED_LAYOUT_SIZE_LIMITS,
   BINARY_TREE_SKEW_OPTIONS,
   BLUEPRINT_CHAMBER_DEPTH_MAX,
   BLUEPRINT_CHAMBER_DEPTH_MIN,
@@ -289,6 +289,7 @@ import {
   type GameOfLifeVariant,
   type GameOfLifeVariantsControlState,
   type GeneratedLayoutRecord,
+  type GeneratedLayoutSizeLimits,
   type GenerateAlgorithmChoice,
   type GlitchBlocksControlState,
   type GrowingTreeControlState,
@@ -377,6 +378,7 @@ import {
   type VoronoiRegionCarverControlState,
   type WilsonsControlState,
   type WorleyNoiseControlState,
+  normalizeGeneratedLayoutSizeLimits,
 } from "@/web/src/generatedLayouts";
 
 type GenerateBrowserDialogLabels = Readonly<{
@@ -391,19 +393,30 @@ const DEFAULT_GENERATE_BROWSER_DIALOG_LABELS: GenerateBrowserDialogLabels = {
   closeAriaLabel: "Close generate walls dialog",
 };
 
+type GenerateDialogSizeLimits = Readonly<
+  GeneratedLayoutSizeLimits & {
+    initialWidth?: number;
+    initialHeight?: number;
+  }
+>;
+
 export type GenerateBrowserDialogProps = Readonly<{
   starredKeys: ReadonlySet<string>;
   onToggleStar: (wallKey: string) => void;
   onImport: (record: GeneratedLayoutRecord) => void;
   onClose: () => void;
   labels?: Partial<GenerateBrowserDialogLabels>;
+  sizeLimits?: GenerateDialogSizeLimits;
+  frameToMask?: boolean;
+  starUiEnabled?: boolean;
 }>;
 
 type GeneratedRecordCardProps = Readonly<{
   record: GeneratedLayoutRecord;
   selected: boolean;
   starred: boolean;
-  onSelect: (wallKey: string) => void;
+  starUiEnabled: boolean;
+  onSelect: (recordKey: string) => void;
   onImport: (record: GeneratedLayoutRecord) => void;
   onToggleStar: (wallKey: string) => void;
 }>;
@@ -802,11 +815,12 @@ function formatNoiseBlockSizeLabel(blockSize: number): string {
   return `${blockSize}x${blockSize}`;
 }
 
-function sanitizeGeneratedLayoutDimension(value: number): number {
-  return Math.max(
-    GENERATED_LAYOUT_MIN_SIZE,
-    Math.min(GENERATED_LAYOUT_MAX_SIZE, Math.round(value)),
-  );
+function sanitizeGeneratedLayoutDimension(
+  value: number,
+  sizeLimits: GeneratedLayoutSizeLimits,
+): number {
+  const normalized = normalizeGeneratedLayoutSizeLimits(sizeLimits);
+  return Math.max(normalized.min, Math.min(normalized.max, Math.round(value)));
 }
 
 function formatCompactNumber(value: number): string {
@@ -928,6 +942,8 @@ function GenerateSizeField({
   label,
   value,
   inputValue,
+  min,
+  max,
   disabled,
   onInputChange,
   onCommit,
@@ -937,6 +953,8 @@ function GenerateSizeField({
   label: string;
   value: number;
   inputValue: string;
+  min: number;
+  max: number;
   disabled: boolean;
   onInputChange: (next: string) => void;
   onCommit: () => void;
@@ -950,8 +968,8 @@ function GenerateSizeField({
         <input
           type="range"
           className="generateRangeInput generateToolbarRangeInput"
-          min={GENERATED_LAYOUT_MIN_SIZE}
-          max={GENERATED_LAYOUT_MAX_SIZE}
+          min={min}
+          max={max}
           step={1}
           value={value}
           disabled={disabled}
@@ -961,8 +979,8 @@ function GenerateSizeField({
           <input
             type="number"
             className="textInput generateSizeNumberInput"
-            min={GENERATED_LAYOUT_MIN_SIZE}
-            max={GENERATED_LAYOUT_MAX_SIZE}
+            min={min}
+            max={max}
             step={1}
             inputMode="numeric"
             value={inputValue}
@@ -979,7 +997,7 @@ function GenerateSizeField({
             <button
               type="button"
               className="generateStepperButton"
-              disabled={disabled || value >= GENERATED_LAYOUT_MAX_SIZE}
+              disabled={disabled || value >= max}
               onClick={() => onStep(1)}
               aria-label={`Increase ${label.toLowerCase()}`}
             >
@@ -988,7 +1006,7 @@ function GenerateSizeField({
             <button
               type="button"
               className="generateStepperButton"
-              disabled={disabled || value <= GENERATED_LAYOUT_MIN_SIZE}
+              disabled={disabled || value <= min}
               onClick={() => onStep(-1)}
               aria-label={`Decrease ${label.toLowerCase()}`}
             >
@@ -1010,25 +1028,45 @@ function formatTrivialMazeTypeLabel(mazeType: TrivialMazeType): string {
   }
 }
 
-function GeneratedMaskPreview({ wallKey }: Readonly<{ wallKey: string }>): JSX.Element {
-  const cells = useMemo(() => {
-    const maskBytes = wallMaskBytesFromKey(wallKey);
-    return Array.from(
-      { length: GENERATED_LAYOUT_GRID_SIZE * GENERATED_LAYOUT_GRID_SIZE },
-      (_, index) => {
-        const byteIndex = Math.floor(index / 8);
-        const bitIndex = 7 - (index % 8);
-        return ((maskBytes[byteIndex] ?? 0) & (1 << bitIndex)) !== 0;
-      },
+function GeneratedMaskPreview({
+  record,
+}: Readonly<{ record: GeneratedLayoutRecord }>): JSX.Element {
+  const grid = record.grid;
+  if (!grid) {
+    return (
+      <div className="generatePreviewGrid" aria-hidden="true">
+        {Array.from(
+          { length: GENERATED_LAYOUT_GRID_SIZE * GENERATED_LAYOUT_GRID_SIZE },
+          (_, index) => (
+            <span key={index} className="generatePreviewCell floor" />
+          ),
+        )}
+      </div>
     );
-  }, [wallKey]);
+  }
+
+  const wallRects = useMemo(() => {
+    const rects: JSX.Element[] = [];
+    for (let y = 0; y < grid.height; y += 1) {
+      for (let x = 0; x < grid.width; x += 1) {
+        if (grid.cells[y * grid.width + x] !== 1) continue;
+        rects.push(<rect key={`${x},${y}`} x={x} y={y} width={1} height={1} />);
+      }
+    }
+    return rects;
+  }, [grid]);
 
   return (
-    <div className="generatePreviewGrid" aria-hidden="true">
-      {cells.map((isWall, index) => (
-        <span key={index} className={`generatePreviewCell ${isWall ? "wall" : "floor"}`} />
-      ))}
-    </div>
+    <svg
+      className="generatePreviewGrid"
+      aria-hidden="true"
+      viewBox={`0 0 ${grid.width} ${grid.height}`}
+      preserveAspectRatio="xMidYMid meet"
+      shapeRendering="crispEdges"
+    >
+      <rect className="generatePreviewFloor" x={0} y={0} width={grid.width} height={grid.height} />
+      <g className="generatePreviewWall">{wallRects}</g>
+    </svg>
   );
 }
 
@@ -1049,6 +1087,7 @@ function GeneratedRecordCard({
   record,
   selected,
   starred,
+  starUiEnabled,
   onSelect,
   onImport,
   onToggleStar,
@@ -1059,12 +1098,12 @@ function GeneratedRecordCard({
     <article
       className={`generateCard ${selected ? "selected" : ""}`}
       title={cardTitle}
-      onClick={() => onSelect(record.wallKey)}
+      onClick={() => onSelect(record.recordKey)}
       onDoubleClick={() => onImport(record)}
       onPointerDown={stopEvent}
     >
       <div className="generateCardPreview">
-        <GeneratedMaskPreview wallKey={record.wallKey} />
+        <GeneratedMaskPreview record={record} />
       </div>
       <div className="generateCardTitle">{record.title}</div>
       <div className="generateCardFooter">
@@ -1078,18 +1117,20 @@ function GeneratedRecordCard({
         >
           Import
         </button>
-        <button
-          type="button"
-          className={`generateStarButton ${starred ? "active" : ""}`}
-          aria-label={starred ? "Remove star" : "Star generated layout"}
-          title={starred ? "Remove star" : "Star generated layout"}
-          onClick={(event) => {
-            stopEvent(event);
-            onToggleStar(record.wallKey);
-          }}
-        >
-          {starred ? "★" : "☆"}
-        </button>
+        {starUiEnabled && record.wallKey ? (
+          <button
+            type="button"
+            className={`generateStarButton ${starred ? "active" : ""}`}
+            aria-label={starred ? "Remove star" : "Star generated layout"}
+            title={starred ? "Remove star" : "Star generated layout"}
+            onClick={(event) => {
+              stopEvent(event);
+              onToggleStar(record.wallKey!);
+            }}
+          >
+            {starred ? "★" : "☆"}
+          </button>
+        ) : null}
       </div>
     </article>
   );
@@ -6382,12 +6423,14 @@ function RecursiveDivisionSettingsPanel({
 function GeneratedRecordDetails({
   record,
   starred,
+  starUiEnabled,
   onImport,
   onToggleStar,
   onMoreLikeThis,
 }: Readonly<{
   record: GeneratedLayoutRecord | null;
   starred: boolean;
+  starUiEnabled: boolean;
   onImport: (record: GeneratedLayoutRecord) => void;
   onToggleStar: (wallKey: string) => void;
   onMoreLikeThis: (record: GeneratedLayoutRecord) => void;
@@ -6410,16 +6453,18 @@ function GeneratedRecordDetails({
       <h3 className="sectionTitle">{record.title}</h3>
       <div className="fieldHint">{record.summary}</div>
       <div className="generateSidebarPreview">
-        <GeneratedMaskPreview wallKey={record.wallKey} />
+        <GeneratedMaskPreview record={record} />
       </div>
       <div className="generateDetailActions">
-        <button
-          type="button"
-          className="secondaryButton"
-          onClick={() => onToggleStar(record.wallKey)}
-        >
-          {starred ? "Unstar Selected" : "Star Selected"}
-        </button>
+        {starUiEnabled && record.wallKey ? (
+          <button
+            type="button"
+            className="secondaryButton"
+            onClick={() => onToggleStar(record.wallKey!)}
+          >
+            {starred ? "Unstar Selected" : "Star Selected"}
+          </button>
+        ) : null}
         <button
           type="button"
           className="secondaryButton"
@@ -7372,22 +7417,34 @@ export function GenerateBrowserDialog({
   onImport,
   onClose,
   labels,
+  sizeLimits,
+  frameToMask = true,
+  starUiEnabled = true,
 }: GenerateBrowserDialogProps): JSX.Element {
   const dialogLabels = {
     ...DEFAULT_GENERATE_BROWSER_DIALOG_LABELS,
     ...labels,
   };
+  const normalizedSizeLimits = normalizeGeneratedLayoutSizeLimits(
+    sizeLimits ?? DEFAULT_GENERATED_LAYOUT_SIZE_LIMITS,
+  );
+  const initialWidth = sanitizeGeneratedLayoutDimension(
+    sizeLimits?.initialWidth ?? normalizedSizeLimits.max,
+    normalizedSizeLimits,
+  );
+  const initialHeight = sanitizeGeneratedLayoutDimension(
+    sizeLimits?.initialHeight ?? normalizedSizeLimits.max,
+    normalizedSizeLimits,
+  );
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<GenerateAlgorithmChoice>("any");
   const [starredOnly, setStarredOnly] = useState(false);
   const [randomSeed, setRandomSeed] = useState(() => randomSeedFromClock());
   const [globalInvert, setGlobalInvert] = useState(false);
-  const [layoutWidth, setLayoutWidth] = useState(GENERATED_LAYOUT_MAX_SIZE);
-  const [layoutHeight, setLayoutHeight] = useState(GENERATED_LAYOUT_MAX_SIZE);
-  const [layoutWidthInput, setLayoutWidthInput] = useState(() => String(GENERATED_LAYOUT_MAX_SIZE));
-  const [layoutHeightInput, setLayoutHeightInput] = useState(() =>
-    String(GENERATED_LAYOUT_MAX_SIZE),
-  );
-  const [selectedWallKey, setSelectedWallKey] = useState<string | null>(null);
+  const [layoutWidth, setLayoutWidth] = useState(initialWidth);
+  const [layoutHeight, setLayoutHeight] = useState(initialHeight);
+  const [layoutWidthInput, setLayoutWidthInput] = useState(() => String(initialWidth));
+  const [layoutHeightInput, setLayoutHeightInput] = useState(() => String(initialHeight));
+  const [selectedRecordKey, setSelectedRecordKey] = useState<string | null>(null);
   const [randomNoiseControls, setRandomNoiseControls] = useState<RandomNoiseControlState>(() =>
     createDefaultRandomNoiseControlState(),
   );
@@ -7531,6 +7588,8 @@ export function GenerateBrowserDialog({
             invert: globalInvert,
             layoutWidth,
             layoutHeight,
+            sizeLimits: normalizedSizeLimits,
+            frameToMask,
             randomNoiseControls: selectedAlgorithm === "random-noise" ? randomNoiseControls : null,
             perlinNoiseControls: selectedAlgorithm === "perlin-noise" ? perlinNoiseControls : null,
             valueFractalNoiseControls:
@@ -7662,10 +7721,12 @@ export function GenerateBrowserDialog({
       roseCurvesControls,
       selectedAlgorithm,
       sidewinderControls,
+      normalizedSizeLimits,
       stampBrushGeneratorControls,
       stripePlaidGeneratorControls,
       starredKeys,
       starredOnly,
+      frameToMask,
       thresholdedGradientNoiseControls,
       tileableMotifRepeaterControls,
       trivialMazeControls,
@@ -7676,29 +7737,29 @@ export function GenerateBrowserDialog({
     ],
   );
   const selectedRecord =
-    visibleRecords.find((record) => record.wallKey === selectedWallKey) ??
+    visibleRecords.find((record) => record.recordKey === selectedRecordKey) ??
     visibleRecords[0] ??
     null;
 
   useEffect(() => {
     if (visibleRecords.length === 0) {
-      if (selectedWallKey !== null) setSelectedWallKey(null);
+      if (selectedRecordKey !== null) setSelectedRecordKey(null);
       return;
     }
 
     if (!selectedRecord) {
-      setSelectedWallKey(visibleRecords[0]!.wallKey);
+      setSelectedRecordKey(visibleRecords[0]!.recordKey);
     }
-  }, [selectedRecord, selectedWallKey, visibleRecords]);
+  }, [selectedRecord, selectedRecordKey, visibleRecords]);
 
   function setLayoutWidthValue(nextValue: number): void {
-    const next = sanitizeGeneratedLayoutDimension(nextValue);
+    const next = sanitizeGeneratedLayoutDimension(nextValue, normalizedSizeLimits);
     setLayoutWidth(next);
     setLayoutWidthInput(String(next));
   }
 
   function setLayoutHeightValue(nextValue: number): void {
-    const next = sanitizeGeneratedLayoutDimension(nextValue);
+    const next = sanitizeGeneratedLayoutDimension(nextValue, normalizedSizeLimits);
     setLayoutHeight(next);
     setLayoutHeightInput(String(next));
   }
@@ -8315,8 +8376,12 @@ export function GenerateBrowserDialog({
     if (record.algorithm === "starred") return;
 
     setStarredOnly(false);
-    setSelectedWallKey(null);
+    setSelectedRecordKey(null);
     setGlobalInvert(record.inverted);
+    if (record.layout) {
+      setLayoutWidthValue(record.layout.width);
+      setLayoutHeightValue(record.layout.height);
+    }
 
     if (record.algorithm === "random-noise") {
       setSelectedAlgorithm("random-noise");
@@ -8783,6 +8848,8 @@ export function GenerateBrowserDialog({
               label="Width"
               value={layoutWidth}
               inputValue={layoutWidthInput}
+              min={normalizedSizeLimits.min}
+              max={normalizedSizeLimits.max}
               disabled={starredOnly}
               onInputChange={setLayoutWidthInput}
               onCommit={commitLayoutWidthInput}
@@ -8793,6 +8860,8 @@ export function GenerateBrowserDialog({
               label="Height"
               value={layoutHeight}
               inputValue={layoutHeightInput}
+              min={normalizedSizeLimits.min}
+              max={normalizedSizeLimits.max}
               disabled={starredOnly}
               onInputChange={setLayoutHeightInput}
               onCommit={commitLayoutHeightInput}
@@ -8808,18 +8877,24 @@ export function GenerateBrowserDialog({
               />
               <span>Invert</span>
             </label>
-            <label className="wallsToggle generateToggle">
-              <input
-                type="checkbox"
-                checked={starredOnly}
-                onChange={(event) => setStarredOnly(event.target.checked)}
-              />
-              <span>Starred only</span>
-            </label>
+            {starUiEnabled ? (
+              <label className="wallsToggle generateToggle">
+                <input
+                  type="checkbox"
+                  checked={starredOnly}
+                  onChange={(event) => setStarredOnly(event.target.checked)}
+                />
+                <span>Starred only</span>
+              </label>
+            ) : null}
             <div className="statusBadge generateStatusBadge">
               {visibleRecords.length} {starredOnly ? "starred" : "generated"}
             </div>
-            <div className="statusBadge generateStatusBadge">{starredKeys.size} total starred</div>
+            {starUiEnabled ? (
+              <div className="statusBadge generateStatusBadge">
+                {starredKeys.size} total starred
+              </div>
+            ) : null}
           </div>
 
           <div className={`generateWorkspace ${showParameterSidebar ? "withParameters" : ""}`}>
@@ -9070,11 +9145,12 @@ export function GenerateBrowserDialog({
                 <div className="generateGrid">
                   {visibleRecords.map((record) => (
                     <GeneratedRecordCard
-                      key={record.wallKey}
+                      key={record.recordKey}
                       record={record}
-                      selected={record.wallKey === selectedRecord?.wallKey}
-                      starred={starredKeys.has(record.wallKey)}
-                      onSelect={setSelectedWallKey}
+                      selected={record.recordKey === selectedRecord?.recordKey}
+                      starred={record.wallKey ? starredKeys.has(record.wallKey) : false}
+                      starUiEnabled={starUiEnabled}
+                      onSelect={setSelectedRecordKey}
                       onImport={onImport}
                       onToggleStar={onToggleStar}
                     />
@@ -9086,7 +9162,8 @@ export function GenerateBrowserDialog({
             <aside className="generateSidebar generateDetailSidebar">
               <GeneratedRecordDetails
                 record={selectedRecord}
-                starred={selectedRecord ? starredKeys.has(selectedRecord.wallKey) : false}
+                starred={selectedRecord?.wallKey ? starredKeys.has(selectedRecord.wallKey) : false}
+                starUiEnabled={starUiEnabled}
                 onImport={onImport}
                 onToggleStar={onToggleStar}
                 onMoreLikeThis={applyMoreLikeThis}
