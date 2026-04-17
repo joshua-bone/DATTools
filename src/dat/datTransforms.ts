@@ -51,7 +51,7 @@ function mapCorner(c: Corner, k: DatTransformKind): Corner {
   }
 }
 
-function transformTileName(name: string, k: DatTransformKind): string {
+export function transformDatTileName(name: string, k: DatTransformKind): string {
   // suffix _N|_E|_S|_W
   {
     const m = /^(.*)_(N|E|S|W)$/.exec(name);
@@ -106,7 +106,7 @@ function transformLayer(layer: ReadonlyArray<string>, k: DatTransformKind): stri
   for (let idx = 0; idx < 1024; idx++) {
     const t = layer[idx]!;
     const idx2 = mapIndex(idx, k);
-    out[idx2] = transformTileName(t, k);
+    out[idx2] = transformDatTileName(t, k);
   }
   return out;
 }

@@ -915,6 +915,20 @@ export function fillLevelArea(
   tile: string,
   options?: PaintLevelOptions,
 ): DatLevel {
+  return paintLevelCells(
+    level,
+    resolveFillLevelIndices(level, origin, tile, options),
+    tile,
+    options,
+  );
+}
+
+export function resolveFillLevelIndices(
+  level: DatLevel,
+  origin: GridPoint,
+  tile: string,
+  options?: PaintLevelOptions,
+): number[] {
   const start = clampPoint(origin);
   const startIndex = pointToIndex(start);
 
@@ -952,7 +966,7 @@ export function fillLevelArea(
     if (point.y < BOARD_SIZE - 1) queue.push(index + BOARD_SIZE);
   }
 
-  return paintLevelCells(level, filled, tile, options);
+  return filled;
 }
 
 export function copyLevelRegion(level: DatLevel, rect: GridRect): LevelClipboard {
