@@ -113,6 +113,7 @@ import {
   setMirrorOffset,
   toggleMirrorActive,
   type MirrorKind,
+  type MirrorTransformKind,
   type MirrorState,
 } from "@/web/src/boardMirrors";
 import {
@@ -167,6 +168,15 @@ import {
   parsePersistedGeneratedLayoutRecordList,
   serializePersistedGeneratedLayoutRecordList,
 } from "@/web/src/generatedLayoutStorage";
+import {
+  DEFAULT_TEXT_BRUSH_FONT_FAMILY,
+  DEFAULT_TEXT_BRUSH_FONT_SIZE,
+  DEFAULT_TEXT_BRUSH_TEXT,
+  TEXT_BRUSH_FONT_CHOICES,
+  TEXT_BRUSH_SIZE_CHOICES,
+  rasterizeTextBrush,
+  type RasterizedTextBrush,
+} from "@/web/src/textBrush";
 import { loadWallsBank, type LoadedWallsBank } from "@/web/src/wallsBank";
 import {
   WALLS_BANK_HIDDEN_STORAGE_KEY,
@@ -175,7 +185,7 @@ import {
   serializePersistedWallsKeySet,
 } from "@/web/src/wallsBankStorage";
 
-type ToolMode = "brush" | "line" | "fill" | "select" | "connect";
+type ToolMode = "brush" | "text" | "line" | "fill" | "select" | "connect";
 type SelectionMode = "rect" | "contiguous" | "tile";
 type SelectionOperation = "replace" | "add" | "subtract";
 type LeftPanelTab = "levels" | "controls";
@@ -201,6 +211,12 @@ type MetadataDraft = Readonly<{
   cloneControls: string;
   fieldOrder: string;
   extraFields: string;
+}>;
+
+type TextBrushConfig = Readonly<{
+  text: string;
+  fontFamily: string;
+  fontSize: number;
 }>;
 
 type SelectionArea = GridRect &
@@ -355,6 +371,10 @@ type BoardEditorSurfaceProps = Readonly<{
   lowDetailRendering: boolean;
   tool: ToolMode;
   setTool: (tool: ToolMode) => void;
+  textBrushConfig: TextBrushConfig;
+  onSetTextBrushText: (text: string) => void;
+  onSetTextBrushFontFamily: (fontFamily: string) => void;
+  onSetTextBrushFontSize: (fontSize: number) => void;
   selectionMode: SelectionMode;
   onSelectToolButtonClick: () => void;
   primaryTile: string;
@@ -376,6 +396,7 @@ type BoardEditorSurfaceProps = Readonly<{
 const CC1_TILESET_URL = `${import.meta.env.BASE_URL}cc1/spritesheet.bmp`;
 const TOOL_LABELS: Array<{ id: ToolMode; label: string; shortcut: string }> = [
   { id: "brush", label: "Brush", shortcut: "B" },
+  { id: "text", label: "Text", shortcut: "T" },
   { id: "line", label: "Line", shortcut: "L" },
   { id: "fill", label: "Bucket", shortcut: "F" },
   { id: "select", label: "Select", shortcut: "V" },
@@ -577,6 +598,41 @@ function buildDatPastePreviewSelection(
   }
 
   return buildSelectionFromIndices(indices, "rect");
+}
+
+function resolveTextBrushPlacementIndices(
+  raster: RasterizedTextBrush | null,
+  center: GridPoint | null,
+  width: number,
+  height: number,
+): number[] {
+  if (!raster || !center) return [];
+
+  const originX = center.x - Math.floor(raster.width / 2);
+  const originY = center.y - Math.floor(raster.height / 2);
+  const indices: number[] = [];
+
+  for (const relativeIndex of raster.indices) {
+    const x = originX + (relativeIndex % raster.width);
+    const y = originY + Math.floor(relativeIndex / raster.width);
+    if (x < 0 || y < 0 || x >= width || y >= height) continue;
+    indices.push(y * width + x);
+  }
+
+  return uniqueSortedIndices(indices);
+}
+
+function flattenMirroredIndices(
+  groups: Readonly<Record<MirrorTransformKind | "SELF", ReadonlyArray<number>>>,
+): number[] {
+  return uniqueSortedIndices([
+    ...groups.SELF,
+    ...groups.FLIP_H,
+    ...groups.FLIP_V,
+    ...groups.FLIP_DIAG_NWSE,
+    ...groups.FLIP_DIAG_NESW,
+    ...groups.ROTATE_180,
+  ]);
 }
 
 function getDatSelectionCellKey(
@@ -1954,6 +2010,10 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       lowDetailRendering,
       tool,
       setTool,
+      textBrushConfig,
+      onSetTextBrushText,
+      onSetTextBrushFontFamily,
+      onSetTextBrushFontSize,
       selectionMode,
       onSelectToolButtonClick,
       primaryTile,
@@ -2261,13 +2321,40 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     const shouldDrawMonsterOrder = showMonsterOrder && !lowDetailRendering;
     const shouldDrawValidityWarnings =
       showValidityWarnings && !isBrushDragging && !lowDetailRendering;
+    const textBrushRaster = useMemo(
+      () =>
+        rasterizeTextBrush(
+          textBrushConfig.text,
+          textBrushConfig.fontFamily,
+          textBrushConfig.fontSize,
+        ),
+      [textBrushConfig.fontFamily, textBrushConfig.fontSize, textBrushConfig.text],
+    );
+    const textPreviewBaseIndices = useMemo(
+      () =>
+        tool === "text" && !dragState
+          ? resolveTextBrushPlacementIndices(textBrushRaster, hoverPoint, 32, 32)
+          : [],
+      [dragState, hoverPoint, textBrushRaster, tool],
+    );
+    const textPreview = useMemo(() => {
+      if (textPreviewBaseIndices.length === 0) return null;
+      const previewIndices = hasActiveMirrors
+        ? flattenMirroredIndices(
+            resolveMirroredIndexGroups(textPreviewBaseIndices, mirrorState, BOARD_MIRROR_SIZE),
+          )
+        : textPreviewBaseIndices;
+      return buildSelectionFromIndices(previewIndices, "rect");
+    }, [hasActiveMirrors, mirrorState, textPreviewBaseIndices]);
 
     const previewLevel = useMemo(() => {
-      if (!activeLevel || !dragState) return activeLevel;
-      if (dragState.tool === "line") {
-        return hasActiveMirrors
+      if (!activeLevel) return activeLevel;
+
+      let nextLevel = activeLevel;
+      if (dragState?.tool === "line") {
+        nextLevel = hasActiveMirrors
           ? applyMirroredLevelLine(
-              activeLevel,
+              nextLevel,
               dragState.start,
               dragState.current,
               dragState.tile,
@@ -2275,41 +2362,60 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
               makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
             )
           : paintLevelLine(
-              activeLevel,
+              nextLevel,
               dragState.start,
               dragState.current,
               dragState.tile,
               makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
             );
-      }
-      if (dragState.tool === "brush") {
-        if (hasActiveMirrors) {
-          return applyMirroredLevelPaint(
-            activeLevel,
-            dragState.cells,
-            dragState.tile,
-            mirrorState,
-            makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
-          );
-        }
-        return brushPreviewNeedsTransientBoard(dragState.tile, activeDisplayContext)
-          ? paintLevelCells(
-              activeLevel,
+      } else if (dragState?.tool === "brush") {
+        nextLevel = hasActiveMirrors
+          ? applyMirroredLevelPaint(
+              nextLevel,
               dragState.cells,
               dragState.tile,
+              mirrorState,
               makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
             )
-          : activeLevel;
+          : brushPreviewNeedsTransientBoard(dragState.tile, activeDisplayContext)
+            ? paintLevelCells(
+                nextLevel,
+                dragState.cells,
+                dragState.tile,
+                makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
+              )
+            : nextLevel;
       }
-      return activeLevel;
+
+      if (tool === "text" && textPreviewBaseIndices.length > 0) {
+        nextLevel = hasActiveMirrors
+          ? applyMirroredLevelPaint(
+              nextLevel,
+              textPreviewBaseIndices,
+              primaryTile,
+              mirrorState,
+              makePaintOptions(threeDLevelsEnabled, selectedLayerZ),
+            )
+          : paintLevelCells(
+              nextLevel,
+              textPreviewBaseIndices,
+              primaryTile,
+              makePaintOptions(threeDLevelsEnabled, selectedLayerZ),
+            );
+      }
+
+      return nextLevel;
     }, [
       activeDisplayContext,
       activeLevel,
       dragState,
       hasActiveMirrors,
       mirrorState,
+      primaryTile,
       selectedLayerZ,
+      textPreviewBaseIndices,
       threeDLevelsEnabled,
+      tool,
     ]);
 
     const invalidCellIndices = useMemo(
@@ -2413,6 +2519,17 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           pastePreview,
           "rgba(197, 151, 44, 0.08)",
           "rgba(197, 151, 44, 0.92)",
+          true,
+        );
+      }
+
+      if (textPreview) {
+        drawSelectionOverlay(
+          ctx,
+          spriteSet.tileSize,
+          textPreview,
+          "rgba(73, 138, 97, 0.1)",
+          "rgba(73, 138, 97, 0.94)",
           true,
         );
       }
@@ -2976,6 +3093,17 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         );
       }
 
+      if (textPreview) {
+        drawSelectionOverlay(
+          ctx,
+          spriteSet.tileSize,
+          textPreview,
+          "rgba(73, 138, 97, 0.1)",
+          "rgba(73, 138, 97, 0.94)",
+          true,
+        );
+      }
+
       if (!isBrushDragging && hoverPoint) {
         for (const mirroredHoverPoint of resolveMirroredHoverPoints(
           hoverPoint,
@@ -3041,6 +3169,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       selectedLogicalLevel,
       showSecrets,
       spriteSet,
+      textPreview,
       canvasSpriteCache,
       lowDetailRendering,
       threeDLevelsEnabled,
@@ -3376,6 +3505,40 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
             : fillLevelArea(
                 level,
                 point,
+                getPaintTileForButton(
+                  event.button,
+                  primaryTile,
+                  secondaryTile,
+                  threeDLevelsEnabled,
+                  selectedLayerZ,
+                ),
+                makePaintOptions(threeDLevelsEnabled, selectedLayerZ, event.shiftKey),
+              ),
+        );
+        return;
+      }
+
+      if (tool === "text") {
+        const textIndices = resolveTextBrushPlacementIndices(textBrushRaster, point, 32, 32);
+        if (textIndices.length === 0) return;
+        onCommitSelectedLevelUpdate((level) =>
+          hasActiveMirrors
+            ? applyMirroredLevelPaint(
+                level,
+                textIndices,
+                getPaintTileForButton(
+                  event.button,
+                  primaryTile,
+                  secondaryTile,
+                  threeDLevelsEnabled,
+                  selectedLayerZ,
+                ),
+                mirrorState,
+                makePaintOptions(threeDLevelsEnabled, selectedLayerZ, event.shiftKey),
+              )
+            : paintLevelCells(
+                level,
+                textIndices,
                 getPaintTileForButton(
                   event.button,
                   primaryTile,
@@ -3857,6 +4020,54 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
               </div>
             </div>
           </div>
+          {tool === "text" ? (
+            <div className="textBrushPanel">
+              <div className="textBrushField textBrushFieldText">
+                <label className="fieldLabel" htmlFor="dat-text-brush-text">
+                  Text
+                </label>
+                <textarea
+                  id="dat-text-brush-text"
+                  className="textBrushTextarea"
+                  spellCheck={false}
+                  value={textBrushConfig.text}
+                  onChange={(event) => onSetTextBrushText(event.target.value)}
+                />
+              </div>
+              <div className="textBrushField">
+                <label className="fieldLabel" htmlFor="dat-text-brush-font">
+                  Font
+                </label>
+                <select
+                  id="dat-text-brush-font"
+                  value={textBrushConfig.fontFamily}
+                  onChange={(event) => onSetTextBrushFontFamily(event.target.value)}
+                >
+                  {TEXT_BRUSH_FONT_CHOICES.map((option) => (
+                    <option key={option.family} value={option.family}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="textBrushField textBrushFieldSize">
+                <label className="fieldLabel" htmlFor="dat-text-brush-size">
+                  Size
+                </label>
+                <select
+                  id="dat-text-brush-size"
+                  value={String(textBrushConfig.fontSize)}
+                  onChange={(event) => onSetTextBrushFontSize(Number(event.target.value))}
+                >
+                  {TEXT_BRUSH_SIZE_CHOICES.map((size) => (
+                    <option key={size} value={String(size)}>
+                      {size}px
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <div
@@ -3959,6 +4170,9 @@ export default function App() {
   const [tool, setTool] = useState<ToolMode>("brush");
   const [primaryTile, setPrimaryTile] = useState<string>("WALL");
   const [secondaryTile, setSecondaryTile] = useState<string>("FLOOR");
+  const [textBrushText, setTextBrushText] = useState(DEFAULT_TEXT_BRUSH_TEXT);
+  const [textBrushFontFamily, setTextBrushFontFamily] = useState(DEFAULT_TEXT_BRUSH_FONT_FAMILY);
+  const [textBrushFontSize, setTextBrushFontSize] = useState(DEFAULT_TEXT_BRUSH_FONT_SIZE);
   const [lastPaletteAssignmentTarget, setLastPaletteAssignmentTarget] =
     useState<PaletteAssignmentTarget>("primary");
   const [paletteQuery, setPaletteQuery] = useState("");
@@ -5218,6 +5432,7 @@ export default function App() {
         event.preventDefault();
         selectLayerDown();
       } else if (key === "b") setTool("brush");
+      else if (key === "t") setTool("text");
       else if (key === "c") setTool("connect");
       else if (key === "l") setTool("line");
       else if (key === "f") setTool("fill");
@@ -6302,6 +6517,14 @@ export default function App() {
           lowDetailRendering={lowDetailRendering}
           tool={tool}
           setTool={setTool}
+          textBrushConfig={{
+            text: textBrushText,
+            fontFamily: textBrushFontFamily,
+            fontSize: textBrushFontSize,
+          }}
+          onSetTextBrushText={setTextBrushText}
+          onSetTextBrushFontFamily={setTextBrushFontFamily}
+          onSetTextBrushFontSize={setTextBrushFontSize}
           selectionMode={selectionMode}
           onSelectToolButtonClick={handleSelectToolButtonClick}
           primaryTile={primaryTile}
