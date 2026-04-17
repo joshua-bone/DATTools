@@ -146,6 +146,7 @@ import {
   pasteLevelRegion,
   previewPaintLevelCells,
   rectToIndices,
+  rotateLevelClipboard,
   redoLevelsetEvent,
   resolveFillLevelIndices,
   selectLevelInHistory,
@@ -556,6 +557,26 @@ function drawSelectionOverlay(
   }
 
   ctx.restore();
+}
+
+function buildDatPastePreviewSelection(
+  anchor: GridPoint,
+  clipboard: LevelClipboard,
+): SelectionArea | null {
+  const indices: number[] = [];
+
+  for (let y = 0; y < clipboard.height; y += 1) {
+    for (let x = 0; x < clipboard.width; x += 1) {
+      const absoluteX = anchor.x + x;
+      const absoluteY = anchor.y + y;
+      if (absoluteX < 0 || absoluteY < 0 || absoluteX >= 32 || absoluteY >= 32) continue;
+      const relativeIndex = y * clipboard.width + x;
+      if (clipboard.mask && !clipboard.mask[relativeIndex]) continue;
+      indices.push(absoluteY * 32 + absoluteX);
+    }
+  }
+
+  return buildSelectionFromIndices(indices, "rect");
 }
 
 function getDatSelectionCellKey(
@@ -2325,13 +2346,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       if (!pastePreviewActive || tool !== "select" || !clipboard || dragState) return null;
       const anchor = hoverPoint ?? (selection ? { x: selection.x, y: selection.y } : null);
       if (!anchor) return null;
-
-      return {
-        x: anchor.x,
-        y: anchor.y,
-        width: Math.min(clipboard.width, 32 - anchor.x),
-        height: Math.min(clipboard.height, 32 - anchor.y),
-      };
+      return buildDatPastePreviewSelection(anchor, clipboard);
     }, [clipboard, dragState, hoverPoint, pastePreviewActive, selection, tool]);
 
     function renderLowDetailBoard(brushStateOverride: BrushDragState | null = null): void {
@@ -2391,8 +2406,8 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         );
       }
 
-      if (pastePreview && pastePreview.width > 0 && pastePreview.height > 0) {
-        drawRectOverlay(
+      if (pastePreview) {
+        drawSelectionOverlay(
           ctx,
           spriteSet.tileSize,
           pastePreview,
@@ -2929,8 +2944,8 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         );
       }
 
-      if (pastePreview && pastePreview.width > 0 && pastePreview.height > 0) {
-        drawRectOverlay(
+      if (pastePreview) {
+        drawSelectionOverlay(
           ctx,
           spriteSet.tileSize,
           pastePreview,
@@ -4899,6 +4914,15 @@ export default function App() {
     );
   }
 
+  function rotatePastePreviewClipboard(direction: "clockwise" | "counterclockwise"): void {
+    if (!clipboard || !pastePreviewActive || tool !== "select") return;
+    setClipboard((current) =>
+      current
+        ? rotateLevelClipboard(current, direction === "clockwise" ? "ROTATE_90" : "ROTATE_270")
+        : current,
+    );
+  }
+
   function pasteClipboard(): void {
     if (!activeLevel || !clipboard) return;
     const anchor = getPasteAnchor(selection, boardStatusStore.getSnapshot().hoverPoint);
@@ -5135,14 +5159,18 @@ export default function App() {
 
       if (key === "<" || key === ",") {
         event.preventDefault();
-        if (tool === "select" && selection) rotateSelectedSelection("counterclockwise");
+        if (tool === "select" && pastePreviewActive && clipboard) {
+          rotatePastePreviewClipboard("counterclockwise");
+        } else if (tool === "select" && selection) rotateSelectedSelection("counterclockwise");
         else rotateSelectedPaletteTile("counterclockwise");
         return;
       }
 
       if (key === ">" || key === ".") {
         event.preventDefault();
-        if (tool === "select" && selection) rotateSelectedSelection("clockwise");
+        if (tool === "select" && pastePreviewActive && clipboard) {
+          rotatePastePreviewClipboard("clockwise");
+        } else if (tool === "select" && selection) rotateSelectedSelection("clockwise");
         else rotateSelectedPaletteTile("clockwise");
         return;
       }
@@ -5192,6 +5220,8 @@ export default function App() {
     lastPaletteAssignmentTarget,
     paletteAssignmentTarget,
     primaryTile,
+    pastePreviewActive,
+    rotatePastePreviewClipboard,
     rotateSelectedSelection,
     selectionMode,
     secondaryTile,

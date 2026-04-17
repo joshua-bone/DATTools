@@ -1,4 +1,5 @@
 import { CC1_LEGACY_INVALID_TILE_NAMES } from "@/src/dat/cc1Tiles";
+import { transformDatTileName } from "@/src/dat/datTransforms";
 import type {
   CloneControl,
   DatExtraField,
@@ -1048,6 +1049,82 @@ function relativeIndexToAbsoluteIndex(
   }
 
   return pointToIndex(point);
+}
+
+function transformClipboardPoint(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  kind: "ROTATE_90" | "ROTATE_270",
+): GridPoint {
+  if (kind === "ROTATE_90") {
+    return {
+      x: height - 1 - y,
+      y: x,
+    };
+  }
+
+  return {
+    x: y,
+    y: width - 1 - x,
+  };
+}
+
+function transformClipboardIndex(
+  index: number,
+  width: number,
+  height: number,
+  kind: "ROTATE_90" | "ROTATE_270",
+): number {
+  const point = transformClipboardPoint(
+    index % width,
+    Math.floor(index / width),
+    width,
+    height,
+    kind,
+  );
+  const nextWidth = height;
+  return point.y * nextWidth + point.x;
+}
+
+export function rotateLevelClipboard(
+  clipboard: LevelClipboard,
+  kind: "ROTATE_90" | "ROTATE_270",
+): LevelClipboard {
+  const nextWidth = clipboard.height;
+  const nextHeight = clipboard.width;
+  const cellCount = nextWidth * nextHeight;
+  const top = new Array<string>(cellCount).fill(FLOOR_TILE);
+  const bottom = new Array<string>(cellCount).fill(FLOOR_TILE);
+  const mask = clipboard.mask ? new Array<boolean>(cellCount).fill(false) : null;
+
+  for (let index = 0; index < clipboard.width * clipboard.height; index += 1) {
+    const nextIndex = transformClipboardIndex(index, clipboard.width, clipboard.height, kind);
+    top[nextIndex] = transformDatTileName(clipboard.top[index] ?? FLOOR_TILE, kind);
+    bottom[nextIndex] = transformDatTileName(clipboard.bottom[index] ?? FLOOR_TILE, kind);
+    if (mask) mask[nextIndex] = clipboard.mask?.[index] ?? true;
+  }
+
+  return {
+    width: nextWidth,
+    height: nextHeight,
+    top,
+    bottom,
+    ...(mask ? { mask } : {}),
+    movement: clipboard.movement.map((index) =>
+      transformClipboardIndex(index, clipboard.width, clipboard.height, kind),
+    ),
+    trapControls: clipboard.trapControls.map((item) => ({
+      button: transformClipboardIndex(item.button, clipboard.width, clipboard.height, kind),
+      trap: transformClipboardIndex(item.trap, clipboard.width, clipboard.height, kind),
+      openOrShut: item.openOrShut,
+    })),
+    cloneControls: clipboard.cloneControls.map((item) => ({
+      button: transformClipboardIndex(item.button, clipboard.width, clipboard.height, kind),
+      cloner: transformClipboardIndex(item.cloner, clipboard.width, clipboard.height, kind),
+    })),
+  };
 }
 
 export function pasteLevelRegion(
