@@ -458,7 +458,7 @@ function buildSelectionCursor(mode: SelectionMode, operation: SelectionOperation
   const modeBadge = getSelectionModeBadge(mode);
   const operationBadge = getSelectionOperationBadge(operation);
   return `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path fill="rgba(248,252,255,0.98)" stroke="rgba(28,42,51,0.96)" stroke-width="1.3" d="M5.5 3.5v18.9l4.48-4.22 2.87 7.43 3.17-1.24-2.88-7.43 6.38-.1z"/><rect x="16.5" y="18.5" width="11" height="9" rx="3" fill="rgba(20,33,42,0.94)"/><text x="22" y="24.3" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="7.8" font-weight="700" fill="rgba(248,252,255,0.98)">${modeBadge}</text>${operationBadge ? `<text x="26.6" y="26.7" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="6.6" font-weight="700" fill="rgba(129, 215, 255, 0.98)">${operationBadge}</text>` : ""}</svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path fill="rgba(248,252,255,0.98)" stroke="rgba(28,42,51,0.96)" stroke-width="1.3" d="M5.5 3.5v18.9l4.48-4.22 2.87 7.43 3.17-1.24-2.88-7.43 6.38-.1z"/><rect x="16.5" y="18.5" width="11" height="9" rx="3" fill="rgba(20,33,42,0.94)"/><text x="22" y="24.3" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="7.8" font-weight="700" fill="rgba(248,252,255,0.98)">${modeBadge}</text>${operationBadge ? `<circle cx="27.2" cy="19.4" r="3.3" fill="rgba(129, 215, 255, 0.98)"/><text x="27.2" y="21.8" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="6.7" font-weight="800" fill="rgba(20,33,42,0.98)">${operationBadge}</text>` : ""}</svg>`,
   )}") 2 2, crosshair`;
 }
 
@@ -2521,11 +2521,8 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     useEffect(() => {
       const updateModifierPressed = (event: KeyboardEvent) => {
-        if (event.key === "Alt") {
-          setIsAltPressed(event.type === "keydown");
-        } else if (event.key === "Shift") {
-          setIsShiftPressed(event.type === "keydown");
-        }
+        setIsAltPressed(event.altKey);
+        setIsShiftPressed(event.shiftKey);
       };
       const clearModifiers = () => {
         setIsAltPressed(false);
@@ -2541,6 +2538,30 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         window.removeEventListener("blur", clearModifiers);
       };
     }, []);
+
+    useEffect(() => {
+      if (!pastePreviewActive) return;
+
+      const dismissPastePreview = (event: PointerEvent) => {
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+
+        const viewport = boardViewportRef.current;
+        const interactiveTarget =
+          target instanceof Element
+            ? target.closest('button, input, select, textarea, a, [role="button"]')
+            : null;
+
+        if (interactiveTarget || !viewport || !viewport.contains(target)) {
+          onSetPastePreviewActive(false);
+        }
+      };
+
+      document.addEventListener("pointerdown", dismissPastePreview, true);
+      return () => {
+        document.removeEventListener("pointerdown", dismissPastePreview, true);
+      };
+    }, [onSetPastePreviewActive, pastePreviewActive]);
 
     useEffect(() => {
       resetInteractionState();
@@ -3329,6 +3350,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
       if (!isSupportedCanvasPointerButton(event.button) || !point) return;
 
+      if (tool === "select" && pastePreviewActive && clipboard && event.button === 0) {
+        event.preventDefault();
+        onCommitSelectedLevelUpdate((level) => pasteLevelRegion(level, point, clipboard));
+        onSelectionChange(buildDatPastePreviewSelection(point, clipboard));
+        return;
+      }
+
       if (tool === "fill") {
         onCommitSelectedLevelUpdate((level) =>
           hasActiveMirrors
@@ -3445,6 +3473,9 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     }
 
     function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>): void {
+      if (event.altKey !== isAltPressed) setIsAltPressed(event.altKey);
+      if (event.shiftKey !== isShiftPressed) setIsShiftPressed(event.shiftKey);
+
       const isTrackedTabletTouch =
         isTabletLayout &&
         isTouchPointer(event.nativeEvent) &&
@@ -4924,17 +4955,9 @@ export default function App() {
   }
 
   function pasteClipboard(): void {
-    if (!activeLevel || !clipboard) return;
-    const anchor = getPasteAnchor(selection, boardStatusStore.getSnapshot().hoverPoint);
+    if (!clipboard) return;
+    setTool("select");
     setPastePreviewActive(true);
-    commitSelectedLevelUpdate((level) => pasteLevelRegion(level, anchor, clipboard));
-    setSelection({
-      x: anchor.x,
-      y: anchor.y,
-      width: Math.min(clipboard.width, 32 - anchor.x),
-      height: Math.min(clipboard.height, 32 - anchor.y),
-      mode: selectionMode,
-    });
   }
 
   function eraseSelection(): void {
@@ -5524,6 +5547,7 @@ export default function App() {
   }
 
   function assignPaletteTile(tile: string, target: PaletteAssignmentTarget): void {
+    setPastePreviewActive(false);
     setLastPaletteAssignmentTarget(target);
     if (target === "secondary") setSecondaryTile(tile);
     else setPrimaryTile(tile);
