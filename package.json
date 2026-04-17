@@ -3,22 +3,22 @@
   "version": "1.0.0",
   "description": "Toolkit for Chip's Challenge DAT levelsets (multiple 32x32 levels per file).",
   "main": "./dist/walls-core.js",
-  "types": "./src/walls-core/index.ts",
+  "types": "./types/walls-core.d.ts",
   "exports": {
     ".": {
-      "types": "./src/walls-core/index.ts",
+      "types": "./types/walls-core.d.ts",
       "import": "./dist/walls-core.js"
     },
     "./walls-core": {
-      "types": "./src/walls-core/index.ts",
+      "types": "./types/walls-core.d.ts",
       "import": "./dist/walls-core.js"
     },
     "./walls-dat": {
-      "types": "./src/walls-dat/index.ts",
+      "types": "./types/walls-dat.d.ts",
       "import": "./dist/walls-dat.js"
     },
     "./walls-react": {
-      "types": "./src/walls-react/index.ts",
+      "types": "./types/walls-react.d.ts",
       "import": "./dist/walls-react.js"
     },
     "./walls-bank.json": "./web/public/walls/walls-bank.json",

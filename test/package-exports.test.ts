@@ -11,19 +11,19 @@ describe("package exports", () => {
     expect(packageJson.name).toBe("dattools");
     expect(packageJson.exports).toEqual({
       ".": {
-        types: "./src/walls-core/index.ts",
+        types: "./types/walls-core.d.ts",
         import: "./dist/walls-core.js",
       },
       "./walls-core": {
-        types: "./src/walls-core/index.ts",
+        types: "./types/walls-core.d.ts",
         import: "./dist/walls-core.js",
       },
       "./walls-dat": {
-        types: "./src/walls-dat/index.ts",
+        types: "./types/walls-dat.d.ts",
         import: "./dist/walls-dat.js",
       },
       "./walls-react": {
-        types: "./src/walls-react/index.ts",
+        types: "./types/walls-react.d.ts",
         import: "./dist/walls-react.js",
       },
       "./walls-bank.json": "./web/public/walls/walls-bank.json",
