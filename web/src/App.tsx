@@ -4100,19 +4100,6 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                   ))}
                 </select>
               </div>
-              <div className="textBrushSample">
-                <div className="fieldLabel">Font Preview</div>
-                <div
-                  className="textBrushSamplePreview"
-                  style={{
-                    fontFamily: textBrushConfig.fontFamily,
-                    fontSize: `${Math.min(Math.max(textBrushConfig.fontSize * 2.5, 16), 56)}px`,
-                    textAlign: textBrushConfig.align,
-                  }}
-                >
-                  {textBrushConfig.text.length > 0 ? textBrushConfig.text : " "}
-                </div>
-              </div>
             </div>
           ) : null}
         </section>
