@@ -4172,6 +4172,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                         {textBrushPreviewRaster.indices.map((index) => (
                           <rect
                             key={index}
+                            className="textBrushPreviewPixel"
                             x={index % textBrushPreviewRaster.width}
                             y={Math.floor(index / textBrushPreviewRaster.width)}
                             width="1"
