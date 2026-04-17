@@ -143,8 +143,8 @@ import { BrowseWallsDialog } from "@/src/walls-react/BrowseWallsDialog";
 import { GenerateWallsDialog } from "@/src/walls-react/GenerateWallsDialog";
 import {
   GENERATED_LAYOUT_STARRED_STORAGE_KEY,
-  parsePersistedGeneratedLayoutKeySet,
-  serializePersistedGeneratedLayoutKeySet,
+  parsePersistedGeneratedLayoutRecordList,
+  serializePersistedGeneratedLayoutRecordList,
 } from "@/web/src/generatedLayoutStorage";
 import { loadWallsBank, type LoadedWallsBank } from "@/web/src/wallsBank";
 import {
@@ -3269,8 +3269,10 @@ export default function App() {
   const [wallsStarredKeys, setWallsStarredKeys] = useState<ReadonlySet<string>>(() =>
     parsePersistedWallsKeySet(readLocalStorage(WALLS_BANK_STARRED_STORAGE_KEY)),
   );
-  const [generatedStarredKeys, setGeneratedStarredKeys] = useState<ReadonlySet<string>>(() =>
-    parsePersistedGeneratedLayoutKeySet(readLocalStorage(GENERATED_LAYOUT_STARRED_STORAGE_KEY)),
+  const [generatedStarredRecords, setGeneratedStarredRecords] = useState<
+    ReadonlyArray<GeneratedLayoutRecord>
+  >(() =>
+    parsePersistedGeneratedLayoutRecordList(readLocalStorage(GENERATED_LAYOUT_STARRED_STORAGE_KEY)),
   );
   const [wallsHiddenKeys, setWallsHiddenKeys] = useState<ReadonlySet<string>>(() =>
     parsePersistedWallsKeySet(readLocalStorage(WALLS_BANK_HIDDEN_STORAGE_KEY)),
@@ -3541,9 +3543,9 @@ export default function App() {
     if (typeof window === "undefined") return;
     writeLocalStorage(
       GENERATED_LAYOUT_STARRED_STORAGE_KEY,
-      serializePersistedGeneratedLayoutKeySet(generatedStarredKeys),
+      serializePersistedGeneratedLayoutRecordList(generatedStarredRecords),
     );
-  }, [generatedStarredKeys]);
+  }, [generatedStarredRecords]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3801,12 +3803,17 @@ export default function App() {
     });
   }
 
-  function toggleGeneratedStar(wallKey: string): void {
-    setGeneratedStarredKeys((current) => {
-      const next = new Set(current);
-      if (next.has(wallKey)) next.delete(wallKey);
-      else next.add(wallKey);
-      return next;
+  function toggleGeneratedStar(record: GeneratedLayoutRecord): void {
+    setGeneratedStarredRecords((current) => {
+      const index = current.findIndex((entry) => entry.recordKey === record.recordKey);
+      if (index >= 0) {
+        return [...current.slice(0, index), ...current.slice(index + 1)];
+      }
+      return [...current, record].sort(
+        (left, right) =>
+          left.title.localeCompare(right.title, "en") ||
+          left.recordKey.localeCompare(right.recordKey, "en"),
+      );
     });
   }
 
@@ -6028,7 +6035,7 @@ export default function App() {
 
       {openDialog === "generateBrowser" ? (
         <GenerateWallsDialog
-          starredKeys={generatedStarredKeys}
+          starredRecords={generatedStarredRecords}
           labels={{ eyebrow: "Ideas", title: "Generate Walls" }}
           onToggleStar={toggleGeneratedStar}
           onImport={importGeneratedWallLayout}

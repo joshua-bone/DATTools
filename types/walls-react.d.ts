@@ -60,8 +60,8 @@ export type GenerateDialogSizeLimits = Readonly<
 >;
 
 export type GenerateWallsDialogProps = Readonly<{
-  starredKeys: ReadonlySet<string>;
-  onToggleStar: (wallKey: string) => void;
+  starredRecords: ReadonlyArray<GeneratedLayoutRecord>;
+  onToggleStar: (record: GeneratedLayoutRecord) => void;
   onImport: (record: GeneratedLayoutRecord) => void;
   onClose: () => void;
   labels?: Partial<GenerateWallsDialogLabels>;
@@ -72,3 +72,11 @@ export type GenerateWallsDialogProps = Readonly<{
 
 export declare function BrowseWallsDialog(props: BrowseWallsDialogProps): JSX.Element;
 export declare function GenerateWallsDialog(props: GenerateWallsDialogProps): JSX.Element;
+
+export declare const GENERATED_LAYOUT_STARRED_STORAGE_KEY = "dattools-generate-starred";
+export declare function parsePersistedGeneratedLayoutRecordList(
+  value: string | null,
+): ReadonlyArray<GeneratedLayoutRecord>;
+export declare function serializePersistedGeneratedLayoutRecordList(
+  records: ReadonlyArray<GeneratedLayoutRecord>,
+): string;

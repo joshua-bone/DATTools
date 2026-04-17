@@ -264,7 +264,6 @@ import {
   mazeGridDimensionsForBlockSize,
   nextRandomSeed,
   randomSeedFromClock,
-  recordsFromStarredKeys,
   type AldousBroderControlState,
   type BacktrackingControlState,
   type BinaryTreeControlState,
@@ -401,8 +400,8 @@ type GenerateDialogSizeLimits = Readonly<
 >;
 
 export type GenerateBrowserDialogProps = Readonly<{
-  starredKeys: ReadonlySet<string>;
-  onToggleStar: (wallKey: string) => void;
+  starredRecords: ReadonlyArray<GeneratedLayoutRecord>;
+  onToggleStar: (record: GeneratedLayoutRecord) => void;
   onImport: (record: GeneratedLayoutRecord) => void;
   onClose: () => void;
   labels?: Partial<GenerateBrowserDialogLabels>;
@@ -418,7 +417,7 @@ type GeneratedRecordCardProps = Readonly<{
   starUiEnabled: boolean;
   onSelect: (recordKey: string) => void;
   onImport: (record: GeneratedLayoutRecord) => void;
-  onToggleStar: (wallKey: string) => void;
+  onToggleStar: (record: GeneratedLayoutRecord) => void;
 }>;
 
 type ParameterToggleProps = Readonly<{
@@ -1117,7 +1116,7 @@ function GeneratedRecordCard({
         >
           Import
         </button>
-        {starUiEnabled && record.wallKey ? (
+        {starUiEnabled ? (
           <button
             type="button"
             className={`generateStarButton ${starred ? "active" : ""}`}
@@ -1125,7 +1124,7 @@ function GeneratedRecordCard({
             title={starred ? "Remove star" : "Star generated layout"}
             onClick={(event) => {
               stopEvent(event);
-              onToggleStar(record.wallKey!);
+              onToggleStar(record);
             }}
           >
             {starred ? "★" : "☆"}
@@ -6432,7 +6431,7 @@ function GeneratedRecordDetails({
   starred: boolean;
   starUiEnabled: boolean;
   onImport: (record: GeneratedLayoutRecord) => void;
-  onToggleStar: (wallKey: string) => void;
+  onToggleStar: (record: GeneratedLayoutRecord) => void;
   onMoreLikeThis: (record: GeneratedLayoutRecord) => void;
 }>): JSX.Element {
   if (!record) {
@@ -6456,12 +6455,8 @@ function GeneratedRecordDetails({
         <GeneratedMaskPreview record={record} />
       </div>
       <div className="generateDetailActions">
-        {starUiEnabled && record.wallKey ? (
-          <button
-            type="button"
-            className="secondaryButton"
-            onClick={() => onToggleStar(record.wallKey!)}
-          >
+        {starUiEnabled ? (
+          <button type="button" className="secondaryButton" onClick={() => onToggleStar(record)}>
             {starred ? "Unstar Selected" : "Star Selected"}
           </button>
         ) : null}
@@ -7396,8 +7391,8 @@ function GeneratedRecordDetails({
         </div>
       ) : (
         <div className="fieldHint generateDetailEmpty">
-          This layout was starred locally. Only the wall mask was saved, not the original generator
-          parameters.
+          This saved layout came from older local storage data. The wall pattern was preserved, but
+          the original generator parameters were not.
         </div>
       )}
       <button
@@ -7412,7 +7407,7 @@ function GeneratedRecordDetails({
 }
 
 export function GenerateBrowserDialog({
-  starredKeys,
+  starredRecords,
   onToggleStar,
   onImport,
   onClose,
@@ -7575,12 +7570,16 @@ export function GenerateBrowserDialog({
     useState<RecursiveDivisionControlState>(() => createDefaultRecursiveDivisionControlState());
   const generatedContentWidth = Math.max(1, layoutWidth - 2);
   const generatedContentHeight = Math.max(1, layoutHeight - 2);
+  const starredRecordKeys = useMemo(
+    () => new Set(starredRecords.map((record) => record.recordKey)),
+    [starredRecords],
+  );
 
   const showParameterSidebar = !starredOnly && selectedAlgorithm !== "any";
   const visibleRecords = useMemo(
     () =>
       starredOnly
-        ? recordsFromStarredKeys(starredKeys)
+        ? starredRecords
         : generateLayoutRecords({
             algorithm: selectedAlgorithm,
             count: GENERATED_LAYOUT_CARD_COUNT,
@@ -7724,7 +7723,7 @@ export function GenerateBrowserDialog({
       normalizedSizeLimits,
       stampBrushGeneratorControls,
       stripePlaidGeneratorControls,
-      starredKeys,
+      starredRecords,
       starredOnly,
       frameToMask,
       thresholdedGradientNoiseControls,
@@ -8892,7 +8891,7 @@ export function GenerateBrowserDialog({
             </div>
             {starUiEnabled ? (
               <div className="statusBadge generateStatusBadge">
-                {starredKeys.size} total starred
+                {starredRecords.length} total starred
               </div>
             ) : null}
           </div>
@@ -9148,7 +9147,7 @@ export function GenerateBrowserDialog({
                       key={record.recordKey}
                       record={record}
                       selected={record.recordKey === selectedRecord?.recordKey}
-                      starred={record.wallKey ? starredKeys.has(record.wallKey) : false}
+                      starred={starredRecordKeys.has(record.recordKey)}
                       starUiEnabled={starUiEnabled}
                       onSelect={setSelectedRecordKey}
                       onImport={onImport}
@@ -9162,7 +9161,7 @@ export function GenerateBrowserDialog({
             <aside className="generateSidebar generateDetailSidebar">
               <GeneratedRecordDetails
                 record={selectedRecord}
-                starred={selectedRecord?.wallKey ? starredKeys.has(selectedRecord.wallKey) : false}
+                starred={selectedRecord ? starredRecordKeys.has(selectedRecord.recordKey) : false}
                 starUiEnabled={starUiEnabled}
                 onImport={onImport}
                 onToggleStar={onToggleStar}
