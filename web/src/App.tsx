@@ -157,6 +157,7 @@ import {
 type ToolMode = "brush" | "line" | "fill" | "select" | "connect";
 type LeftPanelTab = "levels" | "controls";
 type InspectorTab = "palette" | "metadata";
+type BoardMenuId = "file" | "view" | "options" | "ideas";
 type PaletteTab = "normal" | "invalid";
 type LayoutModePreference = "auto" | "desktop" | "tablet";
 type TabletDrawerSide = "left" | "right" | null;
@@ -3219,6 +3220,8 @@ export default function App() {
   } | null>(null);
   const boardEditorRef = useRef<BoardEditorHandle>(null);
   const editorLayoutRef = useRef<HTMLElement>(null);
+  const boardMenuBarRef = useRef<HTMLDivElement>(null);
+  const boardMenuWrapRefs = useRef<Partial<Record<BoardMenuId, HTMLDivElement | null>>>({});
   const paletteGridRef = useRef<HTMLDivElement>(null);
   const [boardStatusStore] = useState(() => createBoardEditorStatusStore());
   const [initialAppState] = useState(() => createInitialAppState());
@@ -3251,9 +3254,8 @@ export default function App() {
   const [levelContextMenu, setLevelContextMenu] = useState<LevelContextMenuState>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(236);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
-  const [boardMenuOpen, setBoardMenuOpen] = useState<"file" | "view" | "options" | "ideas" | null>(
-    null,
-  );
+  const [boardMenuOpen, setBoardMenuOpen] = useState<BoardMenuId | null>(null);
+  const [boardMenuDropdownShift, setBoardMenuDropdownShift] = useState(0);
   const [openDialog, setOpenDialog] = useState<
     "brandingHelp" | "threeDHelp" | "wallsBrowser" | "generateBrowser" | null
   >(null);
@@ -4532,6 +4534,39 @@ export default function App() {
   }, [boardMenuOpen]);
 
   useEffect(() => {
+    if (!boardMenuOpen) {
+      setBoardMenuDropdownShift(0);
+      return;
+    }
+
+    const measure = () => {
+      const menuBar = boardMenuBarRef.current;
+      const menuWrap = boardMenuWrapRefs.current[boardMenuOpen];
+      const dropdown = menuWrap?.querySelector(".dropdownMenu");
+      if (!menuBar || !(dropdown instanceof HTMLDivElement)) {
+        setBoardMenuDropdownShift(0);
+        return;
+      }
+
+      const menuBarRect = menuBar.getBoundingClientRect();
+      const dropdownRect = dropdown.getBoundingClientRect();
+      const padding = 4;
+      const overflowRight = dropdownRect.right - (menuBarRect.right - padding);
+      const overflowLeft = menuBarRect.left + padding - dropdownRect.left;
+      let shift = 0;
+      if (overflowRight > 0) shift -= overflowRight;
+      if (overflowLeft > 0) shift += overflowLeft;
+      setBoardMenuDropdownShift(Math.round(shift));
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+    };
+  }, [boardMenuOpen, leftPanelWidth]);
+
+  useEffect(() => {
     if (boardMenuOpen === "view") return;
     setViewSubmenuOpen(null);
   }, [boardMenuOpen]);
@@ -4562,7 +4597,12 @@ export default function App() {
     });
   }
 
-  function toggleBoardMenu(menu: "file" | "view" | "options" | "ideas"): void {
+  function resolveBoardMenuDropdownStyle(menu: BoardMenuId): CSSProperties | undefined {
+    if (boardMenuOpen !== menu || boardMenuDropdownShift === 0) return undefined;
+    return { transform: `translateX(${boardMenuDropdownShift}px)` };
+  }
+
+  function toggleBoardMenu(menu: BoardMenuId): void {
     setBoardMenuOpen((current) => (current === menu ? null : menu));
   }
 
@@ -4992,8 +5032,14 @@ export default function App() {
             </div>
           </section>
           <section className="panelSection leftPanelMenuSection">
-            <div className="boardMenuBar">
-              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+            <div className="boardMenuBar" ref={boardMenuBarRef}>
+              <div
+                className="menuWrap"
+                ref={(node) => {
+                  boardMenuWrapRefs.current.file = node;
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
                 <button
                   type="button"
                   className="menuButton"
@@ -5003,7 +5049,7 @@ export default function App() {
                   File
                 </button>
                 {boardMenuOpen === "file" ? (
-                  <div className="dropdownMenu">
+                  <div className="dropdownMenu" style={resolveBoardMenuDropdownStyle("file")}>
                     <button type="button" className="dropdownMenuItem" onClick={createNewLevelset}>
                       New
                     </button>
@@ -5080,7 +5126,13 @@ export default function App() {
                 ) : null}
               </div>
 
-              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+              <div
+                className="menuWrap"
+                ref={(node) => {
+                  boardMenuWrapRefs.current.view = node;
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
                 <button
                   type="button"
                   className="menuButton"
@@ -5090,7 +5142,7 @@ export default function App() {
                   View
                 </button>
                 {boardMenuOpen === "view" ? (
-                  <div className="dropdownMenu">
+                  <div className="dropdownMenu" style={resolveBoardMenuDropdownStyle("view")}>
                     <button
                       type="button"
                       className="dropdownMenuItem"
@@ -5161,7 +5213,13 @@ export default function App() {
                 ) : null}
               </div>
 
-              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+              <div
+                className="menuWrap"
+                ref={(node) => {
+                  boardMenuWrapRefs.current.options = node;
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
                 <button
                   type="button"
                   className="menuButton"
@@ -5171,7 +5229,7 @@ export default function App() {
                   Options
                 </button>
                 {boardMenuOpen === "options" ? (
-                  <div className="dropdownMenu">
+                  <div className="dropdownMenu" style={resolveBoardMenuDropdownStyle("options")}>
                     <button
                       type="button"
                       className="dropdownMenuItem"
@@ -5197,7 +5255,13 @@ export default function App() {
                 ) : null}
               </div>
 
-              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+              <div
+                className="menuWrap"
+                ref={(node) => {
+                  boardMenuWrapRefs.current.ideas = node;
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
                 <button
                   type="button"
                   className="menuButton"
@@ -5207,7 +5271,7 @@ export default function App() {
                   Ideas
                 </button>
                 {boardMenuOpen === "ideas" ? (
-                  <div className="dropdownMenu">
+                  <div className="dropdownMenu" style={resolveBoardMenuDropdownStyle("ideas")}>
                     <button
                       type="button"
                       className="dropdownMenuItem"
