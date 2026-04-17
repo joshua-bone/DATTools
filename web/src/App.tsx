@@ -169,13 +169,16 @@ import {
   serializePersistedGeneratedLayoutRecordList,
 } from "@/web/src/generatedLayoutStorage";
 import {
+  DEFAULT_TEXT_BRUSH_ALIGN,
   DEFAULT_TEXT_BRUSH_FONT_FAMILY,
   DEFAULT_TEXT_BRUSH_FONT_SIZE,
   DEFAULT_TEXT_BRUSH_TEXT,
+  TEXT_BRUSH_ALIGN_CHOICES,
   TEXT_BRUSH_FONT_CHOICES,
   TEXT_BRUSH_SIZE_CHOICES,
   rasterizeTextBrush,
   type RasterizedTextBrush,
+  type TextBrushAlign,
 } from "@/web/src/textBrush";
 import { loadWallsBank, type LoadedWallsBank } from "@/web/src/wallsBank";
 import {
@@ -217,6 +220,7 @@ type TextBrushConfig = Readonly<{
   text: string;
   fontFamily: string;
   fontSize: number;
+  align: TextBrushAlign;
 }>;
 
 type SelectionArea = GridRect &
@@ -375,6 +379,7 @@ type BoardEditorSurfaceProps = Readonly<{
   onSetTextBrushText: (text: string) => void;
   onSetTextBrushFontFamily: (fontFamily: string) => void;
   onSetTextBrushFontSize: (fontSize: number) => void;
+  onSetTextBrushAlign: (align: TextBrushAlign) => void;
   selectionMode: SelectionMode;
   onSelectToolButtonClick: () => void;
   primaryTile: string;
@@ -2014,6 +2019,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       onSetTextBrushText,
       onSetTextBrushFontFamily,
       onSetTextBrushFontSize,
+      onSetTextBrushAlign,
       selectionMode,
       onSelectToolButtonClick,
       primaryTile,
@@ -2327,8 +2333,14 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           textBrushConfig.text,
           textBrushConfig.fontFamily,
           textBrushConfig.fontSize,
+          textBrushConfig.align,
         ),
-      [textBrushConfig.fontFamily, textBrushConfig.fontSize, textBrushConfig.text],
+      [
+        textBrushConfig.align,
+        textBrushConfig.fontFamily,
+        textBrushConfig.fontSize,
+        textBrushConfig.text,
+      ],
     );
     const textPreviewBaseIndices = useMemo(
       () =>
@@ -4031,6 +4043,12 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                   className="textBrushTextarea"
                   spellCheck={false}
                   value={textBrushConfig.text}
+                  style={{
+                    fontFamily: textBrushConfig.fontFamily,
+                    fontSize: `${Math.min(Math.max(textBrushConfig.fontSize * 2.25, 14), 40)}px`,
+                    lineHeight: 1.1,
+                    textAlign: textBrushConfig.align,
+                  }}
                   onChange={(event) => onSetTextBrushText(event.target.value)}
                 />
               </div>
@@ -4065,6 +4083,35 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="textBrushField textBrushFieldAlign">
+                <label className="fieldLabel" htmlFor="dat-text-brush-align">
+                  Align
+                </label>
+                <select
+                  id="dat-text-brush-align"
+                  value={textBrushConfig.align}
+                  onChange={(event) => onSetTextBrushAlign(event.target.value as TextBrushAlign)}
+                >
+                  {TEXT_BRUSH_ALIGN_CHOICES.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="textBrushSample">
+                <div className="fieldLabel">Font Preview</div>
+                <div
+                  className="textBrushSamplePreview"
+                  style={{
+                    fontFamily: textBrushConfig.fontFamily,
+                    fontSize: `${Math.min(Math.max(textBrushConfig.fontSize * 2.5, 16), 56)}px`,
+                    textAlign: textBrushConfig.align,
+                  }}
+                >
+                  {textBrushConfig.text.length > 0 ? textBrushConfig.text : " "}
+                </div>
               </div>
             </div>
           ) : null}
@@ -4173,6 +4220,7 @@ export default function App() {
   const [textBrushText, setTextBrushText] = useState(DEFAULT_TEXT_BRUSH_TEXT);
   const [textBrushFontFamily, setTextBrushFontFamily] = useState(DEFAULT_TEXT_BRUSH_FONT_FAMILY);
   const [textBrushFontSize, setTextBrushFontSize] = useState(DEFAULT_TEXT_BRUSH_FONT_SIZE);
+  const [textBrushAlign, setTextBrushAlign] = useState<TextBrushAlign>(DEFAULT_TEXT_BRUSH_ALIGN);
   const [lastPaletteAssignmentTarget, setLastPaletteAssignmentTarget] =
     useState<PaletteAssignmentTarget>("primary");
   const [paletteQuery, setPaletteQuery] = useState("");
@@ -6521,10 +6569,12 @@ export default function App() {
             text: textBrushText,
             fontFamily: textBrushFontFamily,
             fontSize: textBrushFontSize,
+            align: textBrushAlign,
           }}
           onSetTextBrushText={setTextBrushText}
           onSetTextBrushFontFamily={setTextBrushFontFamily}
           onSetTextBrushFontSize={setTextBrushFontSize}
+          onSetTextBrushAlign={setTextBrushAlign}
           selectionMode={selectionMode}
           onSelectToolButtonClick={handleSelectToolButtonClick}
           primaryTile={primaryTile}
