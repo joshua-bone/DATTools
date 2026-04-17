@@ -408,7 +408,7 @@ Acceptance criteria:
 
 Status:
 
-- next
+- done
 
 Goal:
 
@@ -444,8 +444,4 @@ These should be answered before the C2M integration PR:
 
 ## Immediate Next Step
 
-Start with PR 4:
-
-- split DATTools app integration from dialog presentation
-- move storage keys and bank URL out of dialog components
-- keep the existing Generate and Browse behavior while replacing app-specific wiring with callbacks
+The current reuse plan is complete.
