@@ -383,7 +383,7 @@ Acceptance criteria:
 
 Status:
 
-- next
+- done
 
 Goal:
 
@@ -405,6 +405,10 @@ Acceptance criteria:
 - DAT and C2M both use the same shared generator/browse code
 
 ### PR 8: Move Generated Star Persistence To Recipes/Artifacts
+
+Status:
+
+- next
 
 Goal:
 
