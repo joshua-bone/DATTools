@@ -346,6 +346,7 @@ type BoardControlsSectionProps = Readonly<{
   clipboard: LevelClipboard | null;
   onUndo: () => void;
   onRedo: () => void;
+  onCutSelection: () => void;
   onCopySelection: () => void;
   onPasteClipboard: () => void;
   onEraseSelection: () => void;
@@ -1814,6 +1815,7 @@ const BoardControlsSection = memo(function BoardControlsSection({
   clipboard,
   onUndo,
   onRedo,
+  onCutSelection,
   onCopySelection,
   onPasteClipboard,
   onEraseSelection,
@@ -1848,6 +1850,14 @@ const BoardControlsSection = memo(function BoardControlsSection({
         </button>
         <button type="button" className="actionButton" disabled={!canRedo} onClick={onRedo}>
           Redo
+        </button>
+        <button
+          type="button"
+          className="secondaryButton"
+          disabled={!selection || !activeLevel}
+          onClick={onCutSelection}
+        >
+          Cut
         </button>
         <button
           type="button"
@@ -5348,6 +5358,16 @@ export default function App() {
     setPastePreviewActive(true);
   }
 
+  function cutSelection(): void {
+    if (!activeLevel || !selection) return;
+    setClipboard(copyLevelRegion(activeLevel, selection, resolveSelectionIndices(selection)));
+    setTool("select");
+    setPastePreviewActive(true);
+    commitSelectedLevelUpdate((level) =>
+      paintLevelCells(level, resolveSelectionIndices(selection), DAT_SELECTION_FLOOR_TILE),
+    );
+  }
+
   function clearSelectionState(): void {
     setSelection(null);
     setPastePreviewActive(false);
@@ -5548,6 +5568,12 @@ export default function App() {
           return;
         }
 
+        if (key === "x" && selection) {
+          event.preventDefault();
+          cutSelection();
+          return;
+        }
+
         if (key === "v" && clipboard) {
           event.preventDefault();
           pasteClipboard();
@@ -5664,6 +5690,7 @@ export default function App() {
     boardStatusStore,
     clipboard,
     canTestSelectedLevelInLexysLabyrinth,
+    cutSelection,
     doc,
     displayedExternalTestLevelNumber,
     fileName,
@@ -6681,6 +6708,7 @@ export default function App() {
               onRedo={() =>
                 setEditor((current) => (current ? redoLevelsetEvent(current) : current))
               }
+              onCutSelection={cutSelection}
               onCopySelection={copySelection}
               onPasteClipboard={pasteClipboard}
               onEraseSelection={eraseSelection}
