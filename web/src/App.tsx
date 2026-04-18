@@ -1,4 +1,5 @@
 import {
+  useCallback,
   forwardRef,
   memo,
   useDeferredValue,
@@ -102,6 +103,19 @@ import {
   serializePersistedEditorSession,
   type PersistedAppPreferences,
 } from "@/web/src/persistedAppState";
+import {
+  RECENT_SETS_STORAGE_KEY,
+  createPersistedRecentSetEntry,
+  createRecentSetId,
+  decodePersistedRecentSetEntry,
+  findMatchingRecentSetId,
+  parsePersistedRecentSets,
+  removeRecentSetEntry,
+  serializePersistedRecentSets,
+  upsertRecentSetEntry,
+  type PersistedRecentSetEntry,
+} from "@/web/src/recentSetStorage";
+import { renderRecentSetThumbnail } from "@/web/src/recentSetThumbnail";
 import {
   createDefaultMirrorState,
   getActiveMirrors,
@@ -438,6 +452,10 @@ const DEFAULT_MAGIC_NUMBER = 174764;
 const BOARD_PARTIAL_REDRAW_THRESHOLD = 128;
 const DESKTOP_RELEASE_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
+});
+const RECENT_SET_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
 });
 const EYEDROPPER_CURSOR =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g transform='rotate(45 12 12)'><rect x='10' y='2.5' width='4' height='11' rx='1.4' fill='%23f6fbff' stroke='%23121a1f' stroke-width='1.6'/><path d='M10 5.5H8.4A1.4 1.4 0 0 0 7 6.9v3.7A1.4 1.4 0 0 0 8.4 12H10' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 13v6' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><path d='M10.3 19.3h7.4' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><circle cx='14' cy='21' r='1.5' fill='%23235f7a'/></g></svg>\") 4 20, crosshair";
@@ -786,6 +804,15 @@ function writeLocalStorage(key: string, value: string): boolean {
   }
 }
 
+function removeLocalStorage(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage removal failures.
+  }
+}
+
 function asErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
@@ -830,7 +857,17 @@ type InitialAppState = Readonly<{
   editor: LevelsetEditorHistory;
   fileName: string;
   preferences: PersistedAppPreferences;
+  recentSets: ReadonlyArray<PersistedRecentSetEntry>;
+  activeRecentSetId: string | null;
 }>;
+
+function formatRecentSetUpdatedAt(value: number): string {
+  try {
+    return RECENT_SET_DATE_FORMATTER.format(new Date(value));
+  } catch {
+    return "Unknown time";
+  }
+}
 
 function createInitialAppState(): InitialAppState {
   const fallbackDoc = createDefaultLevelsetDocument();
@@ -839,6 +876,8 @@ function createInitialAppState(): InitialAppState {
       editor: createLevelsetEditorHistory(fallbackDoc),
       fileName: DEFAULT_LEVELSET_FILENAME,
       preferences: parsePersistedAppPreferences(null),
+      recentSets: [],
+      activeRecentSetId: null,
     };
   }
 
@@ -847,6 +886,7 @@ function createInitialAppState(): InitialAppState {
     DEFAULT_LEVELSET_FILENAME,
   );
   const preferences = parsePersistedAppPreferences(readLocalStorage(APP_PREFERENCES_STORAGE_KEY));
+  const recentSets = parsePersistedRecentSets(readLocalStorage(RECENT_SETS_STORAGE_KEY));
   const editor = session
     ? selectLevelInHistory(createLevelsetEditorHistory(session.doc), session.selectedIndex)
     : createLevelsetEditorHistory(fallbackDoc);
@@ -855,6 +895,10 @@ function createInitialAppState(): InitialAppState {
     editor,
     fileName: session?.fileName ?? DEFAULT_LEVELSET_FILENAME,
     preferences,
+    recentSets,
+    activeRecentSetId: session
+      ? findMatchingRecentSetId(recentSets, session.doc, session.fileName)
+      : null,
   };
 }
 
@@ -4362,6 +4406,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 export default function App() {
   const previousThreeDEnabledRef = useRef(false);
   const sessionPersistTimeoutRef = useRef<number | null>(null);
+  const recentPersistTimeoutRef = useRef<number | null>(null);
   const latestSessionSnapshotRef = useRef<{
     doc: DatLevelsetJsonV1;
     fileName: string;
@@ -4372,11 +4417,23 @@ export default function App() {
   const boardMenuBarRef = useRef<HTMLDivElement>(null);
   const boardMenuWrapRefs = useRef<Partial<Record<BoardMenuId, HTMLDivElement | null>>>({});
   const paletteGridRef = useRef<HTMLDivElement>(null);
+  const recentCarouselRef = useRef<HTMLDivElement>(null);
   const [boardStatusStore] = useState(() => createBoardEditorStatusStore());
   const [initialAppState] = useState(() => createInitialAppState());
+  const recentSetsRef = useRef<ReadonlyArray<PersistedRecentSetEntry>>(initialAppState.recentSets);
+  const activeRecentSetIdRef = useRef<string | null>(initialAppState.activeRecentSetId);
+  const latestAutosaveSpriteSetRef = useRef<CC1SpriteSet | null>(null);
+  const latestAutosaveShowSecretsRef = useRef(initialAppState.preferences.showSecrets);
 
   const [editor, setEditor] = useState<LevelsetEditorHistory | null>(initialAppState.editor);
   const [fileName, setFileName] = useState<string>(initialAppState.fileName);
+  const [recentSets, setRecentSets] = useState<ReadonlyArray<PersistedRecentSetEntry>>(
+    initialAppState.recentSets,
+  );
+  const [activeRecentSetId, setActiveRecentSetId] = useState<string | null>(
+    initialAppState.activeRecentSetId,
+  );
+  const [recentModalOpen, setRecentModalOpen] = useState(false);
 
   const [spriteSet, setSpriteSet] = useState<CC1SpriteSet | null>(null);
   const [spriteError, setSpriteError] = useState<string | null>(null);
@@ -4658,6 +4715,70 @@ export default function App() {
             ? "Latest release info is unavailable right now."
             : "Latest release info loads when this help panel opens.";
 
+  const persistRecentSetsToStorage = useCallback(
+    (entries: ReadonlyArray<PersistedRecentSetEntry>): ReadonlyArray<PersistedRecentSetEntry> => {
+      let candidate = [...entries];
+      while (candidate.length > 0) {
+        if (writeLocalStorage(RECENT_SETS_STORAGE_KEY, serializePersistedRecentSets(candidate))) {
+          recentSetsRef.current = candidate;
+          setRecentSets(candidate);
+          return candidate;
+        }
+        candidate = candidate.slice(0, -1);
+      }
+
+      const fallback = recentSetsRef.current;
+      if (
+        fallback.length > 0 &&
+        writeLocalStorage(RECENT_SETS_STORAGE_KEY, serializePersistedRecentSets(fallback))
+      ) {
+        setRecentSets(fallback);
+        return fallback;
+      }
+
+      removeLocalStorage(RECENT_SETS_STORAGE_KEY);
+      recentSetsRef.current = [];
+      setRecentSets([]);
+      return [];
+    },
+    [],
+  );
+
+  const flushAutosavedRecentSet = useCallback(() => {
+    const snapshot = latestSessionSnapshotRef.current;
+    if (!snapshot) return;
+
+    let nextRecentSetId = activeRecentSetIdRef.current;
+    if (!nextRecentSetId) {
+      nextRecentSetId = createRecentSetId();
+      activeRecentSetIdRef.current = nextRecentSetId;
+      setActiveRecentSetId(nextRecentSetId);
+    }
+
+    const selectedLevel = snapshot.doc.levels[snapshot.selectedIndex] ?? null;
+    const persistedEntries = persistRecentSetsToStorage(
+      upsertRecentSetEntry(
+        recentSetsRef.current,
+        createPersistedRecentSetEntry({
+          id: nextRecentSetId,
+          doc: snapshot.doc,
+          fileName: snapshot.fileName,
+          selectedIndex: snapshot.selectedIndex,
+          thumbnailDataUrl: renderRecentSetThumbnail(
+            selectedLevel,
+            latestAutosaveSpriteSetRef.current,
+            latestAutosaveShowSecretsRef.current,
+          ),
+        }),
+      ),
+    );
+
+    if (!persistedEntries.some((entry) => entry.id === nextRecentSetId)) {
+      activeRecentSetIdRef.current = null;
+      setActiveRecentSetId(null);
+    }
+  }, [persistRecentSetsToStorage]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -4752,9 +4873,38 @@ export default function App() {
   }, [doc, fileName, selectedIndex]);
 
   useEffect(() => {
+    recentSetsRef.current = recentSets;
+  }, [recentSets]);
+
+  useEffect(() => {
+    activeRecentSetIdRef.current = activeRecentSetId;
+  }, [activeRecentSetId]);
+
+  useEffect(() => {
+    if (!recentModalOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setRecentModalOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [recentModalOpen]);
+
+  useEffect(() => {
+    latestAutosaveSpriteSetRef.current = spriteSet;
+    latestAutosaveShowSecretsRef.current = showSecrets;
+  }, [showSecrets, spriteSet]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     const flushPersistedSession = () => {
+      flushAutosavedRecentSet();
       const session = latestSessionSnapshotRef.current;
       if (!session) return;
 
@@ -4769,7 +4919,26 @@ export default function App() {
     return () => {
       window.removeEventListener("pagehide", flushPersistedSession);
     };
-  }, []);
+  }, [flushAutosavedRecentSet]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !doc) return;
+
+    if (recentPersistTimeoutRef.current !== null) {
+      window.clearTimeout(recentPersistTimeoutRef.current);
+    }
+
+    recentPersistTimeoutRef.current = window.setTimeout(() => {
+      flushAutosavedRecentSet();
+      recentPersistTimeoutRef.current = null;
+    }, DOCUMENT_PERSIST_DEBOUNCE_MS);
+
+    return () => {
+      if (recentPersistTimeoutRef.current !== null) {
+        window.clearTimeout(recentPersistTimeoutRef.current);
+      }
+    };
+  }, [doc, fileName, flushAutosavedRecentSet, selectedIndex, showSecrets, spriteSet]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !doc) return;
@@ -4890,10 +5059,17 @@ export default function App() {
     return () => controller.abort();
   }, [openDialog, wallsBank]);
 
-  function loadDocument(nextDoc: DatLevelsetJsonV1, nextFileName?: string | null): void {
+  function loadDocument(
+    nextDoc: DatLevelsetJsonV1,
+    nextFileName?: string | null,
+    nextSelectedRawIndex = 0,
+    nextRecentSetId: string | null = null,
+  ): void {
     resetWorkspaceUiState();
-    setEditor(createLevelsetEditorHistory(nextDoc));
+    setEditor(selectLevelInHistory(createLevelsetEditorHistory(nextDoc), nextSelectedRawIndex));
     setFileName(nextFileName ?? fileName);
+    setActiveRecentSetId(nextRecentSetId);
+    setRecentModalOpen(false);
   }
 
   function commitEvent(event: Parameters<typeof commitLevelsetEvent>[1]): void {
@@ -4944,6 +5120,7 @@ export default function App() {
   function createNewLevelset(): void {
     replaceDocument(createDefaultLevelsetDocument());
     setFileName(createNewLevelsetFileName());
+    setActiveRecentSetId(createRecentSetId());
     resetWorkspaceUiState();
   }
 
@@ -5048,7 +5225,7 @@ export default function App() {
   function openLevelsetJsonText(text: string, nextFileName?: string | null): void {
     try {
       const parsed = parseDatLevelsetJsonV1(JSON.parse(text));
-      loadDocument(parsed, nextFileName);
+      loadDocument(parsed, nextFileName, 0, createRecentSetId());
     } catch (error: unknown) {
       setErrorMessage(asErrorMessage(error));
     }
@@ -5060,7 +5237,7 @@ export default function App() {
       if (!file) return;
 
       if (file.kind === "dat") {
-        loadDocument(decodeDatBytes(file.bytes), file.name);
+        loadDocument(decodeDatBytes(file.bytes), file.name, 0, createRecentSetId());
         return;
       }
 
@@ -5068,6 +5245,39 @@ export default function App() {
     } catch (error: unknown) {
       setErrorMessage(asErrorMessage(error));
     }
+  }
+
+  function openRecentSet(entry: PersistedRecentSetEntry): void {
+    try {
+      const restored = decodePersistedRecentSetEntry(entry);
+      loadDocument(restored.doc, restored.fileName, restored.selectedIndex, entry.id);
+      resetWorkspaceUiState();
+    } catch (error: unknown) {
+      setErrorMessage(asErrorMessage(error));
+    }
+  }
+
+  function deleteRecentSet(id: string): void {
+    if (recentPersistTimeoutRef.current !== null && activeRecentSetIdRef.current === id) {
+      window.clearTimeout(recentPersistTimeoutRef.current);
+      recentPersistTimeoutRef.current = null;
+    }
+
+    if (activeRecentSetIdRef.current === id) {
+      activeRecentSetIdRef.current = null;
+      setActiveRecentSetId(null);
+    }
+
+    persistRecentSetsToStorage(removeRecentSetEntry(recentSetsRef.current, id));
+  }
+
+  function scrollRecentCarousel(direction: -1 | 1): void {
+    const element = recentCarouselRef.current;
+    if (!element) return;
+    element.scrollBy({
+      left: direction * Math.max(240, Math.round(element.clientWidth * 0.8)),
+      behavior: "smooth",
+    });
   }
 
   function chooseRawLevel(index: number): void {
@@ -6276,6 +6486,16 @@ export default function App() {
                     <button
                       type="button"
                       className="dropdownMenuItem"
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        setRecentModalOpen(true);
+                      }}
+                    >
+                      Open Recent
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
                       disabled={!doc}
                       onClick={() => {
                         if (!doc) return;
@@ -7328,6 +7548,121 @@ export default function App() {
           onImport={importGeneratedWallLayout}
           onClose={() => setOpenDialog(null)}
         />
+      ) : null}
+
+      {recentModalOpen ? (
+        <div
+          className="modalBackdrop"
+          onClick={() => setRecentModalOpen(false)}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div
+            className="modalCard recentLevelsModal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="open-recent-title"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <div className="sectionHeader">
+              <div>
+                <div className="sectionEyebrow">File</div>
+                <h2 id="open-recent-title" className="sectionTitle">
+                  Open Recent
+                </h2>
+              </div>
+              <div className="sectionActions">
+                {recentSets.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      onClick={() => scrollRecentCarousel(-1)}
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      onClick={() => scrollRecentCarousel(1)}
+                    >
+                      Next
+                    </button>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={() => setRecentModalOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {recentSets.length === 0 ? (
+              <div className="emptyState largeEmptyState">
+                Recent sets will appear here after you create, open, or edit a set.
+              </div>
+            ) : (
+              <div ref={recentCarouselRef} className="recentLevelsCarousel">
+                {recentSets.map((entry) => (
+                  <article key={entry.id} className="recentLevelCard">
+                    <button
+                      type="button"
+                      className="recentLevelPreviewButton"
+                      onClick={() => openRecentSet(entry)}
+                    >
+                      {entry.thumbnailDataUrl ? (
+                        <img
+                          className="recentLevelImage"
+                          src={entry.thumbnailDataUrl}
+                          alt={`${entry.title} preview`}
+                        />
+                      ) : (
+                        <div className="recentLevelImagePlaceholder">
+                          <span>
+                            {entry.width && entry.height
+                              ? `${entry.width}x${entry.height}`
+                              : "No map"}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                    <div className="recentLevelBody">
+                      <div className="recentLevelTitle">{entry.title}</div>
+                      <div className="recentLevelMeta">{entry.fileName}</div>
+                      <div className="recentLevelMeta">
+                        {`${entry.levelCount} ${entry.levelCount === 1 ? "level" : "levels"}`} ·{" "}
+                        {entry.selectedLevelTitle}
+                      </div>
+                      <div className="recentLevelMeta">
+                        {entry.width && entry.height ? `${entry.width}x${entry.height}` : "No map"}{" "}
+                        · {formatRecentSetUpdatedAt(entry.updatedAt)}
+                      </div>
+                    </div>
+                    <div className="boardControlRow boardCommandRow recentLevelActions">
+                      <button
+                        type="button"
+                        className="actionButton"
+                        onClick={() => openRecentSet(entry)}
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        className="secondaryButton"
+                        onClick={() => deleteRecentSet(entry.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       ) : null}
 
       {openDialog === "threeDHelp" ? (
