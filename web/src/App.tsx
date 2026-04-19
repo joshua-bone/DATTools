@@ -2853,6 +2853,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     }, [onSetPastePreviewActive, pastePreviewActive]);
 
     useEffect(() => {
+      setMirrorState(createDefaultMirrorState(BOARD_MIRROR_SIZE));
       resetInteractionState();
     }, [interactionResetToken]);
 
