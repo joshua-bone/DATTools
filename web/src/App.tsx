@@ -4744,40 +4744,55 @@ export default function App() {
     [],
   );
 
+  const persistRecentSetSnapshot = useCallback(
+    (
+      snapshot: Readonly<{
+        doc: DatLevelsetJsonV1;
+        fileName: string;
+        selectedIndex: number;
+        recentSetId?: string | null;
+      }>,
+    ): string | null => {
+      const nextRecentSetId = snapshot.recentSetId ?? createRecentSetId();
+      const selectedLevel = snapshot.doc.levels[snapshot.selectedIndex] ?? null;
+      const persistedEntries = persistRecentSetsToStorage(
+        upsertRecentSetEntry(
+          recentSetsRef.current,
+          createPersistedRecentSetEntry({
+            id: nextRecentSetId,
+            doc: snapshot.doc,
+            fileName: snapshot.fileName,
+            selectedIndex: snapshot.selectedIndex,
+            thumbnailDataUrl: renderRecentSetThumbnail(
+              selectedLevel,
+              latestAutosaveSpriteSetRef.current,
+              latestAutosaveShowSecretsRef.current,
+            ),
+          }),
+        ),
+      );
+
+      return persistedEntries.some((entry) => entry.id === nextRecentSetId)
+        ? nextRecentSetId
+        : null;
+    },
+    [persistRecentSetsToStorage],
+  );
+
   const flushAutosavedRecentSet = useCallback(() => {
     const snapshot = latestSessionSnapshotRef.current;
     if (!snapshot) return;
 
-    let nextRecentSetId = activeRecentSetIdRef.current;
-    if (!nextRecentSetId) {
-      nextRecentSetId = createRecentSetId();
-      activeRecentSetIdRef.current = nextRecentSetId;
-      setActiveRecentSetId(nextRecentSetId);
-    }
+    const nextRecentSetId = persistRecentSetSnapshot({
+      doc: snapshot.doc,
+      fileName: snapshot.fileName,
+      selectedIndex: snapshot.selectedIndex,
+      recentSetId: activeRecentSetIdRef.current,
+    });
 
-    const selectedLevel = snapshot.doc.levels[snapshot.selectedIndex] ?? null;
-    const persistedEntries = persistRecentSetsToStorage(
-      upsertRecentSetEntry(
-        recentSetsRef.current,
-        createPersistedRecentSetEntry({
-          id: nextRecentSetId,
-          doc: snapshot.doc,
-          fileName: snapshot.fileName,
-          selectedIndex: snapshot.selectedIndex,
-          thumbnailDataUrl: renderRecentSetThumbnail(
-            selectedLevel,
-            latestAutosaveSpriteSetRef.current,
-            latestAutosaveShowSecretsRef.current,
-          ),
-        }),
-      ),
-    );
-
-    if (!persistedEntries.some((entry) => entry.id === nextRecentSetId)) {
-      activeRecentSetIdRef.current = null;
-      setActiveRecentSetId(null);
-    }
-  }, [persistRecentSetsToStorage]);
+    activeRecentSetIdRef.current = nextRecentSetId;
+    setActiveRecentSetId(nextRecentSetId);
+  }, [persistRecentSetSnapshot]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -5065,10 +5080,18 @@ export default function App() {
     nextSelectedRawIndex = 0,
     nextRecentSetId: string | null = null,
   ): void {
+    const resolvedFileName = nextFileName ?? fileName;
+    const resolvedRecentSetId = persistRecentSetSnapshot({
+      doc: nextDoc,
+      fileName: resolvedFileName,
+      selectedIndex: nextSelectedRawIndex,
+      recentSetId: nextRecentSetId,
+    });
     resetWorkspaceUiState();
     setEditor(selectLevelInHistory(createLevelsetEditorHistory(nextDoc), nextSelectedRawIndex));
-    setFileName(nextFileName ?? fileName);
-    setActiveRecentSetId(nextRecentSetId);
+    setFileName(resolvedFileName);
+    activeRecentSetIdRef.current = resolvedRecentSetId;
+    setActiveRecentSetId(resolvedRecentSetId);
     setRecentModalOpen(false);
   }
 
@@ -5118,9 +5141,17 @@ export default function App() {
   }
 
   function createNewLevelset(): void {
-    replaceDocument(createDefaultLevelsetDocument());
-    setFileName(createNewLevelsetFileName());
-    setActiveRecentSetId(createRecentSetId());
+    const nextDoc = createDefaultLevelsetDocument();
+    const nextFileName = createNewLevelsetFileName();
+    const nextRecentSetId = persistRecentSetSnapshot({
+      doc: nextDoc,
+      fileName: nextFileName,
+      selectedIndex: 0,
+    });
+    replaceDocument(nextDoc);
+    setFileName(nextFileName);
+    activeRecentSetIdRef.current = nextRecentSetId;
+    setActiveRecentSetId(nextRecentSetId);
     resetWorkspaceUiState();
   }
 
