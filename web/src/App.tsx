@@ -156,6 +156,7 @@ import {
   getLineIndices,
   isConnectionEndpointCell,
   normalizeRect,
+  moveLevelRegion,
   paintLevelCells,
   paintLevelLine,
   pasteLevelRegion,
@@ -280,7 +281,20 @@ type SelectDragState = Readonly<{
   operation: SelectionOperation;
 }>;
 
-type DragState = BrushDragState | LineDragState | SelectDragState;
+type MoveSelectionDragState = Readonly<{
+  tool: "move-selection";
+  pointerId: number;
+  baseLevel: DatLevelJson;
+  clipboard: LevelClipboard;
+  sourceSelection: SelectionArea;
+  sourceIndices: ReadonlyArray<number>;
+  selectionMode: SelectionMode;
+  originAnchor: GridPoint;
+  currentAnchor: GridPoint;
+  grabOffset: GridPoint;
+}>;
+
+type DragState = BrushDragState | LineDragState | SelectDragState | MoveSelectionDragState;
 
 type BoardPanState = Readonly<{
   pointerId: number;
@@ -516,6 +530,12 @@ function buildSelectionCursor(mode: SelectionMode, operation: SelectionOperation
   )}") 2 2, crosshair`;
 }
 
+function buildSelectionMoveCursor(): string {
+  return `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2l-3.6 4.4h2.5v6.1h2.2V6.4h2.5zM34 18l-4.4-3.6v2.5h-6.1v2.2h6.1v2.5zM18 34l3.6-4.4h-2.5v-6.1h-2.2v6.1h-2.5zM2 18l4.4 3.6v-2.5h6.1v-2.2H6.4v-2.5z" fill="rgba(18,26,31,0.96)"/><rect x="8" y="13.2" width="20" height="9.6" rx="4.2" fill="rgba(20,33,42,0.94)"/><text x="18" y="19.8" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="6.3" font-weight="800" fill="rgba(248,252,255,0.98)">MOVE</text></svg>`,
+  )}") 18 18, move`;
+}
+
 function uniqueSortedIndices(indices: ReadonlyArray<number>): number[] {
   return [...new Set(indices)].sort((a, b) => a - b);
 }
@@ -631,6 +651,35 @@ function buildDatPastePreviewSelection(
   }
 
   return buildSelectionFromIndices(indices, "rect");
+}
+
+function isDatSelectionBorderPoint(
+  selection: SelectionArea | null,
+  point: GridPoint | null,
+): boolean {
+  if (!selection || !point) return false;
+
+  const index = point.y * 32 + point.x;
+  const selectedSet = new Set(resolveSelectionIndices(selection));
+  if (!selectedSet.has(index)) return false;
+
+  const neighbors = [
+    point.x > 0 ? index - 1 : null,
+    point.x < 31 ? index + 1 : null,
+    point.y > 0 ? index - 32 : null,
+    point.y < 31 ? index + 32 : null,
+  ];
+
+  return neighbors.some((neighbor) => neighbor === null || !selectedSet.has(neighbor));
+}
+
+function buildMovedDatSelection(
+  anchor: GridPoint,
+  clipboard: LevelClipboard,
+  mode: SelectionMode,
+): SelectionArea | null {
+  const movedSelection = buildDatPastePreviewSelection(anchor, clipboard);
+  return movedSelection ? { ...movedSelection, mode } : null;
 }
 
 function resolveTextBrushPlacementIndices(
@@ -2378,13 +2427,22 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       isShiftPressed,
       isAltPressed,
     );
+    const selectionMoveHover =
+      tool === "select" &&
+      !pastePreviewActive &&
+      !dragState &&
+      isDatSelectionBorderPoint(selection, hoverPoint);
     const boardCanvasCursor = boardPanActive
       ? "grabbing"
-      : tool === "select"
-        ? buildSelectionCursor(selectionMode, selectionOperationPreview)
-        : isAltPressed
-          ? EYEDROPPER_CURSOR
-          : undefined;
+      : dragState?.tool === "move-selection"
+        ? buildSelectionMoveCursor()
+        : tool === "select"
+          ? selectionMoveHover
+            ? buildSelectionMoveCursor()
+            : buildSelectionCursor(selectionMode, selectionOperationPreview)
+          : isAltPressed
+            ? EYEDROPPER_CURSOR
+            : undefined;
     const isBrushDragging = dragState?.tool === "brush";
     const shouldDrawConnections = showConnections && !isBrushDragging && !lowDetailRendering;
     const shouldDrawMonsterOrder = showMonsterOrder && !lowDetailRendering;
@@ -2557,6 +2615,12 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                 makePaintOptions(threeDLevelsEnabled, selectedLayerZ, dragState.buryOnBottom),
               )
             : nextLevel;
+      } else if (dragState?.tool === "move-selection") {
+        nextLevel = pasteLevelRegion(
+          dragState.baseLevel,
+          dragState.currentAnchor,
+          dragState.clipboard,
+        );
       }
 
       if (tool === "text" && textPreviewBaseIndices.length > 0) {
@@ -2610,6 +2674,13 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
     );
 
     const liveSelection = useMemo(() => {
+      if (dragState?.tool === "move-selection") {
+        return buildMovedDatSelection(
+          dragState.currentAnchor,
+          dragState.clipboard,
+          dragState.selectionMode,
+        );
+      }
       if (dragState?.tool !== "select") return selection;
       const nextRect = createSelectionFromRect(normalizeRect(dragState.start, dragState.current));
       return applySelectionOperation(
@@ -3728,6 +3799,29 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       if (tool === "select") {
         if (event.button !== 0) return;
         event.preventDefault();
+        if (!pastePreviewActive && selection && isDatSelectionBorderPoint(selection, point)) {
+          const selectionIndices = resolveSelectionIndices(selection);
+          const clipboard = copyLevelRegion(activeLevel, selection, selectionIndices);
+          event.currentTarget.setPointerCapture(event.pointerId);
+          brushDragStateRef.current = null;
+          onSetPastePreviewActive(false);
+          setDragState({
+            tool: "move-selection",
+            pointerId: event.pointerId,
+            baseLevel: paintLevelCells(activeLevel, selectionIndices, DAT_SELECTION_FLOOR_TILE),
+            clipboard,
+            sourceSelection: selection,
+            sourceIndices: selectionIndices,
+            selectionMode: selection.mode,
+            originAnchor: clampPoint({ x: selection.x, y: selection.y }),
+            currentAnchor: clampPoint({ x: selection.x, y: selection.y }),
+            grabOffset: {
+              x: point.x - selection.x,
+              y: point.y - selection.y,
+            },
+          });
+          return;
+        }
         const operation = resolveSelectionOperationFromModifierKeys(event.shiftKey, event.altKey);
         if (selectionMode === "rect") {
           event.currentTarget.setPointerCapture(event.pointerId);
@@ -3871,6 +3965,19 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         return;
       }
 
+      if (dragState.tool === "move-selection") {
+        const nextAnchor = clampPoint({
+          x: point.x - dragState.grabOffset.x,
+          y: point.y - dragState.grabOffset.y,
+        });
+        if (gridPointsEqual(dragState.currentAnchor, nextAnchor)) return;
+        setDragState({
+          ...dragState,
+          currentAnchor: nextAnchor,
+        });
+        return;
+      }
+
       if (gridPointsEqual(dragState.current, point)) return;
       setDragState({
         ...dragState,
@@ -3977,6 +4084,24 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                 activeDragState.tile,
                 makePaintOptions(threeDLevelsEnabled, selectedLayerZ, activeDragState.buryOnBottom),
               ),
+        );
+      } else if (activeDragState.tool === "move-selection") {
+        if (!gridPointsEqual(activeDragState.currentAnchor, activeDragState.originAnchor)) {
+          onCommitSelectedLevelUpdate((level) =>
+            moveLevelRegion(
+              level,
+              activeDragState.sourceSelection,
+              activeDragState.currentAnchor,
+              activeDragState.sourceIndices,
+            ),
+          );
+        }
+        onSelectionChange(
+          buildMovedDatSelection(
+            activeDragState.currentAnchor,
+            activeDragState.clipboard,
+            activeDragState.selectionMode,
+          ),
         );
       } else {
         const nextSelectionRect = createSelectionFromRect(

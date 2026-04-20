@@ -26,6 +26,7 @@ import {
   paintLevelCells,
   paintLevelLine,
   pasteLevelRegion,
+  moveLevelRegion,
   previewPaintLevelCells,
   redoLevelsetEvent,
   selectLevelInHistory,
@@ -281,6 +282,47 @@ describe("level editing helpers", () => {
       openOrShut: 0,
     });
     expect(pasted.movement).toEqual([32, pastedMonster]);
+  });
+
+  it("moves masked selections while leaving floor behind at the source", () => {
+    let level = createEmptyLevel(1);
+
+    level = paintLevelCells(level, [0], "TRAP_BUTTON");
+    level = paintLevelCells(level, [1], "TRAP");
+    level = paintLevelCells(level, [32], "ANT_N");
+    level = paintLevelCells(level, [33], "WALL");
+    level = {
+      ...level,
+      trapControls: [{ button: 0, trap: 1, openOrShut: 0 }],
+      movement: [32],
+    };
+
+    const moved = moveLevelRegion(
+      level,
+      { x: 0, y: 0, width: 2, height: 2 },
+      { x: 4, y: 4 },
+      [0, 1, 32],
+    );
+
+    const movedButton = 4 + 4 * 32;
+    const movedTrap = 5 + 4 * 32;
+    const movedMonster = 4 + 5 * 32;
+
+    expect(moved.map.top[0]).toBe("FLOOR");
+    expect(moved.map.top[1]).toBe("FLOOR");
+    expect(moved.map.top[32]).toBe("FLOOR");
+    expect(moved.map.top[33]).toBe("WALL");
+    expect(moved.map.top[movedButton]).toBe("TRAP_BUTTON");
+    expect(moved.map.top[movedTrap]).toBe("TRAP");
+    expect(moved.map.top[movedMonster]).toBe("ANT_N");
+    expect(moved.trapControls).toEqual([
+      {
+        button: movedButton,
+        trap: movedTrap,
+        openOrShut: 0,
+      },
+    ]);
+    expect(moved.movement).toEqual([movedMonster]);
   });
 
   it("wrap-shifts maps, movement, and connections together", () => {

@@ -1191,6 +1191,20 @@ export function pasteLevelRegion(
   );
 }
 
+export function moveLevelRegion(
+  level: DatLevel,
+  rect: GridRect,
+  anchor: GridPoint,
+  selectedIndices?: ReadonlyArray<number>,
+): DatLevel {
+  const sourceIndices = selectedIndices ? [...selectedIndices] : rectToIndices(rect);
+  if (sourceIndices.length === 0) return level;
+
+  const clipboard = copyLevelRegion(level, rect, sourceIndices);
+  const clearedLevel = paintLevelCells(level, sourceIndices, FLOOR_TILE);
+  return pasteLevelRegion(clearedLevel, anchor, clipboard);
+}
+
 function applyEditorEvent(
   doc: DatLevelsetJsonV1,
   selectedIndex: number,
