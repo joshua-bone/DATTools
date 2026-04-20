@@ -31,6 +31,7 @@ import {
   redoLevelsetEvent,
   selectLevelInHistory,
   shiftLevelWrap,
+  transformLevelClipboard,
   undoLevelsetEvent,
 } from "@/web/src/levelEditing";
 
@@ -282,6 +283,33 @@ describe("level editing helpers", () => {
       openOrShut: 0,
     });
     expect(pasted.movement).toEqual([32, pastedMonster]);
+  });
+
+  it("transforms clipped level regions with tile directions, masks, and connections", () => {
+    const transformed = transformLevelClipboard(
+      {
+        width: 2,
+        height: 3,
+        top: ["ANT_N", "WALL", "FIREBALL_E", "BLOCK", "FLOOR", "BUG_W"],
+        bottom: ["FLOOR", "WATER", "ICE", "CLONE_MACHINE", "TRAP", "BUTTON_BLUE"],
+        mask: [true, false, true, true, false, true],
+        movement: [0, 5],
+        trapControls: [{ button: 0, trap: 4, openOrShut: 1 }],
+        cloneControls: [{ button: 1, cloner: 3 }],
+      },
+      "ROTATE_90",
+    );
+
+    expect(transformed).toEqual({
+      width: 3,
+      height: 2,
+      top: ["FLOOR", "FIREBALL_S", "ANT_E", "BUG_N", "BLOCK", "WALL"],
+      bottom: ["TRAP", "ICE", "FLOOR", "BUTTON_BLUE", "CLONE_MACHINE", "WATER"],
+      mask: [false, true, true, true, true, false],
+      movement: [2, 3],
+      trapControls: [{ button: 2, trap: 0, openOrShut: 1 }],
+      cloneControls: [{ button: 5, cloner: 4 }],
+    });
   });
 
   it("moves masked selections while leaving floor behind at the source", () => {

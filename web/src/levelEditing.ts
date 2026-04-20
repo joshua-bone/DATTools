@@ -1,5 +1,5 @@
 import { CC1_LEGACY_INVALID_TILE_NAMES } from "@/src/dat/cc1Tiles";
-import { transformDatTileName } from "@/src/dat/datTransforms";
+import { transformDatTileName, type DatTransformKind } from "@/src/dat/datTransforms";
 import type {
   CloneControl,
   DatExtraField,
@@ -1051,31 +1051,66 @@ function relativeIndexToAbsoluteIndex(
   return pointToIndex(point);
 }
 
+function clipboardTransformSwapsAxes(kind: DatTransformKind): boolean {
+  return (
+    kind === "ROTATE_90" ||
+    kind === "ROTATE_270" ||
+    kind === "FLIP_DIAG_NWSE" ||
+    kind === "FLIP_DIAG_NESW"
+  );
+}
+
 function transformClipboardPoint(
   x: number,
   y: number,
   width: number,
   height: number,
-  kind: "ROTATE_90" | "ROTATE_270",
+  kind: DatTransformKind,
 ): GridPoint {
-  if (kind === "ROTATE_90") {
-    return {
-      x: height - 1 - y,
-      y: x,
-    };
+  switch (kind) {
+    case "ROTATE_90":
+      return {
+        x: height - 1 - y,
+        y: x,
+      };
+    case "ROTATE_180":
+      return {
+        x: width - 1 - x,
+        y: height - 1 - y,
+      };
+    case "ROTATE_270":
+      return {
+        x: y,
+        y: width - 1 - x,
+      };
+    case "FLIP_H":
+      return {
+        x: width - 1 - x,
+        y,
+      };
+    case "FLIP_V":
+      return {
+        x,
+        y: height - 1 - y,
+      };
+    case "FLIP_DIAG_NWSE":
+      return {
+        x: y,
+        y: x,
+      };
+    case "FLIP_DIAG_NESW":
+      return {
+        x: height - 1 - y,
+        y: width - 1 - x,
+      };
   }
-
-  return {
-    x: y,
-    y: width - 1 - x,
-  };
 }
 
 function transformClipboardIndex(
   index: number,
   width: number,
   height: number,
-  kind: "ROTATE_90" | "ROTATE_270",
+  kind: DatTransformKind,
 ): number {
   const point = transformClipboardPoint(
     index % width,
@@ -1084,16 +1119,16 @@ function transformClipboardIndex(
     height,
     kind,
   );
-  const nextWidth = height;
+  const nextWidth = clipboardTransformSwapsAxes(kind) ? height : width;
   return point.y * nextWidth + point.x;
 }
 
-export function rotateLevelClipboard(
+export function transformLevelClipboard(
   clipboard: LevelClipboard,
-  kind: "ROTATE_90" | "ROTATE_270",
+  kind: DatTransformKind,
 ): LevelClipboard {
-  const nextWidth = clipboard.height;
-  const nextHeight = clipboard.width;
+  const nextWidth = clipboardTransformSwapsAxes(kind) ? clipboard.height : clipboard.width;
+  const nextHeight = clipboardTransformSwapsAxes(kind) ? clipboard.width : clipboard.height;
   const cellCount = nextWidth * nextHeight;
   const top = new Array<string>(cellCount).fill(FLOOR_TILE);
   const bottom = new Array<string>(cellCount).fill(FLOOR_TILE);
@@ -1125,6 +1160,13 @@ export function rotateLevelClipboard(
       cloner: transformClipboardIndex(item.cloner, clipboard.width, clipboard.height, kind),
     })),
   };
+}
+
+export function rotateLevelClipboard(
+  clipboard: LevelClipboard,
+  kind: "ROTATE_90" | "ROTATE_270",
+): LevelClipboard {
+  return transformLevelClipboard(clipboard, kind);
 }
 
 export function pasteLevelRegion(
