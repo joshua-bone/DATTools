@@ -174,6 +174,7 @@ import {
   type LevelsetEditorHistory,
   undoLevelsetEvent,
 } from "@/web/src/levelEditing";
+import { isSelectionBorderStrokeHit } from "@/web/src/selectionBorderHit";
 import { TilePreview } from "@/web/src/TilePreview";
 import { type WallsBrowserLoadState } from "@/src/walls-react/BrowseWallsDialog";
 import { BrowseWallsDialog } from "@/src/walls-react/BrowseWallsDialog";
@@ -656,21 +657,12 @@ function buildDatPastePreviewSelection(
 function isDatSelectionBorderPoint(
   selection: SelectionArea | null,
   point: GridPoint | null,
+  cursorPoint: BoardCursorPoint | null,
 ): boolean {
-  if (!selection || !point) return false;
-
-  const index = point.y * 32 + point.x;
-  const selectedSet = new Set(resolveSelectionIndices(selection));
-  if (!selectedSet.has(index)) return false;
-
-  const neighbors = [
-    point.x > 0 ? index - 1 : null,
-    point.x < 31 ? index + 1 : null,
-    point.y > 0 ? index - 32 : null,
-    point.y < 31 ? index + 32 : null,
-  ];
-
-  return neighbors.some((neighbor) => neighbor === null || !selectedSet.has(neighbor));
+  return isSelectionBorderStrokeHit(resolveSelectionIndices(selection), point, cursorPoint, {
+    width: 32,
+    height: 32,
+  });
 }
 
 function buildMovedDatSelection(
@@ -2175,6 +2167,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     const [pendingConnection, setPendingConnection] = useState<PendingConnectionState>(null);
     const [hoverPoint, setHoverPoint] = useState<GridPoint | null>(null);
+    const [hoverCursorPoint, setHoverCursorPoint] = useState<BoardCursorPoint | null>(null);
     const [dragState, setDragState] = useState<DragState | null>(null);
     const [boardPanState, setBoardPanState] = useState<BoardPanState | null>(null);
     const [mirrorState, setMirrorState] = useState<MirrorState>(() =>
@@ -2191,6 +2184,12 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     function setHoverPointIfChanged(nextPoint: GridPoint | null): void {
       setHoverPoint((current) => (gridPointsEqual(current, nextPoint) ? current : nextPoint));
+    }
+
+    function setHoverCursorPointIfChanged(nextPoint: BoardCursorPoint | null): void {
+      setHoverCursorPoint((current) =>
+        current?.x === nextPoint?.x && current?.y === nextPoint?.y ? current : nextPoint,
+      );
     }
 
     function beginMirrorDrag(kind: MirrorKind, event: React.PointerEvent<HTMLButtonElement>): void {
@@ -2431,7 +2430,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       tool === "select" &&
       !pastePreviewActive &&
       !dragState &&
-      isDatSelectionBorderPoint(selection, hoverPoint);
+      isDatSelectionBorderPoint(selection, hoverPoint, hoverCursorPoint);
     const boardCanvasCursor = boardPanActive
       ? "grabbing"
       : dragState?.tool === "move-selection"
@@ -3679,6 +3678,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         lowDetailRendering,
       });
       setHoverPointIfChanged(point);
+      setHoverCursorPointIfChanged(boardPoint);
       onClearMetadataError();
 
       if (
@@ -3799,7 +3799,11 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       if (tool === "select") {
         if (event.button !== 0) return;
         event.preventDefault();
-        if (!pastePreviewActive && selection && isDatSelectionBorderPoint(selection, point)) {
+        if (
+          !pastePreviewActive &&
+          selection &&
+          isDatSelectionBorderPoint(selection, point, boardPoint)
+        ) {
           const selectionIndices = resolveSelectionIndices(selection);
           const clipboard = copyLevelRegion(activeLevel, selection, selectionIndices);
           event.currentTarget.setPointerCapture(event.pointerId);
@@ -3918,6 +3922,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         if (touchGestureState) {
           event.preventDefault();
           setHoverPointIfChanged(null);
+          setHoverCursorPointIfChanged(null);
           updateTouchBoardGesture();
           return;
         }
@@ -3926,6 +3931,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
       if (boardPanState && boardPanState.pointerId === event.pointerId) {
         event.preventDefault();
         setHoverPointIfChanged(null);
+        setHoverCursorPointIfChanged(null);
         updateBoardPanGesture(event.clientX, event.clientY);
         return;
       }
@@ -3943,7 +3949,10 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         lowDetailRendering,
       });
       if (dragState?.tool === "brush") setHoverPointIfChanged(null);
-      else setHoverPointIfChanged(point);
+      else {
+        setHoverPointIfChanged(point);
+        setHoverCursorPointIfChanged(boardPoint);
+      }
 
       if (tool === "connect" && pendingConnection && boardPoint) {
         setPendingConnection((current) =>
@@ -4482,7 +4491,10 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                   onPointerCancel={handlePointerCancel}
                   onContextMenu={(event) => event.preventDefault()}
                   onPointerLeave={() => {
-                    if (!dragState && !boardPanActive) setHoverPointIfChanged(null);
+                    if (!dragState && !boardPanActive) {
+                      setHoverPointIfChanged(null);
+                      setHoverCursorPointIfChanged(null);
+                    }
                   }}
                 />
                 {!lowDetailRendering ? (
