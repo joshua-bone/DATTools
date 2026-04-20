@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   boardPointToCell,
+  boardPointToCellSpace,
   drawPresentedBoardLayers,
   drawViewportPresentedBoardLayers,
   enumerateVisibleBoardCellWindow,
@@ -127,6 +128,7 @@ describe("board canvas presentation", () => {
 
     expect(boardPoint).toEqual({ x: 32, y: 48 });
     expect(boardPointToCell(boardPoint, 256)).toEqual({ x: 4, y: 6 });
+    expect(boardPointToCellSpace({ x: 40, y: 52 }, 256)).toEqual({ x: 5, y: 6.5 });
     expect(
       viewportClientPointToBoardPoint(
         { left: 100, top: 50, width: 800, height: 600 },

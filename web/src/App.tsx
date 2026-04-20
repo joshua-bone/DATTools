@@ -74,6 +74,7 @@ import {
 } from "@/web/src/githubReleases";
 import {
   boardPointToCell,
+  boardPointToCellSpace,
   drawPresentedBoardLayers,
   drawViewportPresentedBoardLayers,
   enumerateVisibleBoardCellWindow,
@@ -441,7 +442,7 @@ type BoardEditorSurfaceProps = Readonly<{
   onSelectionChange: (selection: SelectionArea | null) => void;
   onSelectionPreviewChange: (selectionPreview: SelectionPreviewState | null) => void;
   onSetPastePreviewActive: (active: boolean) => void;
-  onOpenSelectionTransformMenu: (position: Readonly<{ x: number; y: number }>) => void;
+  onOpenSelectionTransformMenu: (position: Readonly<{ x: number; y: number }> | null) => void;
   onAssignPaletteTile: (tile: string, target: PaletteAssignmentTarget) => void;
   onClearMetadataError: () => void;
   onSetErrorMessage: (message: string | null) => void;
@@ -2748,8 +2749,8 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           ctx,
           spriteSet.tileSize,
           liveSelection,
-          "rgba(12, 121, 156, 0.18)",
-          "rgba(12, 121, 156, 0.96)",
+          "rgba(216, 165, 77, 0.12)",
+          "rgba(216, 165, 77, 0.9)",
         );
       }
 
@@ -3319,8 +3320,8 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           ctx,
           spriteSet.tileSize,
           liveSelection,
-          "rgba(12, 121, 156, 0.18)",
-          "rgba(12, 121, 156, 0.96)",
+          "rgba(216, 165, 77, 0.12)",
+          "rgba(216, 165, 77, 0.9)",
         );
       }
 
@@ -3676,8 +3677,9 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         boardZoom,
         lowDetailRendering,
       });
+      const cursorPoint = boardPointToCellSpace(boardPoint, boardSize);
       setHoverPointIfChanged(point);
-      setHoverCursorPointIfChanged(boardPoint);
+      setHoverCursorPointIfChanged(cursorPoint);
       onClearMetadataError();
 
       if (
@@ -3801,13 +3803,14 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         if (
           !pastePreviewActive &&
           selection &&
-          isDatSelectionBorderPoint(selection, point, boardPoint)
+          isDatSelectionBorderPoint(selection, point, cursorPoint)
         ) {
           const preview = selectionPreview ?? createSelectionPreviewState(activeLevel, selection);
           const selectionIndices = resolveSelectionIndices(selection);
           event.currentTarget.setPointerCapture(event.pointerId);
           brushDragStateRef.current = null;
           onSetPastePreviewActive(false);
+          onOpenSelectionTransformMenu(null);
           setDragState({
             tool: "move-selection",
             pointerId: event.pointerId,
@@ -3837,6 +3840,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
           onCommitSelectedLevelUpdate(() => selectionBaseLevel);
           onSelectionPreviewChange(null);
         }
+        onOpenSelectionTransformMenu(null);
         if (selectionMode === "rect") {
           event.currentTarget.setPointerCapture(event.pointerId);
           brushDragStateRef.current = null;
@@ -3958,10 +3962,11 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
         boardZoom,
         lowDetailRendering,
       });
+      const cursorPoint = boardPointToCellSpace(boardPoint, boardSize);
       if (dragState?.tool === "brush") setHoverPointIfChanged(null);
       else {
         setHoverPointIfChanged(point);
-        setHoverCursorPointIfChanged(boardPoint);
+        setHoverCursorPointIfChanged(cursorPoint);
       }
 
       if (tool === "connect" && pendingConnection && boardPoint) {
@@ -4189,7 +4194,10 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     function handleContextMenu(event: React.MouseEvent<HTMLCanvasElement>): void {
       event.preventDefault();
-      if (!selection || tool !== "select" || dragState || pastePreviewActive) return;
+      if (!selection || tool !== "select" || dragState || pastePreviewActive) {
+        onOpenSelectionTransformMenu(null);
+        return;
+      }
 
       const point = canvasPointToCell(event.currentTarget, event.nativeEvent, {
         boardSize,
@@ -7822,9 +7830,12 @@ export default function App() {
       ) : null}
       {selectionTransformMenu ? (
         <div
-          className="contextMenu selectionTransformContextMenu"
-          style={{ left: selectionTransformMenu.x, top: selectionTransformMenu.y }}
-          onPointerDown={(event) => event.stopPropagation()}
+          className="dropdownMenu selectionTransformContextMenu"
+          style={{
+            position: "fixed",
+            left: selectionTransformMenu.x,
+            top: selectionTransformMenu.y,
+          }}
         >
           {[
             ["Rotate 90°", "ROTATE_90"],
@@ -7838,7 +7849,7 @@ export default function App() {
             <button
               key={kind}
               type="button"
-              className="contextMenuItem"
+              className="dropdownMenuItem"
               onClick={() => applySelectionTransform(kind as DatTransformKind)}
             >
               {label}

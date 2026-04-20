@@ -253,14 +253,24 @@ export function viewportClientPointToBoardPoint(
 }
 
 export function boardPointToCell(point: BoardPoint | null, boardSize: number): BoardPoint | null {
+  const cellPoint = boardPointToCellSpace(point, boardSize);
+  if (!cellPoint) return null;
+
+  return {
+    x: Math.floor(cellPoint.x),
+    y: Math.floor(cellPoint.y),
+  };
+}
+
+export function boardPointToCellSpace(
+  point: BoardPoint | null,
+  boardSize: number,
+): BoardPoint | null {
   if (!point || boardSize <= 0) return null;
 
-  const px = (point.x / boardSize) * 32;
-  const py = (point.y / boardSize) * 32;
+  const x = (point.x / boardSize) * 32;
+  const y = (point.y / boardSize) * 32;
 
-  if (px < 0 || py < 0 || px >= 32 || py >= 32) return null;
-  return {
-    x: Math.floor(px),
-    y: Math.floor(py),
-  };
+  if (x < 0 || y < 0 || x >= 32 || y >= 32) return null;
+  return { x, y };
 }
