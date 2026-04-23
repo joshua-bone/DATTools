@@ -5866,6 +5866,21 @@ export default function App() {
     setTool("select");
   }
 
+  function selectWholeLevel(): void {
+    if (!activeLevel) return;
+    commitSelectionPreview();
+    setTool("select");
+    setPastePreviewActive(false);
+    setSelectionTransformMenu(null);
+    setSelection({
+      x: 0,
+      y: 0,
+      width: 32,
+      height: 32,
+      mode: "rect",
+    });
+  }
+
   function rotateSelectedSelection(direction: "clockwise" | "counterclockwise"): void {
     applySelectionTransform(direction === "clockwise" ? "ROTATE_90" : "ROTATE_270");
   }
@@ -6048,6 +6063,13 @@ export default function App() {
           return;
         }
 
+        if (key === "a") {
+          if (!activeLevel) return;
+          event.preventDefault();
+          selectWholeLevel();
+          return;
+        }
+
         if (key === "c" && selection) {
           event.preventDefault();
           copySelection();
@@ -6173,6 +6195,7 @@ export default function App() {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [
+    activeLevel,
     boardStatusStore,
     clipboard,
     canTestSelectedLevelInLexysLabyrinth,
@@ -6192,6 +6215,7 @@ export default function App() {
     selection,
     selectedLayerZ,
     selectedLogicalLevel,
+    selectWholeLevel,
     threeDLevelsEnabled,
     tool,
   ]);
@@ -8154,6 +8178,7 @@ export default function App() {
                   <li>
                     `N` moves to the next level in the level list and `P` moves to the previous one.
                   </li>
+                  <li>`Ctrl`/`Cmd` + `A` switches to Select and selects the whole map.</li>
                   <li>
                     `,`/`&lt;` and `.`/`&gt;` rotate the active palette assignment counterclockwise
                     or clockwise.
