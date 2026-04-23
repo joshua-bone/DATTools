@@ -94,6 +94,12 @@ import { createNewLevelsetFileName } from "@/web/src/levelsetFileName";
 import { loadCc1SpriteSet } from "@/web/src/loadCc1SpriteSet";
 import { getPaletteSections } from "@/web/src/paletteSections";
 import { platform } from "@/web/src/platform";
+import {
+  TOOL_SHORTCUTS,
+  isEditableShortcutTarget,
+  resolveEditorShortcut,
+  type EditorToolMode,
+} from "@/web/src/editorShortcuts";
 import type { GeneratedLayoutRecord } from "@/web/src/generatedLayouts";
 import {
   APP_PREFERENCES_STORAGE_KEY,
@@ -213,7 +219,7 @@ import {
   serializePersistedWallsKeySet,
 } from "@/web/src/wallsBankStorage";
 
-type ToolMode = "brush" | "text" | "line" | "fill" | "select" | "connect";
+type ToolMode = EditorToolMode;
 type SelectionMode = "rect" | "contiguous" | "tile";
 type SelectionOperation = "replace" | "add" | "subtract";
 type LeftPanelTab = "levels" | "controls";
@@ -453,14 +459,6 @@ type BoardEditorSurfaceProps = Readonly<{
 }>;
 
 const CC1_TILESET_URL = `${import.meta.env.BASE_URL}cc1/spritesheet.bmp`;
-const TOOL_LABELS: Array<{ id: ToolMode; label: string; shortcut: string }> = [
-  { id: "brush", label: "Brush", shortcut: "B" },
-  { id: "text", label: "Text", shortcut: "T" },
-  { id: "line", label: "Line", shortcut: "L" },
-  { id: "fill", label: "Bucket", shortcut: "F" },
-  { id: "select", label: "Select", shortcut: "V" },
-  { id: "connect", label: "Connect", shortcut: "C" },
-];
 const SELECTION_MODE_ORDER: ReadonlyArray<SelectionMode> = ["rect", "contiguous", "tile"];
 const DEFAULT_SELECTION_MODE: SelectionMode = "rect";
 const MIN_LEFT_PANEL_WIDTH = 180;
@@ -851,12 +849,6 @@ function asErrorMessage(err: unknown): string {
 
 function formatDesktopVersion(version: string): string {
   return version.startsWith("v") ? version : `v${version}`;
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
 function isLayoutModePreference(value: string | null): value is LayoutModePreference {
@@ -2943,7 +2935,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
 
     useEffect(() => {
       const onKeyDown = (event: KeyboardEvent) => {
-        if (isEditableTarget(event.target) || !activeLevel) return;
+        if (isEditableShortcutTarget(event.target) || !activeLevel) return;
         const key = event.key.toLowerCase();
         if (!isKeyboardPanKey(key)) return;
 
@@ -4347,7 +4339,7 @@ const BoardEditorSurface = forwardRef<BoardEditorHandle, BoardEditorSurfaceProps
                 </button>
               </div>
               <div className="toolButtonGroup boardToolRow">
-                {TOOL_LABELS.filter((entry) => entry.id !== "select").map((entry) => (
+                {TOOL_SHORTCUTS.filter((entry) => entry.id !== "select").map((entry) => (
                   <button
                     key={entry.id}
                     type="button"
@@ -6045,148 +6037,108 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) return;
+      if (isEditableShortcutTarget(event.target)) return;
 
-      const key = event.key.toLowerCase();
-      const meta = event.metaKey || event.ctrlKey;
+      const command = resolveEditorShortcut(event, {
+        hasActiveLevel: activeLevel !== null,
+        hasSelection: selection !== null,
+        hasClipboard: clipboard !== null,
+        hasPendingConnection: boardStatusStore.getSnapshot().hasPendingConnection,
+        selectionToolActive: tool === "select",
+        threeDLevelsEnabled,
+        hasSelectedLogicalLevel: selectedLogicalLevel !== null,
+      });
+      if (!command) return;
 
-      if (meta && !event.altKey) {
-        if (!event.shiftKey && key === "z") {
+      switch (command.type) {
+        case "undo":
           event.preventDefault();
           setEditor((current) => (current ? undoLevelsetEvent(current) : current));
           return;
-        }
-
-        if ((event.shiftKey && key === "z") || key === "y") {
+        case "redo":
           event.preventDefault();
           setEditor((current) => (current ? redoLevelsetEvent(current) : current));
           return;
-        }
-
-        if (key === "a") {
-          if (!activeLevel) return;
+        case "select-all":
           event.preventDefault();
           selectWholeLevel();
           return;
-        }
-
-        if (key === "c" && selection) {
+        case "copy-selection":
+          if (!selection) return;
           event.preventDefault();
           copySelection();
           return;
-        }
-
-        if (key === "x" && selection) {
+        case "cut-selection":
+          if (!selection) return;
           event.preventDefault();
           cutSelection();
           return;
-        }
-
-        if (key === "v" && clipboard) {
+        case "start-paste-preview":
+          if (!clipboard) return;
           event.preventDefault();
           pasteClipboard();
           return;
-        }
-
-        if (key === "5") {
+        case "test-ms":
           event.preventDefault();
           if (doc) openSelectedLevelInTworld("MS");
           return;
-        }
-
-        if (key === "6") {
+        case "test-lynx":
           event.preventDefault();
           if (doc) openSelectedLevelInTworld("Lynx");
           return;
-        }
-
-        if (key === "7") {
+        case "test-lexy":
           event.preventDefault();
           if (canTestSelectedLevelInLexysLabyrinth) openSelectedLevelInLexysLabyrinth();
           return;
-        }
-
-        return;
-      }
-
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
-
-      if (key === "f5") {
-        event.preventDefault();
-        if (doc) openSelectedLevelInTworld("MS");
-        return;
-      }
-
-      if (key === "f6") {
-        event.preventDefault();
-        if (doc) openSelectedLevelInTworld("Lynx");
-        return;
-      }
-
-      if (key === "f7") {
-        event.preventDefault();
-        if (canTestSelectedLevelInLexysLabyrinth) openSelectedLevelInLexysLabyrinth();
-        return;
-      }
-
-      if (key === "n") {
-        event.preventDefault();
-        chooseNextLevelInList();
-        return;
-      }
-
-      if (key === "p") {
-        event.preventDefault();
-        choosePreviousLevelInList();
-        return;
-      }
-
-      if (key === "<" || key === ",") {
-        event.preventDefault();
-        if (tool === "select" && pastePreviewActive && clipboard) {
-          rotatePastePreviewClipboard("counterclockwise");
-        } else if (tool === "select" && selection) rotateSelectedSelection("counterclockwise");
-        else rotateSelectedPaletteTile("counterclockwise");
-        return;
-      }
-
-      if (key === ">" || key === ".") {
-        event.preventDefault();
-        if (tool === "select" && pastePreviewActive && clipboard) {
-          rotatePastePreviewClipboard("clockwise");
-        } else if (tool === "select" && selection) rotateSelectedSelection("clockwise");
-        else rotateSelectedPaletteTile("clockwise");
-        return;
-      }
-
-      if (key === "escape" && boardStatusStore.getSnapshot().hasPendingConnection) {
-        event.preventDefault();
-        setBoardInteractionResetToken((current) => current + 1);
-        return;
-      }
-
-      if (key === "escape" && tool === "select") {
-        event.preventDefault();
-        setBoardInteractionResetToken((current) => current + 1);
-        clearSelectionState();
-        return;
-      }
-
-      if (threeDLevelsEnabled && selectedLogicalLevel && key === "q") {
-        event.preventDefault();
-        selectLayerUp();
-      } else if (threeDLevelsEnabled && selectedLogicalLevel && key === "z") {
-        event.preventDefault();
-        selectLayerDown();
-      } else if (key === "b") setTool("brush");
-      else if (key === "t") setTool("text");
-      else if (key === "c") setTool("connect");
-      else if (key === "l") setTool("line");
-      else if (key === "f") setTool("fill");
-      else if (key === "v") handleSelectToolButtonClick();
-      else if ((key === "backspace" || key === "delete") && selection) {
-        event.preventDefault();
-        eraseSelection();
+        case "next-level":
+          event.preventDefault();
+          chooseNextLevelInList();
+          return;
+        case "previous-level":
+          event.preventDefault();
+          choosePreviousLevelInList();
+          return;
+        case "rotate-left":
+          event.preventDefault();
+          if (tool === "select" && pastePreviewActive && clipboard) {
+            rotatePastePreviewClipboard("counterclockwise");
+          } else if (tool === "select" && selection) rotateSelectedSelection("counterclockwise");
+          else rotateSelectedPaletteTile("counterclockwise");
+          return;
+        case "rotate-right":
+          event.preventDefault();
+          if (tool === "select" && pastePreviewActive && clipboard) {
+            rotatePastePreviewClipboard("clockwise");
+          } else if (tool === "select" && selection) rotateSelectedSelection("clockwise");
+          else rotateSelectedPaletteTile("clockwise");
+          return;
+        case "cancel-pending-connection":
+          event.preventDefault();
+          setBoardInteractionResetToken((current) => current + 1);
+          return;
+        case "cancel-selection":
+          event.preventDefault();
+          setBoardInteractionResetToken((current) => current + 1);
+          clearSelectionState();
+          return;
+        case "select-layer-up":
+          event.preventDefault();
+          selectLayerUp();
+          return;
+        case "select-layer-down":
+          event.preventDefault();
+          selectLayerDown();
+          return;
+        case "erase-selection":
+          if (!selection) return;
+          event.preventDefault();
+          eraseSelection();
+          return;
+        case "set-tool":
+          event.preventDefault();
+          if (command.tool === "select") handleSelectToolButtonClick();
+          else setTool(command.tool);
+          return;
       }
     };
 
