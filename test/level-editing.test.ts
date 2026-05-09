@@ -401,6 +401,32 @@ describe("level editing helpers", () => {
     expect(level.cloneControls).toEqual([]);
   });
 
+  it("keeps connections when trap and cloner endpoints are buried under actors", () => {
+    let level = createEmptyLevel(1);
+    level = paintLevelCells(level, [0], "TRAP_BUTTON");
+    level = paintLevelCells(level, [1], "TRAP");
+    level = paintLevelCells(level, [2], "CLONE_BUTTON");
+    level = paintLevelCells(level, [3], "CLONER");
+    level = connectLevelButtons(level, 0, 1);
+    level = connectLevelButtons(level, 2, 3);
+
+    const withBuriedTrap = paintLevelCells(level, [1], "ANT_N");
+    expect(withBuriedTrap.map.top[1]).toBe("ANT_N");
+    expect(withBuriedTrap.map.bottom[1]).toBe("TRAP");
+    expect(withBuriedTrap.trapControls).toEqual([{ button: 0, trap: 1, openOrShut: 0 }]);
+    expect(withBuriedTrap.cloneControls).toEqual([{ button: 2, cloner: 3 }]);
+
+    const withBuriedCloner = paintLevelCells(withBuriedTrap, [3], "BLOCK");
+    expect(withBuriedCloner.map.top[3]).toBe("BLOCK");
+    expect(withBuriedCloner.map.bottom[3]).toBe("CLONER");
+    expect(withBuriedCloner.trapControls).toEqual([{ button: 0, trap: 1, openOrShut: 0 }]);
+    expect(withBuriedCloner.cloneControls).toEqual([{ button: 2, cloner: 3 }]);
+
+    const withoutTrap = paintLevelCells(withBuriedCloner, [1], "WALL");
+    expect(withoutTrap.trapControls).toEqual([]);
+    expect(withoutTrap.cloneControls).toEqual([{ button: 2, cloner: 3 }]);
+  });
+
   it("replays levelset edit events for undo and redo", () => {
     const base = createLevelsetEditorHistory(makeDoc());
     const inserted = commitLevelsetEvent(base, {

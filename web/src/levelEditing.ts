@@ -202,18 +202,6 @@ function uniqueIndices(indices: ReadonlyArray<number>): number[] {
   return out;
 }
 
-function removeConnectionsTouchingCells<T extends TrapControl | CloneControl>(
-  items: ReadonlyArray<T>,
-  changedSet: ReadonlySet<number>,
-  endpointKey: keyof T,
-): T[] {
-  return items.filter((item) => {
-    const button = item.button;
-    const endpoint = item[endpointKey];
-    return !changedSet.has(button) && !changedSet.has(endpoint as number);
-  });
-}
-
 function isMovingMonsterTile(name: string): boolean {
   return MOVING_MONSTER_TILES.has(name);
 }
@@ -693,12 +681,9 @@ function dedupeCloneControls(items: ReadonlyArray<CloneControl>): CloneControl[]
 function syncTrapControls(
   level: DatLevel,
   previous: ReadonlyArray<TrapControl>,
-  changedIndices: ReadonlyArray<number>,
   appended: ReadonlyArray<TrapControl> = [],
 ): TrapControl[] {
-  const changedSet = new Set(changedIndices);
-  const base = removeConnectionsTouchingCells(previous, changedSet, "trap");
-  return dedupeTrapControls([...base, ...appended]).filter(
+  return dedupeTrapControls([...previous, ...appended]).filter(
     (item) =>
       cellContainsTile(level, item.button, "TRAP_BUTTON") &&
       cellContainsTile(level, item.trap, "TRAP"),
@@ -708,12 +693,9 @@ function syncTrapControls(
 function syncCloneControls(
   level: DatLevel,
   previous: ReadonlyArray<CloneControl>,
-  changedIndices: ReadonlyArray<number>,
   appended: ReadonlyArray<CloneControl> = [],
 ): CloneControl[] {
-  const changedSet = new Set(changedIndices);
-  const base = removeConnectionsTouchingCells(previous, changedSet, "cloner");
-  return dedupeCloneControls([...base, ...appended]).filter(
+  return dedupeCloneControls([...previous, ...appended]).filter(
     (item) =>
       cellContainsTile(level, item.button, "CLONE_BUTTON") &&
       cellContainsTile(level, item.cloner, "CLONER"),
@@ -792,18 +774,13 @@ export function connectLevelButtons(
 
     return {
       ...level,
-      trapControls: syncTrapControls(
-        level,
-        level.trapControls,
-        [],
-        [
-          {
-            button: connection.button,
-            trap: connection.trap,
-            openOrShut: connection.openOrShut,
-          },
-        ],
-      ),
+      trapControls: syncTrapControls(level, level.trapControls, [
+        {
+          button: connection.button,
+          trap: connection.trap,
+          openOrShut: connection.openOrShut,
+        },
+      ]),
     };
   }
 
@@ -822,17 +799,12 @@ export function connectLevelButtons(
 
   return {
     ...level,
-    cloneControls: syncCloneControls(
-      level,
-      level.cloneControls,
-      [],
-      [
-        {
-          button: connection.button,
-          cloner: connection.cloner,
-        },
-      ],
-    ),
+    cloneControls: syncCloneControls(level, level.cloneControls, [
+      {
+        button: connection.button,
+        cloner: connection.cloner,
+      },
+    ]),
   };
 }
 
@@ -857,18 +829,8 @@ function rebuildLevelWithMap(
   return {
     ...nextLevel,
     movement: syncMovement(nextLevel, level.movement, changedIndices, preferredAppendOrder),
-    trapControls: syncTrapControls(
-      nextLevel,
-      level.trapControls,
-      changedIndices,
-      appendedTrapControls,
-    ),
-    cloneControls: syncCloneControls(
-      nextLevel,
-      level.cloneControls,
-      changedIndices,
-      appendedCloneControls,
-    ),
+    trapControls: syncTrapControls(nextLevel, level.trapControls, appendedTrapControls),
+    cloneControls: syncCloneControls(nextLevel, level.cloneControls, appendedCloneControls),
   };
 }
 
