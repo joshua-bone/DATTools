@@ -159,6 +159,12 @@ JSON v1 surface. `decodeDatBytes` converts a DAT byte array to the typed JSON
 document; `encodeDatBytes` converts the document back to DAT. Use
 `parseDatLevelsetJsonV1` to validate unknown JSON input and
 `stringifyDatLevelsetJsonV1` for canonical, newline-terminated JSON output.
+Unknown metadata is lossless: `fieldOrder` records every field ID in file order,
+while `extraFields` stores one raw base64 payload per unknown occurrence in that
+same encounter order. Repeated IDs remain distinct, so decoding and re-encoding
+fields such as multiple field-2 overrides preserves their original bytes. When
+authoring JSON without `fieldOrder`, the encoder appends all unknown occurrences
+in `extraFields` order rather than dropping them.
 
 Build the package artifacts with:
 

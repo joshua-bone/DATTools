@@ -316,8 +316,28 @@ export function encodeDatBytes(doc: DatLevelsetJsonV1): Uint8Array {
     ensure(AUTHOR_FIELD, !!level.author);
     ensure(MOVEMENT_FIELD, level.movement.length > 0);
 
-    const extraByField = new Map<number, Base64Blob>();
-    for (const ef of level.extraFields) extraByField.set(ef.field, ef.data);
+    const remainingExtraSlots = new Map<number, number>();
+    for (const field of order) {
+      if (!STANDARD_FIELDS.includes(field)) {
+        remainingExtraSlots.set(field, (remainingExtraSlots.get(field) ?? 0) + 1);
+      }
+    }
+    for (const occurrence of level.extraFields) {
+      const remaining = remainingExtraSlots.get(occurrence.field) ?? 0;
+      if (remaining > 0) {
+        remainingExtraSlots.set(occurrence.field, remaining - 1);
+      } else {
+        order.push(occurrence.field);
+      }
+    }
+
+    const extraOccurrencesByField = new Map<number, Base64Blob[]>();
+    for (const occurrence of level.extraFields) {
+      const occurrences = extraOccurrencesByField.get(occurrence.field) ?? [];
+      occurrences.push(occurrence.data);
+      extraOccurrencesByField.set(occurrence.field, occurrences);
+    }
+    const nextExtraOccurrence = new Map<number, number>();
 
     for (const field of order) {
       if (field === TITLE_FIELD && level.title) {
@@ -366,8 +386,10 @@ export function encodeDatBytes(doc: DatLevelsetJsonV1): Uint8Array {
         fw.writeU8(content.length);
         fw.writeBytes(content);
       } else if (!STANDARD_FIELDS.includes(field)) {
-        const blob = extraByField.get(field);
+        const occurrence = nextExtraOccurrence.get(field) ?? 0;
+        const blob = extraOccurrencesByField.get(field)?.[occurrence];
         if (blob) {
+          nextExtraOccurrence.set(field, occurrence + 1);
           const content = unb64(blob);
           if (content.length > 255) throw new Error(`Extra field ${field} too long`);
           fw.writeU8(field);
