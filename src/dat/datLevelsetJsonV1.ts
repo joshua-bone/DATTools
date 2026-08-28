@@ -26,7 +26,7 @@ export type CloneControl = Readonly<{
 
 export type DatExtraField = Readonly<{
   field: number; // u8
-  data: Base64Blob;
+  data: Base64Blob; // one raw occurrence; repeated field IDs remain distinct
 }>;
 
 export type DatLevelJson = Readonly<{
@@ -46,8 +46,8 @@ export type DatLevelJson = Readonly<{
   cloneControls: ReadonlyArray<CloneControl>;
   movement: ReadonlyArray<number>; // indices 0..1023
 
-  fieldOrder: ReadonlyArray<number>; // u8s in encountered order
-  extraFields: ReadonlyArray<DatExtraField>;
+  fieldOrder: ReadonlyArray<number>; // every metadata field ID in encountered order
+  extraFields: ReadonlyArray<DatExtraField>; // unknown occurrences in encountered order, including repeats
 }>;
 
 export type DatLevelsetJsonV1 = Readonly<{
