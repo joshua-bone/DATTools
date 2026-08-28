@@ -24,6 +24,7 @@ export default defineConfig([
   },
   {
     entry: {
+      dat: "src/dat/index.ts",
       "walls-core": "src/walls-core/index.ts",
       "walls-dat": "src/walls-dat/index.ts",
       "walls-react": "src/walls-react/index.ts",

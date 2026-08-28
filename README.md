@@ -107,12 +107,13 @@ CLI includes a `merge-voting-packs` command for combining a directory of
 `*.dat` voting packs plus matching `Solutions/*-Lynx.tws` / `*-MS.tws` files
 into one merged DAT and two merged TWS files.
 
-## Reusable walls library
+## Reusable libraries
 
-This repo now also publishes a stable walls library surface for sibling tools.
+This repo also publishes stable DAT codec and walls-library surfaces for sibling tools.
 
 Supported import paths:
 
+- `dattools/dat`
 - `dattools/walls-core`
 - `dattools/walls-dat`
 - `dattools/walls-react`
@@ -140,10 +141,24 @@ Pinned git dependency:
 Example imports:
 
 ```ts
+import {
+  decodeDatBytes,
+  encodeDatBytes,
+  parseDatLevelsetJsonV1,
+  stringifyDatLevelsetJsonV1,
+  type DatLevelJson,
+  type DatLevelsetJsonV1,
+} from "dattools/dat";
 import { wallMask32FromKey } from "dattools/walls-core";
 import { datWallsHostAdapter } from "dattools/walls-dat";
 import { BrowseWallsDialog, GenerateWallsDialog } from "dattools/walls-react";
 ```
+
+The `dattools/dat` entry point is the supported binary DAT codec and canonical
+JSON v1 surface. `decodeDatBytes` converts a DAT byte array to the typed JSON
+document; `encodeDatBytes` converts the document back to DAT. Use
+`parseDatLevelsetJsonV1` to validate unknown JSON input and
+`stringifyDatLevelsetJsonV1` for canonical, newline-terminated JSON output.
 
 Build the package artifacts with:
 
