@@ -26,6 +26,10 @@ describe("package exports", () => {
         types: "./types/walls-react.d.ts",
         import: "./dist/walls-react.js",
       },
+      "./dat": {
+        types: "./types/dat.d.ts",
+        import: "./dist/dat.js",
+      },
       "./walls-bank.json": "./web/public/walls/walls-bank.json",
       "./package.json": "./package.json",
     });
