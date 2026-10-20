@@ -1,5 +1,6 @@
 import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
 import { CC1_EXPANDED_TILE_DISPLAY_NAMES } from "@/src/dat/cc1ExpandedTiles";
+import { CC1_MEME_TILE_DISPLAY_NAMES, normalizeMemeTileName } from "@/src/dat/cc1MemeTiles";
 import { DAT_3D_AIR_TILE, DAT_3D_ELEVATOR_TILE } from "@/src/dat/dat3dLevels";
 import { DAT_3D_AIR_SPRITE_NAME, DAT_3D_ELEVATOR_SPRITE_NAME } from "@/src/dat/render/cc1SpriteSet";
 
@@ -18,6 +19,7 @@ export type Dat3dDisplayCell = Readonly<{
 }>;
 
 export function getDat3dTileDisplayName(tile: string, context: Dat3dDisplayContext): string {
+  tile = normalizeMemeTileName(tile);
   if (context.threeDEnabled && tile === DAT_3D_AIR_TILE) return "AIR";
   if (context.threeDEnabled && tile === DAT_3D_ELEVATOR_TILE) {
     return "ELEVATOR";
@@ -28,6 +30,9 @@ export function getDat3dTileDisplayName(tile: string, context: Dat3dDisplayConte
   const expandedTileDisplayName =
     CC1_EXPANDED_TILE_DISPLAY_NAMES[tile as keyof typeof CC1_EXPANDED_TILE_DISPLAY_NAMES];
   if (expandedTileDisplayName) return expandedTileDisplayName;
+  const memeTileDisplayName =
+    CC1_MEME_TILE_DISPLAY_NAMES[tile as keyof typeof CC1_MEME_TILE_DISPLAY_NAMES];
+  if (memeTileDisplayName) return memeTileDisplayName;
   return tile;
 }
 

@@ -31,6 +31,26 @@ function readPixel(
 }
 
 describe("sprite atlas", () => {
+  it("optionally scales rectangular atlas frames with nearest-neighbor pixels", () => {
+    const atlas = createImage(6, 4, [0, 0, 0, 0]);
+    setPixel(atlas, 1, 1, [255, 0, 0, 255]);
+    setPixel(atlas, 3, 1, [0, 255, 0, 128]);
+    setPixel(atlas, 1, 2, [0, 0, 255, 64]);
+    setPixel(atlas, 3, 2, [255, 255, 0, 255]);
+    const key = parseSpriteAtlasKey({
+      frames: { RED_TANK_N: { x: 1, y: 1, width: 4, height: 3 } },
+    });
+    const sprite = extractSpriteOverridesFromAtlas(atlas, key, 2, {
+      scaleFrames: true,
+    }).RED_TANK_N!;
+    expect(sprite.width).toBe(2);
+    expect(sprite.height).toBe(2);
+    expect(readPixel(sprite, 0, 0)).toEqual([255, 0, 0, 255]);
+    expect(readPixel(sprite, 1, 0)).toEqual([0, 255, 0, 128]);
+    expect(readPixel(sprite, 0, 1)).toEqual([0, 0, 255, 64]);
+    expect(readPixel(sprite, 1, 1)).toEqual([255, 255, 0, 255]);
+  });
+
   it("extracts named sprite overrides from atlas frames", () => {
     const atlasImage = createImage(192, 32, [0, 0, 0, 0]);
     setPixel(atlasImage, 4, 5, [210, 180, 120, 255]);

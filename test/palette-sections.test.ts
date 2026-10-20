@@ -9,7 +9,7 @@ const DISPLAY_CONTEXT = {
 } as const;
 
 describe("palette sections", () => {
-  it("places expanded tiles in a dedicated section at the bottom of the normal palette", () => {
+  it("places expanded tiles in a dedicated section before Meme tiles", () => {
     const sections = getPaletteSections({
       paletteTab: "normal",
       query: "",
@@ -17,7 +17,11 @@ describe("palette sections", () => {
       threeDLevelsEnabled: false,
     });
 
-    expect(sections.map((section) => section.title)).toEqual([null, "Expanded Tiles"]);
+    expect(sections.map((section) => section.title)).toEqual([
+      null,
+      "Expanded Tiles",
+      "Meme Tiles",
+    ]);
     expect(sections[0]?.tiles).not.toContain("UNKNOWN_0x70");
     expect(sections[1]?.tiles).toEqual([
       "UNKNOWN_0x70",

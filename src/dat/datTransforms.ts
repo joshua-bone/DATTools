@@ -1,5 +1,6 @@
 // src/dat/datTransforms.ts
 import type { DatLevelJson, DatLevelsetJsonV1, DatMapJson } from "@/src/dat/datLevelsetJsonV1";
+import { normalizeMemeTileName } from "@/src/dat/cc1MemeTiles";
 
 export type DatTransformKind =
   | "ROTATE_90"
@@ -52,6 +53,11 @@ function mapCorner(c: Corner, k: DatTransformKind): Corner {
 }
 
 export function transformDatTileName(name: string, k: DatTransformKind): string {
+  name = normalizeMemeTileName(name);
+  if (k.startsWith("FLIP_")) {
+    if (name === "RED_TANK_BUTTON_CW") return "RED_TANK_BUTTON_CCW";
+    if (name === "RED_TANK_BUTTON_CCW") return "RED_TANK_BUTTON_CW";
+  }
   // suffix _N|_E|_S|_W
   {
     const m = /^(.*)_(N|E|S|W)$/.exec(name);

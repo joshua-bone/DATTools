@@ -1,4 +1,5 @@
 import { CC1_LEGACY_INVALID_TILE_NAMES } from "@/src/dat/cc1Tiles";
+import { CC1_RED_TANK_TILE_NAMES, normalizeMemeTileName } from "@/src/dat/cc1MemeTiles";
 import { transformDatTileName, type DatTransformKind } from "@/src/dat/datTransforms";
 import type {
   CloneControl,
@@ -79,6 +80,7 @@ const LEVEL_TILE_COUNT = BOARD_SIZE * BOARD_SIZE;
 const FLOOR_TILE = "FLOOR";
 
 const ACTOR_TILES = new Set<string>([
+  ...CC1_RED_TANK_TILE_NAMES,
   "BLOCK",
   "CLONE_BLOCK_N",
   "CLONE_BLOCK_W",
@@ -141,6 +143,7 @@ const ACTOR_TILES = new Set<string>([
 ]);
 
 const MOVING_MONSTER_TILES = new Set<string>([
+  ...CC1_RED_TANK_TILE_NAMES,
   "ANT_N",
   "ANT_W",
   "ANT_S",
@@ -203,11 +206,11 @@ function uniqueIndices(indices: ReadonlyArray<number>): number[] {
 }
 
 function isMovingMonsterTile(name: string): boolean {
-  return MOVING_MONSTER_TILES.has(name);
+  return MOVING_MONSTER_TILES.has(normalizeMemeTileName(name));
 }
 
 export function isActorTile(name: string, options?: PaintLevelOptions): boolean {
-  return !options?.treatAsTerrainTiles?.has(name) && ACTOR_TILES.has(name);
+  return !options?.treatAsTerrainTiles?.has(name) && ACTOR_TILES.has(normalizeMemeTileName(name));
 }
 
 export function classifyTilePlacement(

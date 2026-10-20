@@ -1,5 +1,6 @@
 // src/dat/render/cc1SpriteSet.ts
 import { CC1_TILE_COUNT, tileCodeFromName, tileNameFromCode } from "@/src/dat/cc1Tiles";
+import { normalizeMemeTileName } from "@/src/dat/cc1MemeTiles";
 import { DAT_3D_CLOUD_TILE } from "@/src/dat/dat3dLevels";
 import type { RgbaImage } from "@/src/dat/render/rgbaImage";
 import { cloneImage, cropRect, createImage } from "@/src/dat/render/rgbaImage";
@@ -444,6 +445,7 @@ export function buildCc1SpriteSet(
   return {
     tileSize: size,
     get(name: string): RgbaImage {
+      name = normalizeMemeTileName(name);
       const hit = sprites.get(name);
       if (hit) return hit;
 

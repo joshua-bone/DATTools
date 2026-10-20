@@ -1,4 +1,5 @@
 import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
+import { CC1_RED_TANK_TILE_NAMES, normalizeMemeTileName } from "@/src/dat/cc1MemeTiles";
 import { applyWallMask32ToDatLevel, createDatWallsPreviewLevel } from "@/src/walls-dat/adapter";
 import {
   WALL_MASK_BYTE_LENGTH,
@@ -11,6 +12,7 @@ import {
 const FLOOR_TILE = "FLOOR";
 
 const CC1_ACTOR_TILE_NAMES = new Set<string>([
+  ...CC1_RED_TANK_TILE_NAMES,
   "BLOCK",
   "CLONE_BLOCK_N",
   "CLONE_BLOCK_W",
@@ -92,7 +94,7 @@ function resolveTerrainTile(level: DatLevelJson, index: number): string {
   const top = level.map.top[index] ?? FLOOR_TILE;
   const bottom = level.map.bottom[index] ?? FLOOR_TILE;
 
-  if (CC1_ACTOR_TILE_NAMES.has(top)) return bottom;
+  if (CC1_ACTOR_TILE_NAMES.has(normalizeMemeTileName(top))) return bottom;
   if (top === FLOOR_TILE && bottom !== FLOOR_TILE) return bottom;
   return top;
 }
