@@ -4,6 +4,8 @@ import { extractSpriteOverridesFromAtlas, parseSpriteAtlasKey } from "@/src/dat/
 
 const EXPANSION_ATLAS_URL = `${import.meta.env.BASE_URL}expansion_artwork/expansion.png`;
 const EXPANSION_ATLAS_KEY_URL = `${import.meta.env.BASE_URL}expansion_artwork/expansion.json`;
+const MEME_ATLAS_URL = `${import.meta.env.BASE_URL}meme_artwork/meme.png`;
+const MEME_ATLAS_KEY_URL = `${import.meta.env.BASE_URL}meme_artwork/meme.json`;
 
 async function loadHtmlImage(url: string): Promise<HTMLImageElement> {
   return await new Promise((resolve, reject) => {
@@ -38,17 +40,21 @@ async function loadJson(url: string): Promise<unknown> {
   return await response.json();
 }
 
-async function loadExpansionArtwork(
+async function loadArtwork(
   tileSize: number,
+  imageUrl: string,
+  keyUrl: string,
+  scaleFrames = false,
 ): Promise<Readonly<Record<string, RgbaImage>>> {
   const [atlasImage, atlasKeyValue] = await Promise.all([
-    loadHtmlImage(EXPANSION_ATLAS_URL),
-    loadJson(EXPANSION_ATLAS_KEY_URL),
+    loadHtmlImage(imageUrl),
+    loadJson(keyUrl),
   ]);
   return extractSpriteOverridesFromAtlas(
     htmlImageToRgba(atlasImage),
     parseSpriteAtlasKey(atlasKeyValue),
     tileSize,
+    { scaleFrames },
   );
 }
 
@@ -56,6 +62,9 @@ export async function loadCc1SpriteSet(url: string): Promise<CC1SpriteSet> {
   const img = await loadHtmlImage(url);
   const rgba = htmlImageToRgba(img);
   const tileSize = rgba.height / 16;
-  const expansionArtwork = await loadExpansionArtwork(tileSize);
-  return buildCc1SpriteSet(rgba, expansionArtwork);
+  const [expansionArtwork, memeArtwork] = await Promise.all([
+    loadArtwork(tileSize, EXPANSION_ATLAS_URL, EXPANSION_ATLAS_KEY_URL),
+    loadArtwork(tileSize, MEME_ATLAS_URL, MEME_ATLAS_KEY_URL, true),
+  ]);
+  return buildCc1SpriteSet(rgba, { ...expansionArtwork, ...memeArtwork });
 }

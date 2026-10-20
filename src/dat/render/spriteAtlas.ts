@@ -1,4 +1,4 @@
-import { cropRect, type RgbaImage } from "@/src/dat/render/rgbaImage";
+import { createImage, cropRect, type RgbaImage } from "@/src/dat/render/rgbaImage";
 
 export type SpriteAtlasFrame = Readonly<{
   x: number;
@@ -59,23 +59,43 @@ export function extractSpriteOverridesFromAtlas(
   atlasImage: RgbaImage,
   atlasKey: SpriteAtlasKey,
   spriteSize: number,
+  options: Readonly<{ scaleFrames?: boolean }> = {},
 ): Readonly<Record<string, RgbaImage>> {
   const overrides: Record<string, RgbaImage> = {};
 
   for (const [name, frame] of Object.entries(atlasKey.frames)) {
-    if (frame.width !== spriteSize || frame.height !== spriteSize) {
+    const needsScaling = frame.width !== spriteSize || frame.height !== spriteSize;
+    if (needsScaling && !options.scaleFrames) {
       throw new Error(
         `Sprite atlas frame '${name}' must be ${spriteSize}x${spriteSize}, got ${frame.width}x${frame.height}`,
       );
     }
 
-    overrides[name] = cropRect(
+    const cropped = cropRect(
       atlasImage,
       frame.x,
       frame.y,
       frame.x + frame.width,
       frame.y + frame.height,
     );
+    if (!needsScaling) {
+      overrides[name] = cropped;
+      continue;
+    }
+
+    const scaled = createImage(spriteSize, spriteSize);
+    for (let y = 0; y < spriteSize; y++) {
+      const sourceY = Math.floor((y * cropped.height) / spriteSize);
+      for (let x = 0; x < spriteSize; x++) {
+        const sourceX = Math.floor((x * cropped.width) / spriteSize);
+        const sourceOffset = (sourceY * cropped.width + sourceX) * 4;
+        scaled.data.set(
+          cropped.data.subarray(sourceOffset, sourceOffset + 4),
+          (y * spriteSize + x) * 4,
+        );
+      }
+    }
+    overrides[name] = scaled;
   }
 
   return overrides;

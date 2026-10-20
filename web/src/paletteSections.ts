@@ -4,6 +4,7 @@ import {
   CC1_VALID_TILE_NAMES,
 } from "@/src/dat/cc1Tiles";
 import { CC1_EXPANDED_TILE_NAMES } from "@/src/dat/cc1ExpandedTiles";
+import { CC1_MEME_TILE_NAMES } from "@/src/dat/cc1MemeTiles";
 import { DAT_3D_AIR_TILE } from "@/src/dat/dat3dLevels";
 import { getDat3dTileDisplayName, type Dat3dDisplayContext } from "@/src/dat/dat3dDisplay";
 
@@ -45,7 +46,10 @@ export function getPaletteSections(options: PaletteSectionsOptions): PaletteTile
         ...CC1_LEGACY_INVALID_TILE_NAMES.filter(
           (tile) => !threeDLevelsEnabled || (tile !== DAT_3D_AIR_TILE && tile !== "CHIP_EXIT"),
         ),
-        ...CC1_INVALID_TILE_NAMES,
+        ...CC1_INVALID_TILE_NAMES.filter(
+          (tile) =>
+            !CC1_EXPANDED_TILE_NAMES.includes(tile as (typeof CC1_EXPANDED_TILE_NAMES)[number]),
+        ),
       ],
       query,
       displayContext,
@@ -67,6 +71,7 @@ export function getPaletteSections(options: PaletteSectionsOptions): PaletteTile
     displayContext,
   );
   const expandedTiles = filterTilesByQuery(CC1_EXPANDED_TILE_NAMES, query, displayContext);
+  const memeTiles = filterTilesByQuery(CC1_MEME_TILE_NAMES, query, displayContext);
   const sections: PaletteTileSection[] = [];
 
   if (regularTiles.length > 0) {
@@ -85,5 +90,8 @@ export function getPaletteSections(options: PaletteSectionsOptions): PaletteTile
     });
   }
 
+  if (memeTiles.length > 0) {
+    sections.push({ key: "meme", title: "Meme Tiles", tiles: memeTiles });
+  }
   return sections;
 }

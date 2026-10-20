@@ -2,6 +2,11 @@
 //
 // CC1 tile codes -> names (matches your Python Enum exactly).
 // Used by DAT codec and CC1 spritesheet renderer.
+import {
+  CC1_MEME_TILE_FIRST_CODE,
+  CC1_MEME_TILE_NAMES,
+  normalizeMemeTileName,
+} from "@/src/dat/cc1MemeTiles";
 
 const TILE_NAME_BY_CODE = new Map<number, string>([
   [0, "FLOOR"],
@@ -118,6 +123,10 @@ const TILE_NAME_BY_CODE = new Map<number, string>([
   [111, "PLAYER_E"],
 ]);
 
+for (const [index, name] of CC1_MEME_TILE_NAMES.entries()) {
+  TILE_NAME_BY_CODE.set(CC1_MEME_TILE_FIRST_CODE + index, name);
+}
+
 const TILE_CODE_BY_NAME = new Map<string, number>();
 for (const [k, v] of TILE_NAME_BY_CODE.entries()) TILE_CODE_BY_NAME.set(v, k);
 
@@ -142,8 +151,10 @@ export const CC1_ALL_TILE_CODE_COUNT = 256;
 export const CC1_INVALID_TILE_NAMES = Array.from(
   { length: CC1_ALL_TILE_CODE_COUNT - CC1_TILE_COUNT },
   (_, index) => tileNameFromCode(CC1_TILE_COUNT + index),
+).filter((name) => !CC1_MEME_TILE_NAMES.includes(name as (typeof CC1_MEME_TILE_NAMES)[number]));
+export const CC1_ALL_TILE_NAMES = Array.from({ length: CC1_ALL_TILE_CODE_COUNT }, (_, code) =>
+  tileNameFromCode(code),
 );
-export const CC1_ALL_TILE_NAMES = [...CC1_TILE_NAMES, ...CC1_INVALID_TILE_NAMES];
 
 export function tileNameFromCode(code: number): string {
   const name = TILE_NAME_BY_CODE.get(code);
@@ -165,6 +176,7 @@ export function rotateDirectionalTileName(
   name: string,
   direction: "clockwise" | "counterclockwise",
 ): string | null {
+  name = normalizeMemeTileName(name);
   if (name === "PANEL_SE") return null;
 
   const diagonalMatch = /^(.*)_(NE|SE|SW|NW)$/.exec(name);
