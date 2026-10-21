@@ -6,6 +6,8 @@ const EXPANSION_ATLAS_URL = `${import.meta.env.BASE_URL}expansion_artwork/expans
 const EXPANSION_ATLAS_KEY_URL = `${import.meta.env.BASE_URL}expansion_artwork/expansion.json`;
 const MEME_ATLAS_URL = `${import.meta.env.BASE_URL}meme_artwork/meme.png`;
 const MEME_ATLAS_KEY_URL = `${import.meta.env.BASE_URL}meme_artwork/meme.json`;
+const SMART_TEETH_ATLAS_URL = `${import.meta.env.BASE_URL}smart_teeth_artwork/smart-teeth.png`;
+const SMART_TEETH_ATLAS_KEY_URL = `${import.meta.env.BASE_URL}smart_teeth_artwork/smart-teeth.json`;
 
 async function loadHtmlImage(url: string): Promise<HTMLImageElement> {
   return await new Promise((resolve, reject) => {
@@ -62,9 +64,10 @@ export async function loadCc1SpriteSet(url: string): Promise<CC1SpriteSet> {
   const img = await loadHtmlImage(url);
   const rgba = htmlImageToRgba(img);
   const tileSize = rgba.height / 16;
-  const [expansionArtwork, memeArtwork] = await Promise.all([
+  const [expansionArtwork, memeArtwork, smartTeethArtwork] = await Promise.all([
     loadArtwork(tileSize, EXPANSION_ATLAS_URL, EXPANSION_ATLAS_KEY_URL),
     loadArtwork(tileSize, MEME_ATLAS_URL, MEME_ATLAS_KEY_URL, true),
+    loadArtwork(tileSize, SMART_TEETH_ATLAS_URL, SMART_TEETH_ATLAS_KEY_URL, true),
   ]);
-  return buildCc1SpriteSet(rgba, { ...expansionArtwork, ...memeArtwork });
+  return buildCc1SpriteSet(rgba, { ...expansionArtwork, ...memeArtwork, ...smartTeethArtwork });
 }

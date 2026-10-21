@@ -1,5 +1,5 @@
 import type { DatLevelJson } from "@/src/dat/datLevelsetJsonV1";
-import { CC1_RED_TANK_TILE_NAMES, normalizeMemeTileName } from "@/src/dat/cc1MemeTiles";
+import { CC1_MEME_ACTOR_TILE_NAMES, normalizeMemeTileName } from "@/src/dat/cc1MemeTiles";
 import { applyWallMask32ToDatLevel, createDatWallsPreviewLevel } from "@/src/walls-dat/adapter";
 import {
   WALL_MASK_BYTE_LENGTH,
@@ -12,7 +12,7 @@ import {
 const FLOOR_TILE = "FLOOR";
 
 const CC1_ACTOR_TILE_NAMES = new Set<string>([
-  ...CC1_RED_TANK_TILE_NAMES,
+  ...CC1_MEME_ACTOR_TILE_NAMES,
   "BLOCK",
   "CLONE_BLOCK_N",
   "CLONE_BLOCK_W",

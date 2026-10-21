@@ -30,6 +30,10 @@ const MEME_NAMES = [
   "RED_TANK_E",
   "RED_TANK_BUTTON_CW",
   "RED_TANK_BUTTON_CCW",
+  "SMART_TEETH_N",
+  "SMART_TEETH_W",
+  "SMART_TEETH_S",
+  "SMART_TEETH_E",
 ];
 const DISPLAY_CONTEXT = { threeDEnabled: false, layerZ: 1, layerCount: 1 } as const;
 
@@ -39,24 +43,27 @@ function makeDoc(level: DatLevelJson): DatLevelsetJsonV1 {
 
 function memeLevel(): DatLevelJson {
   const level = createEmptyLevel(1, { hint: "A B", password: "MEME" });
-  return { ...level, map: { ...level.map, top: [...MEME_NAMES, ...level.map.top.slice(7)] } };
+  return {
+    ...level,
+    map: { ...level.map, top: [...MEME_NAMES, ...level.map.top.slice(MEME_NAMES.length)] },
+  };
 }
 
 describe("Meme tiles editor and DAT contract", () => {
-  it("decodes all seven byte aliases into semantic names and exports them losslessly", () => {
+  it("decodes Meme byte aliases into semantic names and exports them losslessly", () => {
     const level = memeLevel();
     const aliases = {
       ...level,
       map: {
         ...level.map,
         top: level.map.top.map((name, i) =>
-          i < 7 ? `UNKNOWN_0x${(0x76 + i).toString(16).toUpperCase()}` : name,
+          i < MEME_NAMES.length ? `UNKNOWN_0x${(0x76 + i).toString(16).toUpperCase()}` : name,
         ),
       },
     };
     const bytes = encodeDatBytes(makeDoc(aliases));
     const decoded = decodeDatBytes(bytes);
-    expect(decoded.levels[0]?.map.top.slice(0, 7)).toEqual(MEME_NAMES);
+    expect(decoded.levels[0]?.map.top.slice(0, MEME_NAMES.length)).toEqual(MEME_NAMES);
     expect(encodeDatBytes(decoded)).toEqual(bytes);
     expect(encodeDatBytes(makeDoc(level))).toEqual(bytes);
     MEME_NAMES.forEach((name, i) => {
@@ -71,7 +78,9 @@ describe("Meme tiles editor and DAT contract", () => {
       const url = new URL(buildTworldUrl(makeDoc(memeLevel()), 1, ruleset, "MEME.dat"));
       const payload = url.hash.slice(5).replaceAll("-", "+").replaceAll("_", "/");
       const bytes = base64ToBytes(payload + "=".repeat((4 - (payload.length % 4)) % 4));
-      expect(decodeDatBytes(gunzipSync(bytes)).levels[0]?.map.top.slice(0, 7)).toEqual(MEME_NAMES);
+      expect(
+        decodeDatBytes(gunzipSync(bytes)).levels[0]?.map.top.slice(0, MEME_NAMES.length),
+      ).toEqual(MEME_NAMES);
     },
   );
 
@@ -90,13 +99,15 @@ describe("Meme tiles editor and DAT contract", () => {
     );
     expect(invalid).not.toContain("UNKNOWN_0x70");
     for (const name of MEME_NAMES) expect(invalid).not.toContain(name);
-    expect(invalid).toContain("UNKNOWN_0x7D");
+    expect(invalid).toContain("UNKNOWN_0x81");
   });
 
   it.each([
     ["hint boots", ["HINT_BOOTS"]],
     ["red tank (north)", ["RED_TANK_N"]],
     ["counterclockwise", ["RED_TANK_BUTTON_CCW"]],
+    ["smart teeth", ["SMART_TEETH_N", "SMART_TEETH_W", "SMART_TEETH_S", "SMART_TEETH_E"]],
+    ["smart teeth (east)", ["SMART_TEETH_E"]],
   ])("searches by friendly name %s", (query, names) => {
     const sections = getPaletteSections({
       paletteTab: "normal",
@@ -116,17 +127,27 @@ describe("Meme tiles editor and DAT contract", () => {
       "Red Tank (East)",
       "Red Tank Button (Clockwise)",
       "Red Tank Button (Counterclockwise)",
+      "Smart Teeth (North)",
+      "Smart Teeth (West)",
+      "Smart Teeth (South)",
+      "Smart Teeth (East)",
     ]);
     expect(getDat3dTileDisplayName("UNKNOWN_0x76", DISPLAY_CONTEXT)).toBe("Hint Boots");
+    expect(getDat3dTileDisplayName("UNKNOWN_0x7d", DISPLAY_CONTEXT)).toBe("Smart Teeth (North)");
   });
 
-  it.each(["RED_TANK_N", "UNKNOWN_0x77"])(
+  it.each([
+    ["RED_TANK_N", "RED_TANK_S", "RED_TANK_E"],
+    ["UNKNOWN_0x77", "RED_TANK_S", "RED_TANK_E"],
+    ["SMART_TEETH_N", "SMART_TEETH_S", "SMART_TEETH_E"],
+    ["UNKNOWN_0x7D", "SMART_TEETH_S", "SMART_TEETH_E"],
+  ])(
     "places %s over terrain and tracks creature order through copy, transform, paste and erase",
-    (tank) => {
+    (actor, flipped, rotatedName) => {
       let level = paintLevelCells(createEmptyLevel(1), [33], "WALL");
       level = paintLevelCells(level, [65], "ANT_N");
-      level = paintLevelCells(level, [33], tank);
-      expect(classifyTilePlacement(tank)).toBe("actor");
+      level = paintLevelCells(level, [33], actor);
+      expect(classifyTilePlacement(actor)).toBe("actor");
       expect(level.map.bottom[33]).toBe("WALL");
       expect(level.movement).toEqual([65, 33]);
       expect(getInvalidCellIndices(level)).toEqual([]);
@@ -136,14 +157,33 @@ describe("Meme tiles editor and DAT contract", () => {
         "FLIP_V",
       );
       const pasted = pasteLevelRegion(createEmptyLevel(2), { x: 4, y: 3 }, clipboard);
-      expect(pasted.map.top[100]).toBe("RED_TANK_S");
+      expect(pasted.map.top[100]).toBe(flipped);
       expect(pasted.map.bottom[100]).toBe("WALL");
       expect(pasted.movement).toEqual([100]);
       const rotated = transformLevel(level, "ROTATE_90");
-      expect(rotated.map.top[62]).toBe("RED_TANK_E");
+      expect(rotated.map.top[62]).toBe(rotatedName);
       expect(rotated.map.bottom[62]).toBe("WALL");
       expect(rotated.movement).toEqual([61, 62]);
       expect(paintLevelCells(level, [33], "FLOOR").movement).toEqual([65]);
+    },
+  );
+
+  it.each([
+    ["SMART_TEETH_N", "SMART_TEETH_E", "SMART_TEETH_W", "SMART_TEETH_N", "SMART_TEETH_S"],
+    ["SMART_TEETH_W", "SMART_TEETH_N", "SMART_TEETH_S", "SMART_TEETH_E", "SMART_TEETH_W"],
+    ["SMART_TEETH_S", "SMART_TEETH_W", "SMART_TEETH_E", "SMART_TEETH_S", "SMART_TEETH_N"],
+    ["SMART_TEETH_E", "SMART_TEETH_S", "SMART_TEETH_N", "SMART_TEETH_W", "SMART_TEETH_E"],
+    ["UNKNOWN_0x7d", "SMART_TEETH_E", "SMART_TEETH_W", "SMART_TEETH_N", "SMART_TEETH_S"],
+    ["UNKNOWN_0x7e", "SMART_TEETH_N", "SMART_TEETH_S", "SMART_TEETH_E", "SMART_TEETH_W"],
+    ["UNKNOWN_0x7f", "SMART_TEETH_W", "SMART_TEETH_E", "SMART_TEETH_S", "SMART_TEETH_N"],
+    ["UNKNOWN_0x80", "SMART_TEETH_S", "SMART_TEETH_N", "SMART_TEETH_W", "SMART_TEETH_E"],
+  ])(
+    "transforms Smart Teeth direction %s",
+    (name, clockwise, counterclockwise, horizontal, vertical) => {
+      expect(rotateDirectionalTileName(name, "clockwise")).toBe(clockwise);
+      expect(rotateDirectionalTileName(name, "counterclockwise")).toBe(counterclockwise);
+      expect(transformDatTileName(name, "FLIP_H")).toBe(horizontal);
+      expect(transformDatTileName(name, "FLIP_V")).toBe(vertical);
     },
   );
 
@@ -172,8 +212,10 @@ describe("Meme tiles editor and DAT contract", () => {
     const sprites = buildCc1SpriteSet(createImage(13 * 32, 16 * 32, [255, 0, 255, 255]), {
       HINT_BOOTS: createImage(32, 32, [255, 220, 0, 255]),
       RED_TANK_N: createImage(32, 32, [220, 10, 10, 255]),
+      SMART_TEETH_E: createImage(32, 32, [90, 140, 30, 255]),
     });
     expect([...sprites.get("UNKNOWN_0x76").data.slice(0, 4)]).toEqual([255, 220, 0, 255]);
     expect([...sprites.get("UNKNOWN_0x77").data.slice(0, 4)]).toEqual([220, 10, 10, 255]);
+    expect([...sprites.get("UNKNOWN_0x80").data.slice(0, 4)]).toEqual([90, 140, 30, 255]);
   });
 });
